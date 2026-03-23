@@ -6,13 +6,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // ── Mock: apiService ──────────────────────────────────────────────────────────
-const mockRatesData = {
-    badlar:    { tna: 34.0,  tem: 2.83,  tea: 40.5,  fecha: '2026-02-01' },
-    plazoFijo: { tna: 33.0,  tem: 2.75,  tea: 39.1,  fecha: '' },
-    inflation: { mensual: 3.2, interanual: 120.0, fecha: '2026-02-01' },
-    realRate: -86.0, // 34 - 120 = -86
-    timestamp: new Date().toISOString(),
-};
+const { mockRatesData } = vi.hoisted(() => ({
+    mockRatesData: {
+        badlar:    { tna: 34.0,  tem: 2.83,  tea: 40.5,  fecha: '2026-02-01' },
+        plazoFijo: { tna: 33.0,  tem: 2.75,  tea: 39.1,  fecha: '' },
+        inflation: { mensual: 3.2, interanual: 120.0, fecha: '2026-02-01' },
+        realRate: -86.0, // 34 - 120 = -86
+        timestamp: new Date().toISOString(),
+    }
+}));
 
 vi.mock('../services/api', () => ({
     apiService: {
@@ -97,7 +99,7 @@ describe('InterestRates', () => {
         render(<InterestRates />);
         await waitFor(() => screen.getByText(/tasas de interés/i));
 
-        const refreshBtn = screen.getByTitle('Actualizar');
+        const refreshBtn = screen.getByLabelText(/actualizar tasas de interés/i);
         fireEvent.click(refreshBtn);
 
         await waitFor(() => {

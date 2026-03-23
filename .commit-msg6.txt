@@ -1,0 +1,7 @@
+fix(frontend): resolver errores de Vitest y dependencias de test
+
+Se resolvieron varios problemas que hacían fallar la suite asíncrona de Vitest:
+- Se añadió `vi.hoisted()` en los tests para exponer variables externas a `vi.mock()` (ej. `mockRatesData`).
+- Se removió `vi.useFakeTimers()` innecesario en `useDashboardData.test.ts` que provocaba "Timeout" en las esperas en `waitFor` (react act leakage).
+- Se actualizó el selector DOM en `ArbitrageHub.test.tsx` a `getByRole('button')` después de que los selectores de iconos de lucide cambiaran a `lucide-circle-play`.
+- Se ignoró la carpeta `e2e` en `vite.config.ts` para que Vitest no intente cargar tests de Playwright de forma cruzada.

@@ -122,14 +122,12 @@ describe('ArbitrageHub — sparkline', () => {
 });
 
 describe('ArbitrageHub — simulación', () => {
-    it('abre el modal de simulación al hacer clic', () => {
-        const { container } = render(<ArbitrageHub opportunities={[mockOpportunity]} />);
-        // Buscar el botón svg (lucide-play-circle)
-        const playBtn = container.querySelector('svg.lucide-play-circle')?.parentElement;
-        if (playBtn) fireEvent.click(playBtn);
+    it('abre el modal de simulación al hacer clic', async () => {
+        render(<ArbitrageHub opportunities={[mockOpportunity]} />);
+        const playBtn = screen.getByRole('button', { name: /simular operación de arbitraje/i });
+        fireEvent.click(playBtn);
         // El modal debería aparecer — buscar confirmación en el DOM
-        // (El modal está en el mismo componente)
-        expect(screen.getByText(/simular/i)).toBeTruthy();
+        await waitFor(() => expect(screen.getByText(/simular arbitraje/i)).toBeTruthy());
     });
 });
 

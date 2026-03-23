@@ -6,44 +6,44 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 
 // ── Mock: apiService ─────────────────────────────────────────────────────────
-const mockRate = {
-    ask: 1200, bid: 1150,
-    totalAsk: 1200, totalBid: 1150,
-    source: 'mock',
-};
-
-const mockArbitrage = {
-    opportunities: [
-        {
-            type: 'USDT→ARS',
-            description: 'Binance MEP',
-            buyIn: 'Binance',
-            buyPrice: 1100,
-            sellIn: 'Mercado',
-            sellPrice: 1200,
-            rentabilidad: 9.09,
-            ganancia: 100,
-            riesgo: 'Bajo',
+const { mockRate, mockArbitrage, mockEconomics } = vi.hoisted(() => ({
+    mockRate: {
+        ask: 1200, bid: 1150,
+        totalAsk: 1200, totalBid: 1150,
+        source: 'mock',
+    },
+    mockArbitrage: {
+        opportunities: [
+            {
+                type: 'USDT→ARS',
+                description: 'Binance MEP',
+                buyIn: 'Binance',
+                buyPrice: 1100,
+                sellIn: 'Mercado',
+                sellPrice: 1200,
+                rentabilidad: 9.09,
+                ganancia: 100,
+                riesgo: 'Bajo',
+            },
+        ],
+        dolares: {
+            blue: { compra: 1150, venta: 1180 },
+            oficial: { compra: 1040, venta: 1090 },
         },
-    ],
-    dolares: {
-        blue: { compra: 1150, venta: 1180 },
-        oficial: { compra: 1040, venta: 1090 },
     },
-};
-
-const mockEconomics = {
-    macro: {
-        inflation: { mensual: 3.2, interanual: 120, fecha: '2026-02-01' },
-        risk: 650,
-        reserves: 45000,
-        baseMonetaria: 60e12,
-        dolarEquilibrio: 1333,
-    },
-    market: { merval: [], cedears: [], bonds: [] },
-    global: [],
-    timestamp: new Date().toISOString(),
-};
+    mockEconomics: {
+        macro: {
+            inflation: { mensual: 3.2, interanual: 120, fecha: '2026-02-01' },
+            risk: 650,
+            reserves: 45000,
+            baseMonetaria: 60e12,
+            dolarEquilibrio: 1333,
+        },
+        market: { merval: [], cedears: [], bonds: [] },
+        global: [],
+        timestamp: new Date().toISOString(),
+    }
+}));
 
 vi.mock('../services/api', () => ({
     apiService: {
@@ -63,20 +63,22 @@ import { useDashboardData } from './useDashboardData';
 
 describe('useDashboardData', () => {
     beforeEach(() => {
-        vi.useFakeTimers();
-    });
-
-    afterEach(() => {
-        vi.useRealTimers();
         vi.clearAllMocks();
     });
 
-    it('inicia con loading=true y datos nulos', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('inicia con loading=true y datos nulos', async () => {
         const { result } = renderHook(() => useDashboardData());
         expect(result.current.loading).toBe(true);
         expect(result.current.rate).toBeNull();
         expect(result.current.arbitrage).toBeNull();
         expect(result.current.economics).toBeNull();
+        
+        // Wait for it to finish to avoid act() leakage
+        await waitFor(() => expect(result.current.loading).toBe(false));
     });
 
     it('establece loading=false tras el primer fetch', async () => {
