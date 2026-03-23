@@ -179,8 +179,12 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 }));
 logger.info('Swagger UI disponible en /api/docs');
 
+// 404 API Error Handler - Prevent fallback to SPA
+app.use('/api/*', (req: Request, res: Response) => {
+    res.status(404).json({ error: 'Endpoint not found', code: 'NOT_FOUND' });
+});
+
 // Catch-all SPA solo en desarrollo local.
-// En Vercel, el rewrite /(.*) → /index.html en vercel.json ya maneja esto.
 if (process.env.NODE_ENV !== 'production') {
     app.get('*', (_req: Request, res: Response) => {
         res.sendFile(path.join(__dirname, '../client/dist/index.html'));
