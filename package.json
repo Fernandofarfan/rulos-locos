@@ -1,0 +1,123 @@
+{
+  "name": "rulos-locos",
+  "version": "2.0.0",
+  "description": "Herramienta de conversión USDT a ARS usando Binance P2P con comparador de plataformas",
+  "main": "dist/server.js",
+  "scripts": {
+    "start": "node dist/server.js",
+    "start:dev": "ts-node src/server.ts",
+    "test": "jest --testPathPatterns=tests/ --forceExit",
+    "prisma:generate": "prisma generate",
+    "build:ts": "tsc --project tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "dev": "nodemon --exec ts-node src/server.ts src/server.ts",
+    "dev:backend": "nodemon --exec ts-node src/server.ts src/server.ts",
+    "dev:client": "cd client && npm run dev",
+    "dev:full": "concurrently \"npm run dev:backend\" \"npm run dev:client\"",
+    "build:client": "cd client && npm install && npm run build",
+    "postinstall": "npm run prisma:generate && cd client && npm install --production=false",
+    "build": "npm run build:client",
+    "vercel-build": "npm run prisma:generate && cd client && npm install && npm run build"
+  },
+  "keywords": [
+    "usdt",
+    "ars",
+    "binance",
+    "p2p",
+    "crypto",
+    "pricing",
+    "argentina",
+    "cotizacion",
+    "dolar",
+    "cripto"
+  ],
+  "author": "Fernando Farfan",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Fernandofarfan/rulos-locos.git"
+  },
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@prisma/client": "^6.4.1",
+    "@sentry/node": "^10.40.0",
+    "axios": "^1.13.5",
+    "bcryptjs": "^3.0.3",
+    "ccxt": "^4.5.40",
+    "compression": "^1.8.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.4",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.2.1",
+    "google-auth-library": "^10.6.1",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.10.0",
+    "jsonwebtoken": "^9.0.3",
+    "node-cache": "^5.1.2",
+    "node-fetch": "^2.7.0",
+    "node-telegram-bot-api": "^0.67.0",
+    "nodemailer": "^8.0.1",
+    "otplib": "^13.3.0",
+    "qrcode": "^1.5.4",
+    "rss-parser": "^3.13.0",
+    "socket.io": "^4.8.3",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "telegraf": "^4.16.3",
+    "uuid": "^9.0.1",
+    "web-push": "^3.6.7",
+    "winston": "^3.19.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/compression": "^1.8.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/helmet": "^0.0.48",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.3.0",
+    "@types/node-fetch": "^2.6.13",
+    "@types/node-telegram-bot-api": "^0.64.14",
+    "@types/nodemailer": "^7.0.11",
+    "@types/qrcode": "^1.5.6",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@types/uuid": "^9.0.7",
+    "@types/web-push": "^3.6.4",
+    "concurrently": "^9.0.1",
+    "jest": "^30.2.0",
+    "nodemon": "^3.0.2",
+    "prisma": "^6.4.1",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js",
+      "**/tests/**/*.test.ts"
+    ],
+    "transform": {
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "tsconfig": "tsconfig.json",
+          "diagnostics": {
+            "warnOnly": true
+          }
+        }
+      ]
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(@scure|otplib)/)"
+    ],
+    "testTimeout": 20000
+  }
+}

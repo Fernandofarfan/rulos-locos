@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rulos Locos Widget</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #0b0e14;
+            color: #f1f5f9;
+            overflow: hidden;
+        }
+        .widget {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .card {
+            flex: 1;
+            min-width: 100px;
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 10px 14px;
+            backdrop-filter: blur(12px);
+        }
+        .card:hover { border-color: rgba(255,255,255,0.1); }
+        .label { font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+        .price { font-size: 22px; font-weight: 800; font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+        .blue .price { color: #3b82f6; }
+        .mep .price { color: #8b5cf6; }
+        .ccl .price { color: #10b981; }
+        .footer {
+            text-align: center;
+            padding: 6px;
+            font-size: 8px;
+            color: #334155;
+        }
+        .footer a { color: #3b82f6; text-decoration: none; }
+        .loading { color: #475569; text-align: center; padding: 20px; font-size: 12px; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .card { animation: fadeIn 0.5s ease-out; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="widget" id="widget">
+        <div class="loading" id="loading">Cargando cotizaciones...</div>
+    </div>
+    <div class="footer">
+        ⚡ <a href="https://rulos-locos.vercel.app" target="_blank">Rulos Locos</a> — Actualización en tiempo real
+    </div>
+    <script>
+        const API = location.origin + '/api';
+        async function load() {
+            try {
+                const res = await fetch(API + '/arbitrage');
+                const data = await res.json();
+                const d = data.dolares || {};
+                const widget = document.getElementById('widget');
+                widget.innerHTML = '';
+
+                const items = [
+                    { name: 'Blue', cls: 'blue', price: d.blue?.venta },
+                    { name: 'MEP', cls: 'mep', price: d.mep?.venta },
+                    { name: 'CCL', cls: 'ccl', price: d.ccl?.venta },
+                ];
+
+                items.forEach(item => {
+                    if (!item.price) return;
+                    const card = document.createElement('div');
+                    card.className = `card ${item.cls}`;
+                    card.innerHTML = `
+                        <div class="label">Dólar ${item.name}</div>
+                        <div class="price">$${Math.round(item.price).toLocaleString('es-AR')}</div>
+                    `;
+                    widget.appendChild(card);
+                });
+            } catch {
+                document.getElementById('loading').textContent = 'Error cargando datos';
+            }
+        }
+        load();
+        setInterval(load, 60000);
+    </script>
+</body>
+</html>

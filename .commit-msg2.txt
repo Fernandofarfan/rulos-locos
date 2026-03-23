@@ -1,0 +1,7 @@
+fix: add Axios interceptor to client for paper trading / portfolio auth
+
+The `client` instance in `api.ts` was not sending the Authorization 
+header because it was created before AuthContext set the global defaults.
+Added a request interceptor to inject `rl_token` from localStorage.
+This fixes the $0 initial balance issue in Paper Trading and makes 
+portfolio endpoints work correctly.

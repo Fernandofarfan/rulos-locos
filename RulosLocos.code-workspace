@@ -1,0 +1,36 @@
+{
+  "folders": [
+    {
+      "name": "🔧 Backend (API)",
+      "path": "./src"
+    },
+    {
+      "name": "⚛️ Frontend (React)",
+      "path": "./client"
+    },
+    {
+      "name": "📁 Root",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "typescript.preferences.includePackageJsonAutoImports": "on",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "files.associations": {
+      "*.css": "tailwindcss"
+    },
+    "emmet.includeLanguages": {
+      "javascript": "javascriptreact",
+      "typescript": "typescriptreact"
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-vscode.vscode-typescript-next",
+      "bradlc.vscode-tailwindcss",
+      "esbenp.prettier-vscode",
+      "ms-vscode.vscode-json"
+    ]
+  }
+}

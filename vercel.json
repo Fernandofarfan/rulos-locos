@@ -1,0 +1,33 @@
+{
+  "framework": null,
+  "buildCommand": "npm run build:ts && cd client && npm install && npm run build",
+  "outputDirectory": "client/dist",
+  "installCommand": "npm install --include=dev",
+  "regions": [
+    "gru1"
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 25
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/daily-summary",
+      "schedule": "0 12 * * 1-5"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

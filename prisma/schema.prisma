@@ -1,0 +1,98 @@
+generator client {
+  provider   = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String              @id @default(cuid())
+  email     String              @unique
+  password  String?
+  name      String?
+  googleId  String?             @unique
+  avatarUrl String?
+  telegramId String?            @unique // ID on Telegram for the Bot
+  twoFactorSecret String?       // 2FA TOTP Secret Key
+  twoFactorEnabled Boolean      @default(false)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  alerts    Alert[]
+  portfolio PortfolioPosition[]
+  balances  VirtualBalance[]
+  virtualTxs VirtualTransaction[]
+  apiKeys   ExchangeKey[]
+  pushSubs  PushSubscription[]
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Alert {
+  id        String   @id @default(cuid())
+  asset     String   // "blue" | "mep" | "ccl" | "crypto"
+  condition String   // "above" | "below"
+  threshold Float
+  active    Boolean  @default(true)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model PortfolioPosition {
+  id        String   @id @default(cuid())
+  asset     String
+  buyPrice  Float
+  amount    Float
+  date      String
+  note      String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model VirtualBalance {
+  id              String   @id @default(cuid())
+  currency        String   // "ARS" | "USD" | "USDT" | "BTC"
+  amount          Float    @default(0)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, currency])
+}
+
+model VirtualTransaction {
+  id              String   @id @default(cuid())
+  type            String   // "BUY" | "SELL" | "DEPOSIT"
+  asset           String   // "MEP" | "BLUE" | "CRYPTO"
+  amount          Float    // How much of the asset was bought/sold
+  price           Float    // Price per unit in ARS
+  totalArs        Float    // Total ARS impact
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+}
+
+model ExchangeKey {
+  id              String   @id @default(cuid())
+  exchange        String   // "BINANCE" | "LEMON" | "BUENBIT"
+  apiKey          String
+  apiSecret       String   // Stored optionally/encrypted depending on exchange
+  passthrough     String?  // Optional extra parameters (passphrases)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, exchange])
+}

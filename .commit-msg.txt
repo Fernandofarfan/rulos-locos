@@ -1,0 +1,5 @@
+fix: remove extraneous better-sqlite3 from lock file
+
+better-sqlite3 and @prisma/adapter-better-sqlite3 were extraneous
+packages still in package-lock.json but not in package.json.
+Their native C++ compilation was failing on Vercel serverless builds.
