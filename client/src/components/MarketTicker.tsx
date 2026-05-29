@@ -22,13 +22,13 @@ const TickerCell: React.FC<{ item: TickerItem }> = ({ item }) => {
     const color = isPos ? 'text-emerald-400' : isNeg ? 'text-rose-400' : 'text-slate-300';
 
     return (
-        <span className="inline-flex items-center gap-1.5 px-4 border-r border-white/5 shrink-0">
+        <span className="inline-flex items-center gap-2 px-5 border-r border-white/[0.06] shrink-0 hover:bg-white/[0.02] transition-colors duration-200 cursor-default">
             <span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
-            <span className={`font-mono font-bold text-xs ${color}`}>
+            <span className={`font-mono font-bold text-xs ${color} transition-colors duration-200`}>
                 {item.prefix}{item.value}{item.suffix}
             </span>
             {item.change !== undefined && (
-                <span className={`text-[9px] font-bold ${color} flex items-center gap-0.5`}>
+                <span className={`text-[9px] font-bold ${color} flex items-center gap-0.5 transition-colors duration-200`}>
                     {isPos ? <TrendingUp size={9} /> : isNeg ? <TrendingDown size={9} /> : <Minus size={9} />}
                     {Math.abs(item.change).toFixed(2)}%
                 </span>
@@ -69,21 +69,22 @@ export const MarketTicker: React.FC<MarketTickerProps> = ({ rate, dolares, globa
 
     return (
         <div
-            className="w-full bg-black/40 border-b border-white/[0.07] backdrop-blur-md overflow-hidden relative"
-            style={{ height: '32px', boxShadow: '0 6px 20px rgba(0,0,0,0.35)' }}
+            className="w-full bg-[#0a0d11]/80 border-b border-white/[0.07] backdrop-blur-2xl backdrop-saturate-150 overflow-hidden relative"
+            style={{ height: '36px', boxShadow: '0 8px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)' }}
             onMouseEnter={() => setPaused(true)}
             onMouseLeave={() => setPaused(false)}
         >
-            {/* Left fade */}
-            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/60 to-transparent z-10 pointer-events-none" />
-            {/* Right fade */}
-            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-black/60 to-transparent z-10 pointer-events-none" />
+            {/* Left fade with gradient */}
+            <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-[#0a0d11] via-[#0a0d11]/80 to-transparent z-10 pointer-events-none" />
+            {/* Right fade with gradient */}
+            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#0a0d11] via-[#0a0d11]/80 to-transparent z-10 pointer-events-none" />
 
             {/* Paused indicator */}
             {paused && (
                 <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 z-20 pointer-events-none">
-                    <span className="flex items-center gap-1 text-[9px] font-bold text-slate-400 bg-black/70 border border-white/10 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                        ⏸ Pausado
+                    <span className="flex items-center gap-1.5 text-[9px] font-bold text-slate-300 bg-[#0a0d11]/90 border border-white/10 px-3 py-1 rounded-full backdrop-blur-xl shadow-lg">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                        Pausado
                     </span>
                 </div>
             )}

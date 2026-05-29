@@ -42,15 +42,15 @@ export const HeroCard: React.FC<HeroCardProps> = ({ price, bid, source, loading,
 
     return (
         <div className="glass-panel p-8 h-full flex flex-col justify-center relative overflow-hidden group min-h-[280px]">
-            {/* Background Effects */}
-            <div className="absolute inset-0 bg-gradient-to-br from-accent-primary/10 via-transparent to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-accent-primary/20 rounded-full blur-[80px] group-hover:bg-accent-primary/30 transition-all duration-500"></div>
+            {/* Modern Background Effects */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-emerald-500/5 opacity-70 group-hover:opacity-100 transition-opacity duration-700" />
+            <div className="absolute -top-32 -right-32 w-80 h-80 bg-blue-500/10 rounded-full blur-[100px] group-hover:bg-blue-500/20 group-hover:scale-110 transition-all duration-700" />
+            <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-emerald-500/5 rounded-full blur-[80px]" />
 
             <div className="relative z-10 flex flex-col h-full justify-between">
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                        <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-primary/10 border border-accent-primary/20 text-accent-primary text-xs font-bold uppercase tracking-wider shadow-sm">
-                            <span className="w-2 h-2 rounded-full bg-accent-primary animate-pulse shadow-[0_0_10px_currentColor]"></span>
+                        <span className="badge-modern badge-live">
                             {source}
                         </span>
                     </div>
@@ -150,8 +150,8 @@ export const HeroCard: React.FC<HeroCardProps> = ({ price, bid, source, loading,
             </div>
 
             {/* Bottom Progress Bar */}
-            <div className="absolute bottom-0 left-0 h-1 w-full bg-white/5 overflow-hidden">
-                <div className="h-full bg-accent-primary shadow-[0_0_15px_rgba(59,130,246,0.8)] animate-[loading_60s_linear_infinite]"></div>
+            <div className="absolute bottom-0 left-0 h-0.5 w-full bg-white/5 overflow-hidden">
+                <div className="h-full w-1/3 bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 rounded-full animate-[loading_90s_ease-in-out_infinite]" />
             </div>
         </div>
     );

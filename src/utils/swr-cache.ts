@@ -1,6 +1,8 @@
 /**
  * swr-cache.ts
  * Middleware Stale-While-Revalidate para rutas GET del API.
+ * Incluye request coalescing: la primera request en frio ejecuta el fetch,
+ * las concurrentes esperan la promesa y comparten el resultado.
  */
 
 import { Request, Response, NextFunction, RequestHandler } from 'express';
@@ -13,6 +15,7 @@ interface CacheEntry {
 }
 
 const CACHE = new Map<string, CacheEntry>();
+const INFLIGHT = new Map<string, Promise<unknown>>();
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
 const DEFAULT_MAX_TTL_MS = 30 * 60 * 1000;
 
@@ -43,19 +46,43 @@ export function swrCache(opts: SWROptions): RequestHandler {
         const entry = CACHE.get(key);
         const now = Date.now();
 
+        function setCache(body: unknown) {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+                CACHE.set(key, { data: body, timestamp: Date.now(), revalidating: false });
+            }
+        }
+
         function patchAndNext() {
             const originalJson = res.json.bind(res);
             res.json = function (body: unknown) {
-                if (res.statusCode >= 200 && res.statusCode < 300) {
-                    CACHE.set(key, { data: body, timestamp: Date.now(), revalidating: false });
-                }
+                setCache(body);
                 return originalJson(body);
             };
             next();
         }
 
         if (!entry) {
-            patchAndNext();
+            // Cold cache: request coalescing
+            const inflight = INFLIGHT.get(key);
+            if (inflight) {
+                logger.debug('SWR: coalescing request for %s', key);
+                inflight.then((data) => res.json(data)).catch(() => { patchAndNext(); });
+                return;
+            }
+
+            // First request in cold state: execute controller and share result
+            let resolveInflight: (data: unknown) => void;
+            const promise = new Promise<unknown>((resolve) => { resolveInflight = resolve; });
+            INFLIGHT.set(key, promise);
+
+            const originalJson2 = res.json.bind(res);
+            res.json = function (body: unknown) {
+                setCache(body);
+                resolveInflight!(body);
+                INFLIGHT.delete(key);
+                return originalJson2(body);
+            };
+            next();
             return;
         }
 
@@ -100,6 +127,7 @@ export function swrCache(opts: SWROptions): RequestHandler {
 export function invalidateCache(key?: string) {
     if (key) CACHE.delete(key);
     else CACHE.clear();
+    INFLIGHT.clear();
     logger.debug('SWR: cache invalidated %s', key ?? 'ALL');
 }
 
@@ -109,5 +137,5 @@ export function getCacheStats() {
         age: Math.floor((Date.now() - e.timestamp) / 1000),
         revalidating: e.revalidating,
     }));
-    return { count: entries.length, entries };
+    return { count: entries.length, inflight: INFLIGHT.size, entries };
 }

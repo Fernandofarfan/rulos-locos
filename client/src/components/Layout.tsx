@@ -76,12 +76,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
             <header className="fixed top-0 left-0 right-0 z-50 px-6 py-4 transition-all duration-300">
                 <div className="max-w-7xl mx-auto glass-panel px-6 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-indigo-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
                             <span className="text-xl">⚡</span>
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold tracking-tight text-white leading-none">
-                                Rulos Locos
+                            <h1 className="text-xl font-black tracking-tight leading-none">
+                                <span className="text-gradient-brand">Rulos Locos</span>
                             </h1>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-medium text-accent-primary tracking-wider uppercase">{t('header.subtitle')}</span>
@@ -319,8 +319,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                             <Github size={12} className="group-hover:text-white transition-colors" /> GitHub
                         </a>
                         <div className="h-4 w-px bg-white/10"></div>
-                        <span className="text-xs text-slate-600">
-                            v3.0.0
+                            <span className="text-xs text-slate-600">
+                            v3.1.0
                         </span>
                         <div className="h-4 w-px bg-white/10" />
                         <QRShareButton />

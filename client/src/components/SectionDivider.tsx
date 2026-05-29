@@ -59,12 +59,14 @@ export const SectionDivider: React.FC<SectionDividerProps> = ({
         visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5',
       ].join(' ')}
     >
-      {/* Gradient line */}
-      <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${GRADIENT_COLORS[badgeColor]} to-transparent`} />
+      {/* Gradient line with glow */}
+      <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${GRADIENT_COLORS[badgeColor]} to-transparent`}>
+        <div className={`absolute inset-0 bg-gradient-to-r ${GRADIENT_COLORS[badgeColor]} to-transparent blur-sm opacity-50`}></div>
+      </div>
 
       <div className="flex items-center gap-4">
-        {/* Icon */}
-        <div className={`p-2.5 rounded-xl ${ICON_COLORS[badgeColor]}`}>
+        {/* Icon with gradient background */}
+        <div className={`p-3 rounded-xl ${ICON_COLORS[badgeColor]} shadow-lg transition-all duration-300 hover:scale-110`}>
           <Icon size={18} />
         </div>
 
@@ -73,19 +75,20 @@ export const SectionDivider: React.FC<SectionDividerProps> = ({
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-lg font-bold text-white tracking-tight">{title}</h2>
             {badge && (
-              <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full border ${BADGE_COLORS[badgeColor]}`}>
+              <span className={`text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full border ${BADGE_COLORS[badgeColor]} ${badge === 'LIVE' ? 'animate-pulse-soft' : ''} backdrop-blur-sm`}>
+                {badge === 'LIVE' && <span className="inline-block w-1.5 h-1.5 rounded-full bg-current mr-1.5 animate-ping"></span>}
                 {badge}
               </span>
             )}
           </div>
           {description && (
-            <p className="text-xs text-slate-500 mt-0.5 truncate">{description}</p>
+            <p className="text-xs text-slate-500 mt-1 truncate">{description}</p>
           )}
         </div>
       </div>
 
-      {/* Bottom separator */}
-      <div className="mt-4 h-px bg-white/5" />
+      {/* Bottom separator with subtle gradient */}
+      <div className={`mt-4 h-px bg-gradient-to-r ${GRADIENT_COLORS[badgeColor]} to-transparent opacity-30`} />
     </div>
   );
 };

@@ -1,6 +1,0 @@
-fix(backend): resolver error 500 en rutas de API no encontradas
-
-Se agregó un manejador 404 explícito para `/api/*` antes del fallback SPA.
-Esto soluciona el error en los Unit Tests (GitHub Actions) donde 
-rutas inexistentes intentaban servir `index.html` (generando un error 
-por archivo faltante que el manejador global convertía en 500).

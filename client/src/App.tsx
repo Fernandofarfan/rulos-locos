@@ -1,4 +1,4 @@
-import { lazy, useState } from 'react';
+import { lazy, useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { HeroCard } from './components/HeroCard';
 import { StatsCard } from './components/StatsCard';
@@ -29,6 +29,8 @@ import { CommandPalette } from './components/CommandPalette';
 import { AdminDashboard } from './components/AdminDashboard';
 import { FocusMode } from './components/FocusMode';
 import { useTabTitle } from './hooks/useTabTitle';
+import { useAuth } from './hooks/useAuth';
+import { LandingPage } from './components/LandingPage';
 
 // ── Sección 1: Dashboard (complementos lazy) ─────────────────────────────────
 const MacroDashboard = lazy(() => import('./components/MacroDashboard').then(m => ({ default: m.MacroDashboard })));
@@ -116,6 +118,20 @@ function App() {
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
   const [focusActive, setFocusActive] = useState(false);
+  const [showLanding, setShowLanding] = useState(false);
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    const visited = localStorage.getItem('rl_visited');
+    if (!visited && !isAuthenticated) {
+      setShowLanding(true);
+    }
+  }, [isAuthenticated]);
+
+  const dismissLanding = () => {
+    localStorage.setItem('rl_visited', '1');
+    setShowLanding(false);
+  };
 
   const { soundEnabled, voiceEnabled, alertThresholdPct } = useSettings();
 
@@ -140,6 +156,10 @@ function App() {
     { id: 'oficial', label: 'Dólar Oficial', price: arbitrage?.dolares?.oficial?.venta, change: undefined },
     { id: 'cripto', label: 'USDT', price: rate?.ask, change: undefined },
   ];
+
+  if (showLanding) {
+    return <LandingPage onEnter={dismissLanding} />;
+  }
 
   if (loading && !rate) {
     return (

@@ -1,3 +1,0 @@
-ci(github): silenciar advertencias de obsolescencia de Node 20
-
-Se agregó la variable de entorno `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` a nivel global en el flujo de trabajo (`ci.yml`) para silenciar las anotaciones que indican que actions/checkout y actions/setup-node usan versiones de Node.js en proceso de ser obsoletas. Esto fuerza el uso interno del runtime de Node 24 para las acciones sin afectar la versión explícitamente instalada en los proyectos.

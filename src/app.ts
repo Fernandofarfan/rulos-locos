@@ -66,7 +66,7 @@ const corsOptions: cors.CorsOptions = {
             callback(null, true);
         } else {
             logger.warn('CORS bloqueado para origen: %s', origin);
-            callback(new Error('Not allowed by CORS'));
+            callback(null, false);
         }
     },
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -106,7 +106,9 @@ if (process.env.NODE_ENV !== 'production') {
 // Health checks (siempre disponibles sin rate limit)
 app.use('/', healthRoutes);
 
-// API routes
+// API routes (both v1 and unversioned legacy)
+app.use('/api/v1', apiRoutes);
+app.use('/api/v1/auth', authRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 

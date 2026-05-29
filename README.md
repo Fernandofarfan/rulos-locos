@@ -1,8 +1,8 @@
-# Rulos Locos - Dashboard Financiero Argentino 🇦🇷
+# Rulos Locos - Dashboard Financiero Argentino
 
-Plataforma profesional en tiempo real para análisis de arbitrajes, cotizaciones de criptomonedas, indicadores macroeconómicos, simulación financiera y seguimiento de portafolio.
+Plataforma profesional en tiempo real para analisis de arbitrajes, cotizaciones de criptomonedas, indicadores macroeconomicos, simulacion financiera y seguimiento de portafolio.
 
-🌐 **Plataforma en vivo**: [rulos-locos.vercel.app](https://rulos-locos.vercel.app)
+**Plataforma en vivo**: [rulos-locos.vercel.app](https://rulos-locos.vercel.app)
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![React](https://img.shields.io/badge/react-19-blue.svg)
@@ -13,105 +13,138 @@ Plataforma profesional en tiempo real para análisis de arbitrajes, cotizaciones
 
 ---
 
-## ✅ Estado de Producción (v3.0.0)
+## Estado de Produccion (v3.1.0)
 
-El proyecto se encuentra en su versión estable **v3.0.0**. 
-- **TypeScript estricto**: 0 errores de compilación tanto en Frontend (`tsc --noEmit -p tsconfig.app.json`) como en Backend.
-- **Base de Datos Nube**: Migración exitosa de SQLite local a **Supabase (PostgreSQL)** mediante Prisma ORM para despliegue Serverless.
-- **Despliegue Serverless**: Frontend (Vite) y Backend (Express) sirviendo de manera nativa y unificada a través de **Vercel CDN**.
-- **Autenticación Robusta**: Login tradicional, 2FA (TOTP) y **Google OAuth** perfectamente sincronizado entre frontend y backend.
-
-## 🚀 Funcionalidades Pro Principales
-
-### 💹 Arbitraje & Cripto
-- **Cotización en Tiempo Real**: Dólar Blue, MEP, CCL y Cripto (USDT/BTC/ETH).
-- **Calculadora de Arbitraje**: Identificación de oportunidades y spreads óptimos.
-- **Brecha Cambiaria**: Monitor de divergence entre todos los tipos de cambio argentinos.
-- **Alertas de Precio**: Notificaciones multi-canal (Browser, Email y Telegram Bot).
-
-### 📊 Análisis Técnico & IA
-- **Analista Macroeconómico IA**: Insights diarios generados por **Google Gemini AI**.
-- **Gráficos Históricos Avanzados**: SMA de 20 períodos, volumen y rangos dinámicos.
-- **Curva de Rendimiento**: Yield curve en tiempo real de bonos soberanos argentinos (AL30, GD30).
-- **Exportación de Reportes**: Descarga nativa en PDF y CSV.
-
-### 📈 Indicadores Macroeconómicos
-- **Dashboard Central**: Inflación (m/m, a/a), Riesgo País, Reservas Internacionales del BCRA y Base Monetaria.
-- **Mercados Globales & CEDEARs**: Integración de cotizaciones Merval, S&P500, Nasdaq, Oro y WTI en vivo.
-- **Dólar de Equilibrio**: Cálculo teórico dinámico relacionando Base Monetaria amplia y Reservas.
-- **Tasas**: Ranking de Plazos Fijos, FCI Money Market y política monetaria.
-
-### 🎯 Herramientas de Inversión (Nuevas)
-- **Paper Trading (Simulador)**: Entorno libre de riesgo con $1.000.000 ARS virtuales para probar estrategias de mercado en tiempo real.
-- **Portfolio Tracker Pro**: Tracking multi-activo con exportación/importación (JSON/CSV) y cálculo de rendimiento ponderado.
-- **Calculadoras Financieras**: Indexación CER, préstamos UVA y simulador de amortización.
+- **TypeScript estricto**: 0 errores de compilacion en Frontend y Backend.
+- **Base de Datos Nube**: PostgreSQL en **Supabase** via Prisma ORM.
+- **Despliegue Serverless**: Frontend (Vite) + Backend (Express) en **Vercel**.
+- **Autenticacion Robusta**: Login tradicional, 2FA (TOTP), **Google OAuth** y refresh tokens JWT.
+- **Seguridad**: Headers CSP, XSS protection, rate limiting escalonado, CORS restrictivo.
+- **73 tests**: API integration + unit tests backend pasando.
 
 ---
 
-## 🛠️ Stack Tecnológico
+## Funcionalidades
+
+### Arbitraje & Cripto
+- Cotizacion en Tiempo Real: Dolar Blue, MEP, CCL y Cripto (USDT/USDC/DAI, BTC, ETH).
+- Calculadora de Arbitraje: Identificacion de oportunidades y spreads optimos.
+- Brecha Cambiaria: Monitor de divergencia entre todos los tipos de cambio.
+- Alertas de Precio: Notificaciones por Browser Push, Email y Telegram Bot.
+- **Spread vs CCL**: Comparacion directa de stablecoins contra el CCL en tiempo real.
+
+### Analisis Tecnico & IA
+- Analista Macroeconomico IA: Insights diarios generados por **Google Gemini AI**.
+- Graficos Historicos Avanzados: SMA, EMA, RSI, MACD, Bollinger Bands, **Stochastic, ATR, Fibonacci, VWAP**.
+- Curva de Rendimiento: Yield curve en tiempo real de bonos soberanos (AL30, GD30).
+- Exportacion de Reportes: Descarga nativa en PDF y CSV.
+
+### Indicadores Macroeconomicos
+- Dashboard Central: Inflacion (m/m, a/a), Riesgo Pais, Reservas BCRA, Base Monetaria.
+- Mercados Globales & CEDEARs: Merval, S&P500, Nasdaq, Oro, WTI en vivo.
+- Dolar de Equilibrio: Calculo teorico Base Monetaria / Reservas.
+- Tasas: Ranking de Plazos Fijos, **FCI Money Market, Renta Fija, Renta Variable**.
+- **Obligaciones Negociables**: TIR, duration, calificacion y precio de ONs argentinas.
+
+### Herramientas de Inversion
+- **Paper Trading**: Simulador con $1.000.000 ARS virtuales. Limite de 20 operaciones/dia tier free.
+- **Portfolio Tracker Pro**: Tracking multi-activo con export/import (JSON/CSV), rendimiento ponderado.
+- Calculadoras: Indexacion CER, prestamos UVA, simulador de amortizacion, tasa real.
+- **Conexion real a exchanges**: Binance via API keys (ccxt).
+
+---
+
+## Stack Tecnologico
 
 **Frontend:**
 - **React 19** + **Vite 7**
-- **TypeScript 5.x** (Estricto, zero explicit `any`)
-- **TailwindCSS 4** para UI modular estilo Glassmorphism
-- **Context API + SWR** para state management ligero
-- **Axios** con interceptores de Auth robustos
+- **TypeScript 5.x** (Estricto, verbatimModuleSyntax)
+- **TailwindCSS 4** con Glassmorphism moderno
+- **Context API + SWR** para state management
+- **Axios** con retry automatico en todos los endpoints
 
 **Backend:**
-- **Node.js 18+** + **Express 4** (Mode Serverless)
-- **Prisma 6.4.1** conectado a **Supabase PostgreSQL** pooler.
-- **JWT + Google Auth Library** para seguridad de sesiones.
-- **Rate Limiting** dinámico por tiers de endpoints.
-- **Winston Logger** para observabilidad.
+- **Node.js 18+** + **Express 4** (Serverless)
+- **Prisma 6.4.1** + **Supabase PostgreSQL**
+- **JWT** con refresh tokens + Google OAuth
+- **Rate Limiting** por tiers de endpoints
+- **SWR Cache** con request coalescing
+- **Winston Logger** para observabilidad
 
 **Infraestructura:**
-- **Vercel** (`vercel.json` config).
-- **GitHub Actions** para CI/CD (Testing E2E con Playwright).
+- **Vercel** con security headers, cache inmutable, clean URLs
+- **GitHub Actions**: CI/CD con tsc, ESLint, Jest, Vitest, Playwright E2E
+- **PWA**: Instalable, offline, push notifications
 
 ---
 
-## 📦 Despliegue & Variables de Entorno
-
-Para replicar localmente o realizar un despliegue en Vercel, se deben configurar las siguientes variables en `.env` (o en el Vercel Dashboard):
+## Variables de Entorno
 
 ```env
-# 1. Base de datos
+# Base de datos
 DATABASE_URL="postgresql://USUARIO:PASSWORD@HOST.pooler.supabase.com:6543/postgres?pgbouncer=true"
 
-# 2. Seguridad & Auth
-JWT_SECRET="un_secreto_largo_y_muy_seguro"
+# Auth
+JWT_SECRET="secreto_largo_min_32_chars"
 VITE_GOOGLE_CLIENT_ID="tu_client_id.apps.googleusercontent.com"
 GOOGLE_CLIENT_ID="tu_client_id.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET="tu_client_secret"
 
-# 3. Inteligencia Artificial (Opcional)
-GEMINI_API_KEY="tu_clave_de_google_ai_studio"
+# IA (Opcional)
+GEMINI_API_KEY="tu_clave_google_ai_studio"
 
-# 4. APIs Externas & Notificaciones (Opcional)
+# Notificaciones (Opcional)
 TELEGRAM_BOT_TOKEN="token_del_botfather"
+EMAIL_USER="tu@gmail.com"
+EMAIL_PASS="password_de_app"
+EMAIL_HOST="smtp.gmail.com"
+EMAIL_PORT=587
 CLIENT_URL="https://rulos-locos.vercel.app"
+
+# Push Notifications (generar con: npx web-push generate-vapid-keys)
+VAPID_PUBLIC_KEY="..."
+VAPID_PRIVATE_KEY="..."
+VAPID_CONTACT_EMAIL="admin@rulos-locos.com.ar"
 ```
 
-## 🏗️ Ejecución Local
+---
 
-1. Clonar el repositorio y acceder:
+## Ejecucion Local
+
+1. Clonar e instalar:
    ```bash
    git clone https://github.com/Fernandofarfan/rulos-locos.git
    cd rulos-locos
-   ```
-2. Instalar dependencias (instala tanto back como frontend):
-   ```bash
    npm install --include=dev
    ```
-3. Sincronizar Prisma:
+2. Sincronizar Prisma:
    ```bash
    npm run prisma:generate
    ```
-4. Iniciar servidor full-stack (Backend en `:3001` y Frontend Vite en `:5173`):
+3. Iniciar (Backend :3001 + Frontend Vite :5173):
    ```bash
    npm run dev:full
    ```
 
-## 📜 Licencia & Contribuciones
+---
 
-Este proyecto es Open Source bajo la licencia MIT. Consultá `docs/CONTRIBUTING.md` para reglas de ramas y pull requests. Se acepta feedback continuo para agregar nuevos endpoints macroeconómicos.
+## API Endpoints
+
+| Metodo | Ruta | Descripcion |
+|--------|------|-------------|
+| GET | `/api/v1/rate` | Cotizacion dolar blue |
+| GET | `/api/v1/arbitrage` | Todos los tipos de cambio + oportunidades |
+| GET | `/api/v1/economics/dashboard` | Dashboard macro completo |
+| GET | `/api/v1/economics/historical/:indicator` | Datos historicos |
+| GET | `/api/v1/economics/renta-fija` | ONs + FCI ranking |
+| GET | `/api/v1/exchange/prices/:symbol` | Precios multi-exchange |
+| POST | `/api/v1/auth/login` | Login (devuelve access + refresh token) |
+| POST | `/api/v1/auth/refresh` | Refrescar token |
+| GET | `/api/v1/paper-trading/usage` | Uso de Paper Trading (tier free: 20/dia) |
+| GET | `/api/docs` | Swagger UI |
+
+---
+
+## Licencia
+
+MIT. Consulta `docs/CONTRIBUTING.md` para reglas de contribucion.

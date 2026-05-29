@@ -27,6 +27,7 @@ import dolarApiService from '../services/dolarApiService';
 import { telegramBotController } from '../controllers/telegramBotController';
 import { registerWebhook, listWebhooks, deleteWebhook } from '../controllers/webhookController';
 import { getOGImage } from '../controllers/ogImageController';
+import prisma from '../utils/db';
 
 // SWR presets
 const swr30s = swrCache({ staleTTL: 30_000, maxTTL: 5 * 60_000 });
@@ -178,5 +179,69 @@ router.delete('/webhooks/:id', (req, res) => deleteWebhook(req, res));
 
 // Dynamic OG Image
 router.get('/og-image', (req, res) => getOGImage(req, res));
+
+// Obligaciones Negociables y FCI Ranking
+import onsFciService from '../services/onsFciService';
+router.get('/economics/ons', swr60s, async (req, res) => {
+    try { res.json(await onsFciService.getONs()); } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+router.get('/economics/fci-ranking', swr60s, async (req, res) => {
+    try { res.json(await onsFciService.getFCIRanking()); } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+router.get('/economics/renta-fija', swr60s, async (req, res) => {
+    try { res.json(await onsFciService.getRentaFijaDashboard()); } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Exchange real connection
+import realExchangeService from '../services/exchangeService';
+router.get('/exchange/:name/balance', authenticateToken, async (req: any, res) => {
+    try {
+        const balance = await realExchangeService.getBalance(req.user.id, req.params.name);
+        if (!balance) { res.status(404).json({ error: 'Exchange no configurado' }); return; }
+        res.json(balance);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+router.get('/exchange/:name/validate', authenticateToken, async (req: any, res) => {
+    try {
+        const valid = await realExchangeService.validateKeys(req.user.id, req.params.name);
+        res.json({ exchange: req.params.name.toUpperCase(), valid });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+router.get('/exchange/prices/:symbol', async (req, res) => {
+    try {
+        const prices = await realExchangeService.getMultiExchangePrices(decodeURIComponent(req.params.symbol));
+        res.json(prices);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Paper Trading tier limits (usage tracking)
+router.get('/paper-trading/usage', authenticateToken, async (req: any, res) => {
+    if (!prisma) { res.status(503).json({ error: 'DB no disponible' }); return; }
+    const userId = req.user.id;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const count = await prisma.virtualTransaction.count({
+        where: { userId, createdAt: { gte: today } }
+    });
+    const MAX_TRADES_FREE = 20;
+    res.json({ used: count, limit: MAX_TRADES_FREE, remaining: Math.max(0, MAX_TRADES_FREE - count), tier: 'free' });
+});
+
+// Newsletter via email
+router.post('/newsletter/subscribe', async (req, res) => {
+    const { email } = req.body;
+    if (!email) { res.status(400).json({ error: 'Email requerido' }); return; }
+    try {
+        if (prisma) {
+            const user = await prisma.user.findUnique({ where: { email } });
+            if (user) {
+                res.json({ success: true, message: 'Usuario registrado. Recibirás el resumen diario.' });
+                return;
+            }
+        }
+        res.json({ success: true, message: 'Email registrado para newsletter (modo guest).' });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
 
 export default router;

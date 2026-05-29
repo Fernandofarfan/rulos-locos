@@ -52,20 +52,23 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     }
 
     return (
-        <div className="glass-panel p-5 relative overflow-hidden group h-full flex flex-col justify-between">
-            {/* Background Gradient Bubble */}
-            <div className={`absolute -right-6 -top-6 w-32 h-32 rounded-full opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-2xl bg-current ${color}`}></div>
+        <div className="glass-panel p-6 relative overflow-hidden group h-full flex flex-col justify-between hover-lift">
+            {/* Animated Background Gradient */}
+            <div className={`absolute -right-8 -top-8 w-40 h-40 rounded-full opacity-0 group-hover:opacity-15 transition-all duration-700 blur-3xl bg-current ${color} group-hover:scale-125`}></div>
+            
+            {/* Subtle top border gradient */}
+            <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-0 group-hover:opacity-20 transition-opacity duration-500 ${color}`}></div>
 
-            <div className="flex justify-between items-start mb-3 relative z-10">
+            <div className="flex justify-between items-start mb-4 relative z-10">
                 <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-xl bg-white/5 border border-white/5 group-hover:border-white/10 transition-colors`}>
-                        {Icon && <Icon size={18} className={`${color}`} />}
+                    <div className={`p-2.5 rounded-xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 group-hover:border-white/20 transition-all duration-300 group-hover:scale-105 shadow-lg`}>
+                        {Icon && <Icon size={18} className={`${color} drop-shadow-sm`} />}
                     </div>
                     <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">{label}</span>
                 </div>
 
                 {trend && (
-                    <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-transparent ${trendClass}`}>
+                    <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-bold border ${trendClass} backdrop-blur-sm transition-all duration-300 group-hover:scale-105`}>
                         <TrendIcon size={12} />
                         {trendValue}
                     </div>
@@ -86,8 +89,8 @@ export const StatsCard: React.FC<StatsCardProps> = ({
                 </div>
 
                 {subValue && (
-                    <div className="flex items-center gap-2 mt-2">
-                         <div className={`w-1 h-8 rounded-full ${color.replace('text-', 'bg-')}/30`}></div>
+                    <div className="flex items-center gap-2 mt-3">
+                         <div className={`w-1 h-8 rounded-full bg-gradient-to-b ${color.replace('text-', 'from-')}/40 to-transparent`}></div>
                          <span className="text-[11px] text-slate-500 font-medium leading-tight">{subValue}</span>
                     </div>
                 )}

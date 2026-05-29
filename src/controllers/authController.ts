@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import prisma from '../utils/db';
-import { JWT_SECRET } from '../middleware/auth';
+import { getJwtSecret, signToken, signRefreshToken, verifyRefreshToken } from '../middleware/auth';
 import logger from '../utils/logger';
 import { OAuth2Client } from 'google-auth-library';
 
@@ -18,16 +17,15 @@ async function getQRCode() {
     const QRCode = await import('qrcode');
     return QRCode.default ?? QRCode;
 }
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || `${JWT_SECRET}_refresh`;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 function signAccess(payload: { id: string; email: string }) {
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
+    return signToken(payload, '15m');
 }
 
 function signRefresh(payload: { id: string; email: string }) {
-    return jwt.sign(payload, REFRESH_SECRET, { expiresIn: '30d' });
+    return signRefreshToken(payload);
 }
 
 interface AuthRequest extends Request {
@@ -151,7 +149,7 @@ class AuthController {
         const { refreshToken } = req.body as { refreshToken?: string };
         if (!refreshToken) { res.status(400).json({ error: 'Refresh token requerido' }); return; }
         try {
-            const payload = jwt.verify(refreshToken, REFRESH_SECRET) as { id: string; email: string; iat: number; exp: number };
+            const payload = verifyRefreshToken(refreshToken) as { id: string; email: string };
             const newAccess = signAccess({ id: payload.id, email: payload.email });
             const newRefresh = signRefresh({ id: payload.id, email: payload.email });
             res.json({ token: newAccess, refreshToken: newRefresh });

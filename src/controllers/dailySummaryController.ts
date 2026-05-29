@@ -3,6 +3,8 @@ import dolarApiService from '../services/dolarApiService';
 import cryptoYaService from '../services/cryptoYaService';
 import bcraService from '../services/bcraService';
 import notificationService from '../services/notificationService';
+import { sendPriceAlertEmail } from '../services/emailService';
+import prisma from '../utils/db';
 import logger from '../utils/logger';
 
 /**
@@ -77,7 +79,32 @@ export async function sendDailySummary(_req: Request, res: Response) {
         const summary = await buildSummary();
         await notificationService.sendTelegramMessage(summary);
         logger.info('Resumen diario enviado por Telegram');
-        res.json({ success: true, message: 'Resumen enviado' });
+
+        if (prisma) {
+            const users = await prisma.user.findMany({
+                where: { email: { not: null } },
+                select: { email: true, name: true },
+                take: 100,
+            });
+            const plainText = summary.replace(/<[^>]+>/g, '');
+            let sent = 0;
+            for (const user of users) {
+                if (!user.email) continue;
+                try {
+                    await sendPriceAlertEmail({
+                        to: user.email,
+                        message: plainText,
+                        prices: undefined,
+                    });
+                    sent++;
+                } catch {
+                    // skip failed emails
+                }
+            }
+            logger.info('Newsletter enviada por email a %d usuarios', sent);
+        }
+
+        res.json({ success: true, message: 'Resumen enviado por Telegram y Email' });
     } catch (error: any) {
         logger.error('Error enviando resumen diario: %s', error.message);
         res.status(500).json({ error: 'Error enviando resumen', detail: error.message });

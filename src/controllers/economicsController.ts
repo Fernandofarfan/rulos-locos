@@ -262,20 +262,29 @@ class EconomicsController {
             }
 
             const BULK_TIMEOUT_MS = 10_000;
-            const timeoutPromise = new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('Bulk historical timeout')), BULK_TIMEOUT_MS)
-            );
-            const [inflation, poverty, dollars, indigence, unemployment, countryRisk] = await Promise.race([
-                Promise.all([
-                    argentinaDatosService.getHistoricalInflation(),
-                    argentinaDatosService.getPovertyData(),
-                    argentinaDatosService.getHistoricalDollars(),
-                    argentinaDatosService.getIndigenceData(),
-                    argentinaDatosService.getUnemploymentData(),
-                    argentinaDatosService.getCountryRiskData(),
-                ]),
-                timeoutPromise,
+            const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+                return new Promise((resolve, reject) => {
+                    const timer = setTimeout(() => reject(new Error('Timeout')), ms);
+                    promise.then(
+                        (v) => { clearTimeout(timer); resolve(v); },
+                        (e) => { clearTimeout(timer); reject(e); },
+                    );
+                });
+            };
+
+            const results = await Promise.allSettled([
+                withTimeout(argentinaDatosService.getHistoricalInflation(), BULK_TIMEOUT_MS),
+                withTimeout(Promise.resolve(argentinaDatosService.getPovertyData()), BULK_TIMEOUT_MS),
+                withTimeout(argentinaDatosService.getHistoricalDollars(), BULK_TIMEOUT_MS),
+                withTimeout(Promise.resolve(argentinaDatosService.getIndigenceData()), BULK_TIMEOUT_MS),
+                withTimeout(Promise.resolve(argentinaDatosService.getUnemploymentData()), BULK_TIMEOUT_MS),
+                withTimeout(argentinaDatosService.getCountryRiskData(), BULK_TIMEOUT_MS),
             ]);
+
+            const empty = { labels: [], values: [] };
+            const [inflation, poverty, dollars, indigence, unemployment, countryRisk] = results.map(r =>
+                r.status === 'fulfilled' ? r.value : empty
+            );
             res.json({ inflation, poverty, dollars, indigence, unemployment, countryRisk, timestamp: new Date().toISOString() });
         } catch (error) {
             logger.error('Error in EconomicsController.getHistoricalData: %s', (error as Error).stack);

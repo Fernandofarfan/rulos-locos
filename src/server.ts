@@ -6,6 +6,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import app from './app';
 import logger from './utils/logger';
+import cache from './utils/cache';
 import arbitrageWorker from './workers/arbitrageWorker';
 import alertWorker from './workers/alertWorker';
 import marketWorker from './workers/marketWorker';
@@ -15,6 +16,11 @@ import prisma from './utils/db';
 logger.info('--- INICIANDO SERVIDOR RULOS LOCOS ---');
 
 const httpServer = http.createServer(app);
+
+// Prevent hung requests: 60s request timeout, 61s headers timeout
+httpServer.timeout = 60000;
+httpServer.keepAliveTimeout = 61000;
+httpServer.headersTimeout = 62000;
 
 // Inicializar Socket.io
 export const io = new Server(httpServer, {
@@ -36,6 +42,12 @@ const server = httpServer.listen(PORT, '127.0.0.1', () => {
     logger.info(`🚀 Servidor y WebSockets corriendo en http://127.0.0.1:${PORT}`);
     logger.info(`📝 Ambiente: ${config.NODE_ENV}`);
     logger.info(`🔑 Google Client ID cargado: ${process.env.GOOGLE_CLIENT_ID ? 'SÍ' : 'NO'}`);
+
+    // Warm up cache from Redis on startup
+    cache.warmUp('rate_data').catch(() => {});
+    cache.warmUp('arbitrage_data').catch(() => {});
+    cache.warmUp('market_data').catch(() => {});
+
     arbitrageWorker.start(io);
     alertWorker.start();
     marketWorker.start(io);

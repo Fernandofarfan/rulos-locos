@@ -1,6 +1,0 @@
-docs: actualizar documentación a V3.0 (Supabase, Vercel, TS Cero Errores)
-
-- Re-escritura 100% del README.md con state of the art
-- Update de RESUMEN_MEJORAS.md reflejando el fix de TS y Auth
-- Update de DEPLOYMENT.md para referenciar la arquitectura Serverless Vercel
-- Update de MEJORAS_FUTURAS.md marcando cumplidos
