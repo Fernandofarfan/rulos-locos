@@ -17,10 +17,9 @@ interface MobileNavBarProps {
 export const MobileNavBar: React.FC<MobileNavBarProps> = ({ activeView, onViewChange }) => {
     return (
         <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
-            {/* Gradient border top with glow */}
-            <div className="h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent shadow-[0_0_10px_rgba(59,130,246,0.3)]" />
+            <div className="h-px bg-border-subtle" />
 
-            <div className="bg-[#0a0d11]/90 backdrop-blur-2xl backdrop-saturate-150 border-t border-white/5 px-2 pb-[env(safe-area-inset-bottom)]">
+            <div className="bg-bg-app border-t border-border-subtle px-2 pb-[env(safe-area-inset-bottom)]">
                 <div className="flex items-center justify-around py-2">
                     {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
                         const isActive = activeView === id;

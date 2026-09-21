@@ -42,11 +42,6 @@ export const HeroCard: React.FC<HeroCardProps> = ({ price, bid, source, loading,
 
     return (
         <div className="glass-panel p-8 h-full flex flex-col justify-center relative overflow-hidden group min-h-[280px]">
-            {/* Modern Background Effects */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-emerald-500/5 opacity-70 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="absolute -top-32 -right-32 w-80 h-80 bg-blue-500/10 rounded-full blur-[100px] group-hover:bg-blue-500/20 group-hover:scale-110 transition-all duration-700" />
-            <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-emerald-500/5 rounded-full blur-[80px]" />
-
             <div className="relative z-10 flex flex-col h-full justify-between">
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">

@@ -63,21 +63,16 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
     );
 
     return (
-        <div className="min-h-screen relative flex flex-col bg-app text-primary overflow-x-hidden">
+        <div className="min-h-screen relative flex flex-col bg-bg-app text-primary overflow-x-hidden">
             <TopProgress loading={loading || isRefreshing} />
             <OfflineBanner />
-            {/* Background Effects */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-                <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-accent-primary/20 blur-[100px] animate-pulse-soft"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-accent-secondary/20 blur-[100px] animate-pulse-soft" style={{ animationDelay: '1s' }}></div>
-            </div>
 
             {/* Header */}
             <header className="fixed top-0 left-0 right-0 z-50 px-6 py-4 transition-all duration-300">
                 <div className="max-w-7xl mx-auto glass-panel px-6 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-indigo-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
-                            <span className="text-xl">⚡</span>
+                        <div className="w-9 h-9 rounded-lg bg-accent-primary/15 border border-accent-primary/25 flex items-center justify-center">
+                            <span className="text-base">⚡</span>
                         </div>
                         <div>
                             <h1 className="text-xl font-black tracking-tight leading-none">
@@ -285,13 +280,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
             <ScrollToTop />
 
             {/* Footer */}
-            <footer className="z-10 py-8 border-t border-white/5 mt-auto bg-black/40 backdrop-blur-md relative">
-                <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-accent-primary/50 to-transparent opacity-30"></div>
-
+            <footer className="z-10 py-8 border-t border-border-subtle mt-auto bg-bg-app relative">
                 <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+                            <div className="w-6 h-6 rounded-md bg-accent-primary/15 border border-accent-primary/25 flex items-center justify-center">
                                 <span className="text-xs">⚡</span>
                             </div>
                             <span className="text-white font-bold tracking-tight">Rulos Locos <span className="text-accent-primary">Pro</span></span>
