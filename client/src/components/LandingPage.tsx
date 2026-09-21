@@ -69,7 +69,7 @@ const LandingPageContent: React.FC<LandingPageProps> = ({ onEnter }) => {
     const formatPrice = (v: number) => v ? `$${Math.round(v).toLocaleString('es-AR')}` : '---';
 
     return (
-        <div className="min-h-screen bg-[#0b0e14] text-white font-sans">
+        <div className="min-h-screen bg-bg-app text-text-primary font-sans">
             <nav className="border-b border-white/5 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto flex items-center justify-between h-16">
                     <div className="flex items-center gap-2">

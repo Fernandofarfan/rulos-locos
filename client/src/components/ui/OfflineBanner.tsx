@@ -10,12 +10,12 @@ export const OfflineBanner: React.FC = () => {
   const [showReconnect, setShowReconnect] = useState(false);
 
   useEffect(() => {
+    let reconnectTimer: ReturnType<typeof setTimeout>;
     const handleOffline = () => setOnline(false);
     const handleOnline = () => {
       setOnline(true);
       setShowReconnect(true);
-      const t = setTimeout(() => setShowReconnect(false), 2500);
-      return () => clearTimeout(t);
+      reconnectTimer = setTimeout(() => setShowReconnect(false), 2500);
     };
 
     window.addEventListener('offline', handleOffline);
@@ -23,6 +23,7 @@ export const OfflineBanner: React.FC = () => {
     return () => {
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
+      clearTimeout(reconnectTimer);
     };
   }, []);
 

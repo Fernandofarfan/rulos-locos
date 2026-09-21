@@ -1,11 +1,11 @@
 import React from 'react';
-import { BarChart3, Landmark, Zap, Wrench, Newspaper } from 'lucide-react';
+import { BarChart3, Landmark, Zap, LineChart, Newspaper } from 'lucide-react';
 
 const NAV_ITEMS = [
-    { id: 'dashboard', label: 'Home', icon: BarChart3 },
-    { id: 'mercado', label: 'Tasas', icon: Landmark },
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'mercado', label: 'Mercado', icon: Landmark },
     { id: 'arbitrage', label: 'Arbitraje', icon: Zap },
-    { id: 'herramientas', label: 'Tools', icon: Wrench },
+    { id: 'charts', label: 'Gráficos', icon: LineChart },
     { id: 'portfolio', label: 'Portfolio', icon: Newspaper },
 ] as const;
 

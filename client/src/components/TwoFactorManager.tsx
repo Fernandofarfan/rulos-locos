@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Shield, ShieldAlert, ShieldCheck, Copy, Check } from 'lucide-react';
 import { apiService as api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { fireToast } from '../hooks/useToast';
+import { toast } from 'sonner';
 
 export const TwoFactorManager = () => {
     const { user, refreshUser } = useAuth();
@@ -20,9 +20,9 @@ export const TwoFactorManager = () => {
             const res = await api.post('/2fa/generate') as any;
             setQrCode(res.data?.qrCode || res.qrCode);
             setSecret(res.data?.secret || res.secret);
-            fireToast({ type: 'info', title: '2FA Generado', message: 'Escaneá el código QR.' });
+            toast.info('2FA Generado', { description: 'Escaneá el código QR.' });
         } catch (error) {
-            fireToast({ type: 'error', title: 'Error', message: 'Fallo generando 2FA.' });
+            toast.error('Error', { description: 'Fallo generando 2FA.' });
         } finally {
             setLoading(false);
         }
@@ -33,13 +33,13 @@ export const TwoFactorManager = () => {
         setLoading(true);
         try {
             await api.post('/2fa/verify', { token });
-            fireToast({ type: 'success', title: '2FA Activado', message: 'Tu cuenta ahora está protegida.' });
+            toast.success('2FA Activado', { description: 'Tu cuenta ahora está protegida.' });
             setQrCode(null);
             setSecret(null);
             setToken('');
             await refreshUser();
         } catch (error: any) {
-            fireToast({ type: 'error', title: 'Código Inválido', message: error.response?.data?.error || 'Verificá el código.' });
+            toast.error('Código Inválido', { description: error.response?.data?.error || 'Verificá el código.' });
         } finally {
             setLoading(false);
         }
@@ -50,10 +50,10 @@ export const TwoFactorManager = () => {
         setLoading(true);
         try {
             await api.post('/2fa/disable');
-            fireToast({ type: 'info', title: '2FA Desactivado', message: 'Capa de seguridad removida.' });
+            toast.info('2FA Desactivado', { description: 'Capa de seguridad removida.' });
             await refreshUser();
         } catch (error) {
-            fireToast({ type: 'error', title: 'Error', message: 'Fallo al desactivar 2FA.' });
+            toast.error('Error', { description: 'Fallo al desactivar 2FA.' });
         } finally {
             setLoading(false);
         }

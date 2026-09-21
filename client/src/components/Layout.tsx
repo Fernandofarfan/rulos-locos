@@ -231,18 +231,18 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                             </button>
                         ))}
 
-                        {/* Separador + acciones rápidas */}
-                        <div className="mt-3 pt-3 border-t border-white/5 flex gap-2">
+                        {/* Acciones rápidas */}
+                        <div className="mt-3 pt-3 border-t border-border-subtle flex gap-2">
                             <button
                                 onClick={() => { setIsMenuOpen(false); setIsOverlayOpen(true); }}
-                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white text-xs font-medium transition-all"
+                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-border-subtle text-slate-400 hover:text-white text-xs font-medium transition-all"
                             >
                                 <SlidersHorizontal size={13} />
                                 Alertas
                             </button>
                             <button
                                 onClick={() => { setIsMenuOpen(false); setIsSettingsOpen(true); }}
-                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white text-xs font-medium transition-all"
+                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-border-subtle text-slate-400 hover:text-white text-xs font-medium transition-all"
                             >
                                 <Settings size={13} />
                                 Ajustes

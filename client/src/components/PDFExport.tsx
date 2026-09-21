@@ -95,7 +95,7 @@ export const PDFExport: React.FC = () => {
 
                     <div
                         id="pdf-report-container"
-                        className="bg-white dark:bg-[#0b0e14] w-full max-w-3xl rounded-3xl shadow-2xl border border-white/10 overflow-hidden"
+                        className="bg-white bg-bg-card w-full max-w-3xl rounded-3xl shadow-2xl border border-border-subtle overflow-hidden"
                     >
                         {/* Modal header (hidden in print) */}
                         <div className="no-print flex items-center justify-between p-5 border-b border-white/10 bg-white/[0.02]">

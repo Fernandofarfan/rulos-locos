@@ -12,10 +12,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const [bankFee, setBankFee] = React.useState(0.6);
     const { theme, toggleTheme } = useTheme();
 
+    React.useEffect(() => {
+        if (!isOpen) return;
+        const handleEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', handleEscape);
+        return () => window.removeEventListener('keydown', handleEscape);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     const handleSave = () => {
-        // Here you would typically save to context or local storage
         toast.success('Configuración guardada', {
             description: 'Tus preferencias han sido actualizadas.'
         });
@@ -23,8 +29,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-[#0b0e14] w-full max-w-md rounded-2xl border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in" role="dialog" aria-modal="true" aria-label="Configuración">
+            <div className="glass-panel w-full max-w-md p-0 overflow-hidden animate-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                     <h3 className="text-lg font-bold text-white">Configuración</h3>

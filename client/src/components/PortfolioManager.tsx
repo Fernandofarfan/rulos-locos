@@ -4,7 +4,7 @@ import { useDashboardData } from '../hooks/useDashboardData';
 import { formatInt } from '../utils/formatARS';
 import { useAuth } from '../hooks/useAuth';
 import { apiService as api } from '../services/api';
-import { fireToast } from '../hooks/useToast';
+import { toast } from 'sonner';
 
 interface PortfolioItem {
     id: string;
@@ -106,7 +106,7 @@ export const PortfolioManager: React.FC = () => {
 
     const handleSync = async () => {
         if (!user) {
-            fireToast({ type: 'warning', title: 'Requiere Sesión', message: 'Iniciá sesión para usar la sincronización.' });
+            toast.warning('Requiere Sesión', { description: 'Iniciá sesión para usar la sincronización.' });
             return;
         }
         setSyncing(true);
@@ -120,12 +120,12 @@ export const PortfolioManager: React.FC = () => {
                     amount: dbItem.amount || 0
                 }));
                 setItems(mapped);
-                fireToast({ type: 'success', title: 'Sincronizado', message: 'Datos actualizados desde la nube / exchanges.' });
+                toast.success('Sincronizado', { description: 'Datos actualizados desde la nube / exchanges.' });
             } else {
-                fireToast({ type: 'info', title: 'Sin datos', message: 'La sincronización se completó pero no hay balances.' });
+                toast.info('Sin datos', { description: 'La sincronización se completó pero no hay balances.' });
             }
         } catch (error: any) {
-            fireToast({ type: 'error', title: 'Sincronización Fallida', message: error.response?.data?.error || 'Revisá tus API Keys o intentá más tarde.' });
+            toast.error('Sincronización Fallida', { description: error.response?.data?.error || 'Revisá tus API Keys o intentá más tarde.' });
         } finally {
             setSyncing(false);
         }

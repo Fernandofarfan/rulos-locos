@@ -16,7 +16,6 @@ import { WatchlistPanel } from './components/WatchlistPanel';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { KioskButton, KioskMode } from './components/KioskMode';
-import { ToastContainer } from './components/ToastContainer';
 import { FinancialGlossary } from './components/FinancialGlossary';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { ReloadPrompt } from './components/ReloadPrompt';
@@ -25,7 +24,6 @@ import { MobileNavBar } from './components/MobileNavBar';
 import { PanicBoard } from './components/PanicBoard';
 import { AchievementSystem } from './components/AchievementSystem';
 import { AIChat } from './components/AIChat';
-import { CommandPalette } from './components/CommandPalette';
 import { AdminDashboard } from './components/AdminDashboard';
 import { FocusMode } from './components/FocusMode';
 import { useTabTitle } from './hooks/useTabTitle';
@@ -556,13 +554,11 @@ function App() {
       <KioskMode active={kioskActive} onExit={() => setKioskActive(false)} />
       <KioskButton onActivate={() => setKioskActive(true)} />
       <FinancialGlossary open={glossaryOpen} onClose={() => setGlossaryOpen(false)} />
-      <ToastContainer />
       <PWAInstallBanner />
       <ReloadPrompt />
       <OnboardingTour onViewChange={setActiveView} />
       <MobileNavBar activeView={activeView} onViewChange={setActiveView} />
       <AIChat />
-      <CommandPalette onViewChange={setActiveView} />
       <AdminDashboard />
       <AchievementSystem activeView={activeView} />
     </>

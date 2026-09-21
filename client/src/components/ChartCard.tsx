@@ -304,7 +304,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, indicator, color = 
             {/* Expanded Modal */}
             {isExpanded && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 md:p-6 animate-fade-in">
-                    <div className="bg-[#0b0e14] w-full max-w-6xl h-[80vh] rounded-3xl border border-white/10 p-6 flex flex-col shadow-2xl relative overflow-hidden">
+                    <div className="glass-panel w-full max-w-6xl h-[80vh] p-6 flex flex-col shadow-2xl relative overflow-hidden">
                         <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full blur-[120px] pointer-events-none" style={{ background: `${color}08` }} />
                         <div className="flex items-center justify-between mb-6 relative z-10">
                             <div>

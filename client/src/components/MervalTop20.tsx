@@ -140,7 +140,7 @@ export const MervalTop20: React.FC = () => {
 
             <div className="overflow-x-auto max-h-80 overflow-y-auto custom-scrollbar">
                 <table className="w-full text-xs">
-                    <thead className="sticky top-0 bg-[#0d1117] z-10">
+                    <thead className="sticky top-0 bg-bg-card z-10">
                         <tr>
                             <SortHeader field="ticker" label="Ticker" className="text-left pr-2" sort={sort} sortDir={sortDir} handleSort={handleSort} />
                             <th className="text-left text-slate-500 py-2 pr-2 hidden sm:table-cell">Empresa</th>

@@ -30,11 +30,11 @@ export class ErrorBoundary extends Component<Props, State> {
     public render() {
         if (this.state.hasError) {
             return (
-                <div className="min-h-screen bg-[#0b0e14] text-white p-8 flex flex-col items-center justify-center font-mono">
-                    <div className="max-w-3xl w-full bg-red-900/20 border border-red-500/50 rounded-xl p-8 shadow-2xl">
+                <div className="min-h-screen bg-bg-app text-text-primary p-8 flex flex-col items-center justify-center font-mono">
+                    <div className="max-w-3xl w-full glass-panel border-red-500/50 p-8">
                         <h1 className="text-3xl font-bold text-red-500 mb-4">Algo salió mal (Runtime Error)</h1>
 
-                        <div className="bg-black/50 p-4 rounded-lg border border-white/10 mb-6 overflow-auto">
+                        <div className="bg-bg-card p-4 rounded-lg border border-border-subtle mb-6 overflow-auto">
                             <h2 className="text-xl font-bold text-white mb-2">{this.state.error?.toString()}</h2>
                             {this.state.errorInfo && (
                                 <pre className="text-xs text-slate-400 whitespace-pre-wrap">

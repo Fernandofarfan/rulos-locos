@@ -29,6 +29,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
         if (ok) onClose();
     };
 
+    React.useEffect(() => {
+        if (!isOpen) return;
+        const handleEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', handleEscape);
+        return () => window.removeEventListener('keydown', handleEscape);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -59,6 +66,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
         <div
             className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
             onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Iniciar sesión"
         >
             <div
                 className="w-full max-w-md glass-panel p-8 rounded-2xl relative"
@@ -211,7 +221,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                                     <span className="w-full border-t border-slate-700/60" />
                                 </div>
                                 <div className="relative flex justify-center text-xs uppercase">
-                                    <span className="bg-[#1e293b] px-2 text-slate-500 font-medium">
+                                    <span className="bg-bg-card px-2 text-slate-500 font-medium">
                                         o continuar con
                                     </span>
                                 </div>

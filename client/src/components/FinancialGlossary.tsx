@@ -43,13 +43,20 @@ export const FinancialGlossary: React.FC<{ open: boolean; onClose: () => void }>
         [query, cat]
     );
 
+    React.useEffect(() => {
+        if (!open) return;
+        const handleEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', handleEscape);
+        return () => window.removeEventListener('keydown', handleEscape);
+    }, [open, onClose]);
+
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label="Glosario financiero">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
             <div
-                className="relative w-full max-w-2xl bg-[#0a0f1a] border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[80vh]"
+                className="relative w-full max-w-2xl glass-panel p-0 flex flex-col max-h-[80vh]"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}

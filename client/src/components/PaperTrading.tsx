@@ -4,7 +4,7 @@ import { paperTradingApi } from '../services/paperTradingApi';
 import type { VirtualBalance } from '../services/paperTradingApi';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { useAuth } from '../hooks/useAuth';
-import { fireToast } from '../hooks/useToast';
+import { toast } from 'sonner';
 import { formatInt } from '../utils/formatARS';
 
 export const PaperTrading: React.FC = () => {
@@ -42,19 +42,13 @@ export const PaperTrading: React.FC = () => {
             const price = getPriceFor(asset, action);
             const data = await paperTradingApi.trade(action, asset, Number(amount), price);
             setBalances(data);
-            fireToast({
-                type: action === 'BUY' ? 'price-up' : 'price-down',
-                title: 'Orden Ejecutada',
-                message: `${action === 'BUY' ? 'Compraste' : 'Vendiste'} ${amount} ${asset} a $${price.toLocaleString()}`,
-                duration: 3000
+            toast.success('Orden Ejecutada', {
+                description: `${action === 'BUY' ? 'Compraste' : 'Vendiste'} ${amount} ${asset} a $${price.toLocaleString()}`,
             });
             setAmount('');
         } catch (error: any) {
-            fireToast({
-                type: 'error',
-                title: 'Error ejecutando orden',
-                message: error.response?.data?.error || 'Saldo insuficiente o error de conexión.',
-                duration: 4000
+            toast.error('Error ejecutando orden', {
+                description: error.response?.data?.error || 'Saldo insuficiente o error de conexión.',
             });
         } finally {
             setLoading(false);

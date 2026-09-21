@@ -87,7 +87,7 @@ export const MultiCurrencyComparator: React.FC<{ blueRate?: number }> = ({ blueR
                     <span className="text-slate-500 font-normal text-xs ml-auto">{curr?.name}</span>
                 </button>
                 {selecting === mode && (
-                    <div className="absolute top-full mt-1 left-0 z-50 w-full bg-[#0d1117] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+                    <div className="absolute top-full mt-1 left-0 z-50 w-full glass-panel p-0 shadow-2xl overflow-hidden">
                         {currencies.map(c => (
                             <button
                                 key={c.code}

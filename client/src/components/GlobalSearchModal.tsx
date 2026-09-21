@@ -79,7 +79,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ open, onCl
             onClick={onClose}
         >
             <div
-                className="bg-[#0d1117] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden"
+                className="glass-panel w-full max-w-lg shadow-2xl overflow-hidden"
                 onClick={e => e.stopPropagation()}
                 onKeyDown={handleKey}
             >

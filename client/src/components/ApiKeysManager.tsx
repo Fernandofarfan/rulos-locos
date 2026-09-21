@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { KeyRound, Plus, Trash2, AlertCircle } from 'lucide-react';
 import { apiService as api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { fireToast } from '../hooks/useToast';
+import { toast } from 'sonner';
 
 export const ApiKeysManager: React.FC = () => {
     const { user, refreshUser } = useAuth();
@@ -19,13 +19,13 @@ export const ApiKeysManager: React.FC = () => {
         setLoading(true);
         try {
             await api.post('/exchange-keys', { exchange, apiKey, apiSecret, passthrough });
-            fireToast({ type: 'success', title: 'Llave Guardada', message: `Conexión con ${exchange} exitosa.` });
+            toast.success('Llave Guardada', { description: `Conexión con ${exchange} exitosa.` });
             setApiKey('');
             setApiSecret('');
             setPassthrough('');
             await refreshUser(); // Update context
         } catch (error: any) {
-            fireToast({ type: 'error', title: 'Error', message: error.response?.data?.error || 'Falló la conexión.' });
+            toast.error('Error', { description: error.response?.data?.error || 'Falló la conexión.' });
         } finally {
             setLoading(false);
         }
@@ -34,10 +34,10 @@ export const ApiKeysManager: React.FC = () => {
     const handleRemoveKey = async (id: string) => {
         try {
             await (api as any).delete(`/exchange-keys/${id}`);
-            fireToast({ type: 'info', title: 'Llave Eliminada', message: 'La sincronización ha sido desactivada.' });
+            toast.info('Llave Eliminada', { description: 'La sincronización ha sido desactivada.' });
             await refreshUser();
         } catch (error) {
-            fireToast({ type: 'error', title: 'Error', message: 'No se pudo eliminar la llave.' });
+            toast.error('Error', { description: 'No se pudo eliminar la llave.' });
         }
     };
 

@@ -8,15 +8,25 @@ interface KeyboardShortcutsModalProps {
 }
 
 export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ open, onClose }) => {
+    React.useEffect(() => {
+        if (!open) return;
+        const handleEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', handleEscape);
+        return () => window.removeEventListener('keydown', handleEscape);
+    }, [open, onClose]);
+
     if (!open) return null;
 
     return (
         <div
             className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-md animate-fade-in"
             onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Atajos de teclado"
         >
             <div
-                className="bg-[#0d1117] border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl"
+                className="glass-panel p-6 w-full max-w-sm shadow-2xl"
                 onClick={e => e.stopPropagation()}
             >
                 <div className="flex items-center justify-between mb-5">

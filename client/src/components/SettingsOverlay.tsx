@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Bell, Volume2, Save, SlidersHorizontal, TrendingUp } from 'lucide-react';
+import { X, Bell, Volume2, SlidersHorizontal, TrendingUp } from 'lucide-react';
 
 import { useSettings } from '../hooks/useSettings';
 import { ApiKeysManager } from './ApiKeysManager';
@@ -179,13 +179,12 @@ export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClos
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-5 border-t border-white/10">
+                <div className="px-6 py-5 border-t border-border-subtle">
                     <button
                         onClick={onClose}
-                        className="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-900/40 transition-all active:scale-[0.98]"
+                        className="w-full bg-accent-primary hover:bg-blue-500 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
                     >
-                        <Save size={16} />
-                        Guardar Cambios
+                        Cerrar
                     </button>
                 </div>
             </div>
