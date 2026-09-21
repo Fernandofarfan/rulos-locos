@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Wallet, AlertTriangle, ArrowRight, Bell, BellRing, PlayCircle, History, Download, ArrowUpDown, ChevronUp, ChevronDown, X } from 'lucide-react';
+import { Wallet, AlertTriangle, ArrowRight, Bell, BellRing, PlayCircle, History, Download, ArrowUpDown, ChevronUp, ChevronDown, X, BookOpen } from 'lucide-react';
 import { Tooltip } from './ui/Tooltip';
 import type { ArbitrageOpportunity, SpreadHistoryPoint } from '../types';
 import MarketInsight from './MarketInsight';
 import { exportToCSV } from '../utils/exportCSV';
+import { RuloExecutionGuide } from './RuloExecutionGuide';
 
 interface ArbitrageHubProps {
     opportunities: ArbitrageOpportunity[];
@@ -13,6 +14,9 @@ interface ArbitrageHubProps {
 }
 
 export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, history = [], loading }) => {
+    // Guide State
+    const [guideOpen, setGuideOpen] = useState(false);
+
     // Alert State
     const [alertThreshold, setAlertThreshold] = useState<number>(3); // %
     const [alertsEnabled, setAlertsEnabled] = useState(false);
@@ -163,34 +167,43 @@ export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, histo
     };
 
     return (
-        <div className="glass-panel no-lift p-0 h-full flex flex-col overflow-hidden relative" aria-busy={loading}>
+        <div className="glass-panel no-lift p-0 flex flex-col relative" aria-busy={loading}>
             {/* Header */}
-            <div className="p-6 border-b border-white/5 bg-white/[0.02] relative">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-3">
-                        <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20 shadow-[0_0_15px_-5px_var(--accent-primary)]">
-                            <Wallet size={20} className="text-accent-primary" />
+            <div className="p-5 border-b border-white/5 bg-white/[0.02] relative">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <h3 className="text-base font-bold text-white flex items-center gap-2.5">
+                        <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20 text-accent-primary">
+                            <Wallet size={18} />
                         </div>
                         Oportunidades
                     </h3>
 
                     <div className="flex items-center gap-2">
+                        {/* Guía Operativa */}
+                        <button
+                            onClick={() => setGuideOpen(true)}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-accent-primary text-xs font-bold transition-all"
+                        >
+                            <BookOpen size={14} />
+                            <span>¿Cómo operar?</span>
+                        </button>
+
                         {/* CSV Export */}
                         <Tooltip content="Exportar CSV" placement="bottom">
                             <button
                                 onClick={handleExportCSV}
-                                className="p-2 rounded-lg border border-transparent text-slate-500 hover:text-emerald-400 hover:border-emerald-500/30 hover:bg-emerald-500/10 transition-colors"
+                                className="p-1.5 rounded-lg border border-transparent text-slate-500 hover:text-emerald-400 hover:border-emerald-500/30 hover:bg-emerald-500/10 transition-colors"
                             >
-                                <Download size={16} />
+                                <Download size={15} />
                             </button>
                         </Tooltip>
                         {/* Simulation History Toggle */}
                         <Tooltip content={showSimHistory ? 'Ocultar historial' : 'Ver historial simulado'} placement="bottom">
                             <button
                                 onClick={() => setShowSimHistory(!showSimHistory)}
-                                className={`p-2 rounded-lg border transition-colors ${showSimHistory ? 'bg-white/10 border-white/20 text-white' : 'border-transparent text-slate-500 hover:text-white'}`}
+                                className={`p-1.5 rounded-lg border transition-colors ${showSimHistory ? 'bg-white/10 border-white/20 text-white' : 'border-transparent text-slate-500 hover:text-white'}`}
                             >
-                                <History size={16} />
+                                <History size={15} />
                             </button>
                         </Tooltip>
 
@@ -198,9 +211,9 @@ export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, histo
                         <div className="relative">
                             <button
                                 onClick={() => setShowConfig(!showConfig)}
-                                className={`p-2 rounded-lg border transition-colors flex items-center gap-2 ${alertsEnabled ? 'bg-accent-primary/20 border-accent-primary/50 text-accent-primary' : 'bg-white/5 border-white/5 text-slate-400'}`}
+                                className={`p-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${alertsEnabled ? 'bg-accent-primary/20 border-accent-primary/50 text-accent-primary' : 'bg-white/5 border-white/5 text-slate-400'}`}
                             >
-                                {alertsEnabled ? <BellRing size={16} /> : <Bell size={16} />}
+                                {alertsEnabled ? <BellRing size={15} /> : <Bell size={15} />}
                                 {alertsEnabled && <span className="text-xs font-bold">{alertThreshold}%</span>}
                             </button>
 
@@ -451,6 +464,10 @@ export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, histo
                     </div>
                 </div>
             )}
+
+            {/* Modal de Guía Operativa de Arbitraje */}
+            <RuloExecutionGuide isOpen={guideOpen} onClose={() => setGuideOpen(false)} />
         </div>
     );
 };
+

@@ -2,13 +2,13 @@ import React from 'react';
 import { Menu, X, Github, Clock, Settings, RefreshCw, SlidersHorizontal, LogIn, LogOut, User, BarChart3, Landmark, Zap, Wrench, LineChart, Newspaper, Sun, Moon, Search } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { useDashboardData } from '../hooks/useDashboardData';
-
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useRefreshCountdown } from '../hooks/useRefreshCountdown';
 import { useAuth } from '../hooks/useAuth';
 import { SettingsModal } from './SettingsModal';
 import { SettingsOverlay } from './SettingsOverlay';
 import { LoginModal } from './LoginModal';
+import { StatusModal } from './StatusModal';
 import { Tooltip } from './ui/Tooltip';
 import { MarketTicker } from './MarketTicker';
 import { PDFExport } from './PDFExport';
@@ -30,6 +30,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
     const [isOverlayOpen, setIsOverlayOpen] = React.useState(false);
     const [isLoginOpen, setIsLoginOpen] = React.useState(false);
+    const [isStatusOpen, setIsStatusOpen] = React.useState(false);
     const { lastUpdated, rate, arbitrage, economics, loading, isRefreshing } = useDashboardData();
     const { user, logout } = useAuth();
     const { theme, toggleTheme } = useTheme();
@@ -44,6 +45,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
             else if (isSettingsOpen) setIsSettingsOpen(false);
             else if (isOverlayOpen) setIsOverlayOpen(false);
             else if (isSearchOpen) setIsSearchOpen(false);
+            else if (isStatusOpen) setIsStatusOpen(false);
         },
         onSearch: () => setIsSearchOpen(prev => !prev),
     });
@@ -295,16 +297,20 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                     </div>
 
                     <div className="flex items-center gap-8">
-                        <div className="flex flex-col items-end gap-1">
-                            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{t('footer.status')}</span>
+                        <button
+                            onClick={() => setIsStatusOpen(true)}
+                            className="flex flex-col items-end gap-1 group text-left transition-all p-1.5 rounded-lg hover:bg-white/5 cursor-pointer"
+                            title="Ver estado de APIs y servicios"
+                        >
+                            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider group-hover:text-slate-400">{t('footer.status')}</span>
                             <div className="flex items-center gap-2">
                                 <span className="relative flex h-2 w-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                 </span>
-                                <span className="text-xs font-mono text-emerald-400">{t('footer.operative')}</span>
+                                <span className="text-xs font-mono text-emerald-400 group-hover:underline">{t('footer.operative')}</span>
                             </div>
-                        </div>
+                        </button>
                     </div>
 
                     <div className="flex items-center gap-6">
@@ -312,7 +318,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                             <Github size={12} className="group-hover:text-white transition-colors" /> GitHub
                         </a>
                         <div className="h-4 w-px bg-white/10"></div>
-                            <span className="text-xs text-slate-600">
+                        <span className="text-xs text-slate-600">
                             v3.1.0
                         </span>
                         <div className="h-4 w-px bg-white/10" />
@@ -345,6 +351,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
             <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
             <SettingsOverlay isOpen={isOverlayOpen} onClose={() => setIsOverlayOpen(false)} />
             <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
+            <StatusModal isOpen={isStatusOpen} onClose={() => setIsStatusOpen(false)} />
         </div>
     );
 };
