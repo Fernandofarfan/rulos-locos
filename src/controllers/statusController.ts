@@ -28,14 +28,14 @@ async function checkService(svc: ServiceCheck): Promise<{
 }> {
     const start = Date.now();
     const timeout = svc.timeout ?? 5000;
+    let t: ReturnType<typeof setTimeout> | undefined;
     try {
         const controller = new AbortController();
-        const t = setTimeout(() => controller.abort(), timeout);
+        t = setTimeout(() => controller.abort(), timeout);
         const res = await fetch(svc.url, {
             signal: controller.signal as unknown as AbortSignal,
             headers: { 'User-Agent': 'RulosLocos-StatusCheck/1.0' },
         });
-        clearTimeout(t);
         const latencyMs = Date.now() - start;
         if (!res.ok) {
             return { name: svc.name, status: 'degraded', latencyMs, lastCheck: new Date().toISOString(), errorMsg: `HTTP ${res.status}` };
@@ -54,12 +54,14 @@ async function checkService(svc: ServiceCheck): Promise<{
             lastCheck: new Date().toISOString(),
             errorMsg: err?.name === 'AbortError' ? 'Timeout' : err?.message?.slice(0, 60) ?? 'Error',
         };
+    } finally {
+        if (t) clearTimeout(t);
     }
 }
 
 export async function getApiStatus(_req: Request, res: Response): Promise<void> {
     const CACHE_KEY = 'api_status';
-    const cached = cache.get<object>(CACHE_KEY);
+    const cached = await cache.get<object>(CACHE_KEY);
     if (cached) { res.json(cached); return; }
 
     try {

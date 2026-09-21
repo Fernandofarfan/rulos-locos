@@ -35,6 +35,8 @@ model PushSubscription {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Alert {
@@ -46,6 +48,9 @@ model Alert {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([active, userId])
 }
 
 model PortfolioPosition {
@@ -58,6 +63,8 @@ model PortfolioPosition {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model VirtualBalance {
@@ -69,6 +76,7 @@ model VirtualBalance {
   updatedAt       DateTime @updatedAt
 
   @@unique([userId, currency])
+  @@index([userId])
 }
 
 model VirtualTransaction {
@@ -81,6 +89,8 @@ model VirtualTransaction {
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model ExchangeKey {
@@ -95,4 +105,5 @@ model ExchangeKey {
   updatedAt       DateTime @updatedAt
 
   @@unique([userId, exchange])
+  @@index([userId])
 }

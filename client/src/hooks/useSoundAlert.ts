@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 
 type SoundType = 'up' | 'down' | 'alert' | 'success';
 
@@ -11,6 +11,14 @@ type SoundType = 'up' | 'down' | 'alert' | 'success';
  */
 export function useSoundAlert() {
     const audioCtx = useRef<AudioContext | null>(null);
+
+    // Cerrar el AudioContext al desmontar para no agotar el límite del navegador
+    useEffect(() => {
+        return () => {
+            audioCtx.current?.close().catch(() => {});
+            audioCtx.current = null;
+        };
+    }, []);
 
     const getCtx = useCallback(() => {
         if (!audioCtx.current || audioCtx.current.state === 'closed') {

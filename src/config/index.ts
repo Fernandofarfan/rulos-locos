@@ -12,7 +12,7 @@ const EnvSchema = z.object({
   ARGENSTATS_KEY: z.string().default(''),
   NEWS_API_KEY: z.string().default(''),
   CLIENT_URL: z.string().url().default('http://localhost:5173'),
-  JWT_SECRET: z.string().min(12).default('super_secret_key_change_me_in_production'),
+  JWT_SECRET: z.string().min(32),
   DATABASE_URL: z.string().default('file:./dev.db'),
   EMAIL_USER: z.string().email().optional(),
   EMAIL_PASS: z.string().optional(),
@@ -24,14 +24,19 @@ const EnvSchema = z.object({
 
 const _env = EnvSchema.safeParse(process.env);
 if (!_env.success) {
-  // Mostrar errores en consola (sistema de startup)
   const errorMsg = [
     '\n⚠️  Variables de entorno inválidas:',
     ..._env.error.issues.map(i => `  • ${i.path.join('.')}: ${i.message}`),
     ''
   ].join('\n');
   process.stderr.write(errorMsg);
-  // No abortamos el proceso en producción para evitar downtime; solo logueamos.
+
+  // En producción, abortar si JWT_SECRET falta o es inválido
+  const hasJwtError = _env.error.issues.some(i => i.path.includes('JWT_SECRET'));
+  if (hasJwtError && (process.env.NODE_ENV === 'production' || process.env.VERCEL)) {
+    process.stderr.write('\n❌ JWT_SECRET es obligatorio en producción. Abortando.\n');
+    process.exit(1);
+  }
 }
 const env = _env.success ? _env.data : ({ ...process.env, PORT: 3001, NODE_ENV: 'development' } as any);
 
@@ -77,7 +82,7 @@ const config: Config = {
   ARGENSTATS_KEY: env.ARGENSTATS_KEY || '',
   NEWS_API_KEY: env.NEWS_API_KEY || '',
   CLIENT_URL: env.CLIENT_URL || 'http://localhost:5173',
-  JWT_SECRET: env.JWT_SECRET || 'super_secret_key_change_me_in_production',
+  JWT_SECRET: env.JWT_SECRET,
   DEFAULT_HEADERS: {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'application/json',

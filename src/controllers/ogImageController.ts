@@ -9,7 +9,7 @@ import cache from '../utils/cache';
 export async function getOGImage(_req: Request, res: Response) {
     try {
         const cacheKey = 'og_image_svg';
-        const cached = cache.get<string>(cacheKey);
+        const cached = await cache.get<string>(cacheKey);
         if (cached) {
             res.type('image/svg+xml').send(cached);
             return;

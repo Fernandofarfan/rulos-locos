@@ -79,11 +79,6 @@ class UnifiedCache {
         void getRedisClient();
     }
 
-    get<T>(key: string): T | null {
-        // Sync path: siempre retornar desde memoria primero (copia local caliente)
-        return this.mem.get<T>(key);
-    }
-
     set<T>(key: string, data: T, ttl?: number): void {
         const ttlMs = ttl ?? this.defaultTtl;
         // Guardar en memoria siempre (respuesta inmediata)
@@ -92,23 +87,54 @@ class UnifiedCache {
         if (redisAvailable && redisClient) {
             const ttlSec = Math.ceil(ttlMs / 1000);
             const serialized = JSON.stringify(data);
-            (redisClient as unknown as { setex(k: string, t: number, v: string): void })
-                .setex(key, ttlSec, serialized);
+            (redisClient as unknown as { setex(k: string, t: number, v: string): Promise<unknown> })
+                .setex(key, ttlSec, serialized)
+                .catch((e) => logger.warn('cache.set Redis error %s: %s', key, (e as Error).message));
         }
     }
 
     del(key: string): void {
         this.mem.del(key);
         if (redisAvailable && redisClient) {
-            (redisClient as unknown as { del(k: string): void }).del(key);
+            (redisClient as unknown as { del(k: string): Promise<unknown> }).del(key)
+                .catch((e) => logger.warn('cache.del Redis error %s: %s', key, (e as Error).message));
         }
     }
 
     clear(): void {
         this.mem.clear();
         if (redisAvailable && redisClient) {
-            (redisClient as unknown as { flushdb(): void }).flushdb();
+            (redisClient as unknown as { flushdb(): Promise<unknown> }).flushdb()
+                .catch((e) => logger.warn('cache.clear Redis error: %s', (e as Error).message));
         }
+    }
+
+    /**
+     * Lee de memoria y, si no está, cae a Redis (y repuebla la memoria local).
+     * Es async para poder consultar Redis en instancias serverless frías.
+     */
+    async get<T>(key: string): Promise<T | null> {
+        const local = this.mem.get<T>(key);
+        if (local !== null) return local;
+
+        const redis = await getRedisClient();
+        if (!redis) return null;
+        try {
+            const raw = await (redis as unknown as { get(k: string): Promise<string | null> }).get(key);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw) as T;
+            const pttl = await (redis as unknown as { pttl(k: string): Promise<number> }).pttl(key);
+            this.mem.set(key, parsed, pttl > 0 ? pttl : this.defaultTtl);
+            return parsed;
+        } catch (e) {
+            logger.warn('cache.get Redis error %s: %s', key, (e as Error).message);
+            return null;
+        }
+    }
+
+    /** Lectura síncrona solo desde memoria (para contextos no-async). */
+    getSync<T>(key: string): T | null {
+        return this.mem.get<T>(key);
     }
 
     /** Precalentamiento: lee desde Redis al arrancar si la memoria está vacía. */

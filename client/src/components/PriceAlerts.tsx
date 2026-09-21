@@ -36,6 +36,56 @@ export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
     // Sincronizar precios del prop con la ref
     useEffect(() => { livePricesRef.current = prices; }, [prices]);
 
+    const requestPermission = async () => {
+        if ('Notification' in window) {
+            const perm = await Notification.requestPermission();
+            setPermission(perm);
+        }
+    };
+
+    const notifyUser = (alert: Alert, currentPrice: number) => {
+        const dirText = alert.condition === 'above' ? 'superó' : 'bajó de';
+        const body = `El Dólar ${alert.token.toUpperCase()} llegó a $${currentPrice.toLocaleString('es-AR')} (${dirText} $${alert.targetPrice.toLocaleString('es-AR')})`;
+
+        // Notificación del browser
+        if (permission === 'granted') {
+            new Notification('🔔 Rulos Locos — Alerta de Precio', {
+                body,
+                icon: '/icons/icon-192.svg',
+            });
+        }
+
+        // Envío automático a Telegram (best-effort, no bloquea UI)
+        apiService.sendTelegramAlert({
+            message: `🔔 <b>Alerta de Precio — Rulos Locos</b>\n${body}\n\n<a href="https://rulos-locos-dashboard.vercel.app">Ver Dashboard</a>`,
+        }).catch(() => { /* Telegram no configurado o sin conexión */ });
+    };
+
+    const addAlert = () => {
+        if (!newPrice) return;
+        const alert: Alert = {
+            id: Date.now().toString(),
+            token: newToken,
+            targetPrice: parseFloat(newPrice),
+            condition: newCondition,
+            active: true
+        };
+        setAlerts([...alerts, alert]);
+        setNewPrice('');
+
+        if (permission === 'default') {
+            requestPermission();
+        }
+    };
+
+    const deleteAlert = (id: string) => {
+        setAlerts(alerts.filter(a => a.id !== id));
+    };
+
+    const toggleAlert = (id: string, state: boolean) => {
+        setAlerts(alerts.map(a => a.id === id ? { ...a, active: state } : a));
+    };
+
     // Suscribirse a actualizaciones de arbitrage via WebSocket
     useEffect(() => {
         if (!socket) return;
@@ -95,58 +145,6 @@ export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
             }
         });
     }, [prices, alerts]);
-
-    const requestPermission = async () => {
-        if ('Notification' in window) {
-            const perm = await Notification.requestPermission();
-            setPermission(perm);
-        }
-    };
-
-
-
-    const notifyUser = (alert: Alert, currentPrice: number) => {
-        const dirText = alert.condition === 'above' ? 'superó' : 'bajó de';
-        const body = `El Dólar ${alert.token.toUpperCase()} llegó a $${currentPrice.toLocaleString('es-AR')} (${dirText} $${alert.targetPrice.toLocaleString('es-AR')})`;
-
-        // Notificación del browser
-        if (permission === 'granted') {
-            new Notification('🔔 Rulos Locos — Alerta de Precio', {
-                body,
-                icon: '/icons/icon-192.svg',
-            });
-        }
-
-        // Envío automático a Telegram (best-effort, no bloquea UI)
-        apiService.sendTelegramAlert({
-            message: `🔔 <b>Alerta de Precio — Rulos Locos</b>\n${body}\n\n<a href="https://rulos-locos-dashboard.vercel.app">Ver Dashboard</a>`,
-        }).catch(() => { /* Telegram no configurado o sin conexión */ });
-    };
-
-    const addAlert = () => {
-        if (!newPrice) return;
-        const alert: Alert = {
-            id: Date.now().toString(),
-            token: newToken,
-            targetPrice: parseFloat(newPrice),
-            condition: newCondition,
-            active: true
-        };
-        setAlerts([...alerts, alert]);
-        setNewPrice('');
-
-        if (permission === 'default') {
-            requestPermission();
-        }
-    };
-
-    const deleteAlert = (id: string) => {
-        setAlerts(alerts.filter(a => a.id !== id));
-    };
-
-    const toggleAlert = (id: string, state: boolean) => {
-        setAlerts(alerts.map(a => a.id === id ? { ...a, active: state } : a));
-    };
 
     return (
         <div className="glass-panel p-6 relative overflow-hidden">

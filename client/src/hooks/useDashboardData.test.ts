@@ -56,6 +56,7 @@ vi.mock('../services/api', () => ({
 // ── Mock: useSocket (socket.io no disponible en jsdom) ───────────────────────
 vi.mock('./useSocket', () => ({
     useSocket: () => ({ socket: null }),
+    getSharedSocket: () => ({ on: () => {}, off: () => {}, connected: false }),
 }));
 
 // ── Importar DESPUÉS de los mocks ─────────────────────────────────────────────

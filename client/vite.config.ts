@@ -14,8 +14,10 @@ export default defineConfig(({ mode }) => ({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
-      includeAssets: ['icons/icon-192.svg', 'icons/icon-512.svg', 'icons/icon-maskable.svg'],
+      // La registración la maneja ReloadPrompt via useRegisterSW (virtual:pwa-register/react).
+      // Evitamos 'auto' para no registrar el SW dos veces.
+      injectRegister: null,
+      includeAssets: ['icons/icon-192.svg', 'icons/icon-512.svg', 'icons/icon-maskable.svg', 'push-sw.js'],
       manifest: {
         name: 'Rulos Locos',
         short_name: 'RulosLocos',
@@ -41,6 +43,12 @@ export default defineConfig(({ mode }) => ({
             purpose: 'maskable'
           }
         ]
+      },
+      workbox: {
+        // Importa los handlers de push/notificationclick en el SW generado
+        importScripts: ['/push-sw.js'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,ico,woff2}'],
+        cleanupOutdatedCaches: true,
       }
     }),
     // Bundle analyzer: npm run build:analyze

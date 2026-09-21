@@ -14,37 +14,34 @@ if (process.env['VAPID_PUBLIC_KEY'] && process.env['VAPID_PRIVATE_KEY']) {
 
 import prisma from '../utils/db';
 
-export async function subscribe(req: Request, res: Response): Promise<void> {
+interface AuthRequest extends Request {
+    user?: { id: string; email: string };
+}
+
+export async function subscribe(req: AuthRequest, res: Response): Promise<void> {
     const subscription = req.body as webpush.PushSubscription;
-    // @ts-ignore
     const userId = req.user?.id;
-    if (!subscription?.endpoint) {
+
+    if (!subscription?.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
         res.status(400).json({ error: 'Suscripción inválida' });
         return;
     }
     try {
         if (!prisma) { res.status(503).json({ error: 'DB no disponible' }); return; }
-
-        // Use an anonymous user if no auth is present for now, or require auth if possible.
-        // For simplicity, we can let userId be optional in Prisma or we just bypass if userId is mandatory.
-        // Check schema.prisma: userId is String (mandatory block).
         if (!userId) { res.status(401).json({ error: 'Autenticación requerida para push' }); return; }
 
         await prisma.pushSubscription.upsert({
             where: { endpoint: subscription.endpoint },
             update: {
-                // @ts-ignore
                 p256dh: subscription.keys.p256dh,
-                // @ts-ignore
                 auth: subscription.keys.auth,
+                userId,
             },
             create: {
                 endpoint: subscription.endpoint,
-                // @ts-ignore
                 p256dh: subscription.keys.p256dh,
-                // @ts-ignore
                 auth: subscription.keys.auth,
-                userId: userId,
+                userId,
             }
         });
         logger.info('🔔 Nueva suscripción push registrada en DB');
@@ -55,12 +52,15 @@ export async function subscribe(req: Request, res: Response): Promise<void> {
     }
 }
 
-export async function unsubscribe(req: Request, res: Response): Promise<void> {
+export async function unsubscribe(req: AuthRequest, res: Response): Promise<void> {
     const { endpoint } = req.body as { endpoint?: string };
+    const userId = req.user?.id;
     if (!endpoint) { res.status(400).json({ error: 'Missing endpoint' }); return; }
+    if (!userId) { res.status(401).json({ error: 'Autenticación requerida' }); return; }
     if (prisma) {
         try {
-            await prisma.pushSubscription.delete({ where: { endpoint } });
+            // Solo borrar si la suscripción pertenece al usuario autenticado (evita IDOR)
+            await prisma.pushSubscription.deleteMany({ where: { endpoint, userId } });
             res.json({ ok: true });
         } catch (e) { /* ignore if not exist */ res.json({ ok: true }); }
     } else {

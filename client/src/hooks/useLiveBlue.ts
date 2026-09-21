@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { getSharedSocket } from './useSocket';
 import { useSoundAlert } from './useSoundAlert';
 import { useVoiceAlert } from './useVoiceAlert';
 import { fireToast } from './useToast';
@@ -26,7 +26,6 @@ interface UseLiveBlueOptions {
 export function useLiveBlue(opts: UseLiveBlueOptions = {}): LiveBlueData {
     const { alertThresholdPct = 1, soundEnabled = true, voiceEnabled = false } = opts;
     const [data, setData] = useState<LiveBlueData>(DEFAULT);
-    const socketRef = useRef<Socket | null>(null);
     const prevPriceRef = useRef(0);
     const { play } = useSoundAlert();
     const { speakPriceChange } = useVoiceAlert();
@@ -77,26 +76,24 @@ export function useLiveBlue(opts: UseLiveBlueOptions = {}): LiveBlueData {
     }, [alertThresholdPct, soundEnabled, voiceEnabled, play, speakPriceChange]);
 
     useEffect(() => {
-        const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
-        const socket = io(apiUrl, {
-            transports: ['websocket', 'polling'],
-            reconnectionAttempts: 5,
-            reconnectionDelay: 2000,
-            timeout: 10000,
-        });
-        socketRef.current = socket;
+        const socket = getSharedSocket();
 
-        socket.on('connect', () => {
+        const handleConnect = () => {
             setData(prev => ({ ...prev, connected: true }));
-        });
-        socket.on('disconnect', () => {
+        };
+        const handleDisconnect = () => {
             setData(prev => ({ ...prev, connected: false }));
-        });
+        };
+
+        socket.on('connect', handleConnect);
+        socket.on('disconnect', handleDisconnect);
         socket.on('arbitrage-update', handleArbitrageUpdate);
 
         return () => {
+            // No desconectar el socket compartido; solo quitar los listeners propios
+            socket.off('connect', handleConnect);
+            socket.off('disconnect', handleDisconnect);
             socket.off('arbitrage-update', handleArbitrageUpdate);
-            socket.disconnect();
         };
     }, [handleArbitrageUpdate]);
 

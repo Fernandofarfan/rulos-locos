@@ -14,6 +14,7 @@ import cryptoYaService from '../services/cryptoYaService';
  */
 export class TelegramBotController {
     private token = process.env.TELEGRAM_BOT_TOKEN || '';
+    private webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET || '';
     // chatId acá solo se usa si enviamos global, pero para webhook se usa const chatId = message.chat.id
 
     async registerWebhook(req: Request, res: Response): Promise<void> {
@@ -23,17 +24,24 @@ export class TelegramBotController {
                 return;
             }
             
-            // Si el front manda el host (ej: https://app.vercel.app), lo usamos. Si no, usamos el req.hostname
-            // En Vercel req.hostname es tu dominio
+            // Solo usar el host del servidor — nunca aceptar req.body.url (SSRF)
             const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-            const host = req.body.url || req.headers.host; 
+            const host = req.headers.host;
+            if (!host) {
+                res.status(400).json({ error: 'No se pudo determinar el host del servidor' });
+                return;
+            }
             const webhookUrl = `${protocol}://${host}/api/telegram/webhook`;
 
             const url = `https://api.telegram.org/bot${this.token}/setWebhook`;
+            const body: Record<string, unknown> = { url: webhookUrl };
+            // Si hay secret configurado, Telegram lo enviará en cada request y lo validamos
+            if (this.webhookSecret) body.secret_token = this.webhookSecret;
+
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: webhookUrl }),
+                body: JSON.stringify(body),
             });
             const data = await response.json();
             res.json({ success: true, webhookUrl, telegramResponse: data });
@@ -45,6 +53,16 @@ export class TelegramBotController {
 
     async handleWebhook(req: Request, res: Response): Promise<void> {
         try {
+            // Validar que el request venga realmente de Telegram
+            if (this.webhookSecret) {
+                const secretHeader = req.headers['x-telegram-bot-api-secret-token'];
+                if (secretHeader !== this.webhookSecret) {
+                    logger.warn('Telegram webhook: secret token inválido');
+                    res.status(403).json({ error: 'Forbidden' });
+                    return;
+                }
+            }
+
             const { message } = req.body;
             if (!message?.text) { res.json({ ok: true }); return; }
 

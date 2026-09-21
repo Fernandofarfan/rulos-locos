@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useState, useEffect, useMemo } from 'react';
 import { Trophy, Star, Zap, Eye, Bell, Monitor, Target, Award, X } from 'lucide-react';
 
@@ -64,6 +65,14 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ activeView
     const [showToast, setShowToast] = useState<Achievement | null>(null);
     const [isOpen, setIsOpen] = useState(false);
     const prevUnlocked = React.useRef<Set<string>>(new Set());
+    const toastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Limpiar timer del toast al desmontar
+    useEffect(() => {
+        return () => {
+            if (toastTimer.current) clearTimeout(toastTimer.current);
+        };
+    }, []);
 
     // Track visit count on mount
     useEffect(() => {
@@ -95,7 +104,8 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ activeView
                 const ach = ACHIEVEMENTS.find(a => a.id === id);
                 if (ach) {
                     setShowToast(ach);
-                    setTimeout(() => setShowToast(null), 4000);
+                    if (toastTimer.current) clearTimeout(toastTimer.current);
+                    toastTimer.current = setTimeout(() => setShowToast(null), 4000);
                 }
                 break;
             }

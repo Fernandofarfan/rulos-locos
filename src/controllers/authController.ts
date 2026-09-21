@@ -129,7 +129,15 @@ class AuthController {
 
             const user = await prisma.user.findUnique({
                 where: { id: userId },
-                include: { alerts: true, portfolio: true, balances: true, virtualTxs: true, apiKeys: true },
+                include: {
+                    alerts: true,
+                    portfolio: true,
+                    balances: true,
+                    virtualTxs: true,
+                    apiKeys: {
+                        select: { id: true, exchange: true, createdAt: true, updatedAt: true },
+                    },
+                },
             });
 
             if (!user) {
@@ -237,62 +245,47 @@ class AuthController {
     }
 
     async googleLogin(req: Request, res: Response): Promise<void> {
-        logger.info('>>> [DEBUG] Entrando a googleLogin');
         if (!prisma) { 
-            logger.error('>>> [DEBUG] Error: Prisma no inicializado');
             res.status(503).json({ error: 'DB no disponible' }); 
             return; 
         }
         const { credential } = req.body as { credential?: string };
         if (!credential) { 
-            logger.warn('>>> [DEBUG] Error: No llegó credential en el body');
             res.status(400).json({ error: 'Token de Google requerido' }); 
             return; 
         }
 
-        logger.info('>>> [DEBUG] GOOGLE_CLIENT_ID: %s', GOOGLE_CLIENT_ID);
         if (!GOOGLE_CLIENT_ID) {
-            logger.error('>>> [DEBUG] Error: GOOGLE_CLIENT_ID es undefined');
             res.status(503).json({ error: 'Google OAuth no configurado (definí GOOGLE_CLIENT_ID en backend)' });
             return;
         }
 
         try {
-            logger.info('>>> [DEBUG] Verificando token con Google...');
             const ticket = await googleClient.verifyIdToken({
                 idToken: credential,
                 audience: GOOGLE_CLIENT_ID,
             });
             const payload = ticket.getPayload();
-            logger.info('>>> [DEBUG] Google Payload recibido para: %s', payload?.email);
 
             if (!payload || !payload.email) {
-                logger.warn('>>> [DEBUG] Token inválido o sin email');
                 res.status(400).json({ error: 'Token inválido' });
                 return;
             }
 
             const { email, sub: googleId, name, picture: avatarUrl } = payload;
-            logger.info('>>> [DEBUG] Buscando usuario en DB: %s', email);
 
-            // Buscar usuario existente por email o googleId
             let user = await prisma.user.findFirst({
                 where: { OR: [{ email }, { googleId }] }
             });
 
             if (user) {
-                logger.info('>>> [DEBUG] Usuario encontrado (ID: %s)', user.id);
-                // Si existe pero no tiene googleId, lo vinculamos
                 if (!user.googleId) {
-                    logger.info('>>> [DEBUG] Vinculando googleId a usuario existente');
                     user = await prisma.user.update({
                         where: { id: user.id },
                         data: { googleId, avatarUrl: user.avatarUrl || avatarUrl }
                     });
                 }
             } else {
-                logger.info('>>> [DEBUG] Creando nuevo usuario Google: %s', email);
-                // Si no existe, lo creamos sin password
                 user = await prisma.user.create({
                     data: {
                         email,
@@ -301,16 +294,13 @@ class AuthController {
                         avatarUrl,
                     }
                 });
-                logger.info('>>> [DEBUG] Nuevo usuario Google registrado con éxito');
             }
 
             const token = signAccess({ id: user.id, email: user.email });
             const refreshToken = signRefresh({ id: user.id, email: user.email });
-            logger.info('>>> [DEBUG] Login exitoso, enviando tokens.');
             res.json({ token, refreshToken, user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl } });
         } catch (error) {
-            logger.error('>>> [DEBUG] Error en googleLogin CATCH: %s', (error as Error).message);
-            if ((error as Error).stack) logger.error((error as Error).stack); 
+            logger.error('Error en googleLogin: %s', (error as Error).message);
             res.status(401).json({ error: 'Fallo al autenticar con Google' });
         }
     }

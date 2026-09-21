@@ -74,29 +74,27 @@ class RealExchangeService {
      */
     async getMultiExchangePrices(symbol: string = 'BTC/USDT'): Promise<ExchangePrice[]> {
         const exchangeIds = this.getAvailableExchanges();
-        const results: ExchangePrice[] = [];
 
-        for (const id of exchangeIds) {
-            try {
+        const results = await Promise.allSettled(
+            exchangeIds.map(async (id) => {
                 const exchange = this.createPublicClient(id);
-                if (!exchange) continue;
+                if (!exchange) throw new Error('Exchange not available');
                 const ticker = await exchange.fetchTicker(symbol);
-                if (ticker) {
-                    results.push({
-                        exchange: id.toUpperCase(),
-                        symbol,
-                        bid: ticker.bid || 0,
-                        ask: ticker.ask || 0,
-                        last: ticker.last || 0,
-                        timestamp: ticker.timestamp || Date.now(),
-                    });
-                }
-            } catch {
-                // exchange not available for this pair
-            }
-        }
+                if (!ticker) throw new Error('No ticker data');
+                return {
+                    exchange: id.toUpperCase(),
+                    symbol,
+                    bid: ticker.bid || 0,
+                    ask: ticker.ask || 0,
+                    last: ticker.last || 0,
+                    timestamp: ticker.timestamp || Date.now(),
+                } as ExchangePrice;
+            })
+        );
 
-        return results;
+        return results
+            .filter((r): r is PromiseFulfilledResult<ExchangePrice> => r.status === 'fulfilled')
+            .map(r => r.value);
     }
 
     /**

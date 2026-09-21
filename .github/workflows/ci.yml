@@ -28,7 +28,7 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
         env:
-          DATABASE_URL: "file:./test.db"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/rulos_test?schema=public"
 
       - name: TypeScript check
         run: npx tsc --noEmit
@@ -41,7 +41,7 @@ jobs:
         run: npm test -- --forceExit
         env:
           NODE_ENV: test
-          DATABASE_URL: "file:./test.db"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/rulos_test?schema=public"
 
   frontend:
     name: Frontend (tsc + vitest + lint)
@@ -90,12 +90,12 @@ jobs:
       - name: Install root dependencies
         run: npm install
         env:
-          DATABASE_URL: "file:./test.db"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/rulos_test?schema=public"
 
       - name: Generate Prisma client
         run: npx prisma generate
         env:
-          DATABASE_URL: "file:./test.db"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/rulos_test?schema=public"
 
       - name: Install client dependencies
         working-directory: client
@@ -109,7 +109,7 @@ jobs:
         run: npm run dev:backend &
         env:
           NODE_ENV: test
-          DATABASE_URL: "file:./test.db"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/rulos_test?schema=public"
           PORT: 3001
           JWT_SECRET: test-secret-key
 
@@ -150,6 +150,6 @@ jobs:
       - run: npm install
       - run: npx prisma generate
         env:
-          DATABASE_URL: "file:./dev.db"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/rulos_test?schema=public"
       - run: npm run build:client
       - run: test -f client/dist/index.html

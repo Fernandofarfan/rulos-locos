@@ -16,14 +16,18 @@ export const getHealth = asyncHandler(async (_req: Request, res: Response) => {
   // Validar BD
   let dbStatus = 'disconnected';
   let dbLatency = -1;
-  try {
-    const start = Date.now();
-    await prisma.$queryRaw`SELECT 1`;
-    dbLatency = Date.now() - start;
-    dbStatus = 'connected';
-  } catch (error) {
-    logger.error('Health check: DB connection failed', error);
-    dbStatus = 'error';
+  if (!prisma) {
+    dbStatus = 'unavailable';
+  } else {
+    try {
+      const start = Date.now();
+      await prisma.$queryRaw`SELECT 1`;
+      dbLatency = Date.now() - start;
+      dbStatus = 'connected';
+    } catch (error) {
+      logger.error('Health check: DB connection failed', error);
+      dbStatus = 'error';
+    }
   }
 
   const status = dbStatus === 'connected' ? 'healthy' : 'degraded';
@@ -55,6 +59,10 @@ export const getHealth = asyncHandler(async (_req: Request, res: Response) => {
  * Ready check - confirma que el servidor está listo para recibir requests
  */
 export const getReady = asyncHandler(async (_req: Request, res: Response) => {
+  if (!prisma) {
+    res.status(503).json({ ready: false, reason: 'database_unavailable' });
+    return;
+  }
   try {
     await prisma.$queryRaw`SELECT 1`;
     res.json({ ready: true });

@@ -100,16 +100,17 @@ export const useDashboardData = () => {
         fetchData();
 
         if (socket) {
-            socket.on('arbitrage-update', (data: any) => {
+            const handleArbitrageUpdate = (data: any) => {
                 setArbitrage(data);
                 if (data.rate) setRate(data.rate);
                 setLastUpdated(new Date());
-            });
-        }
+            };
+            socket.on('arbitrage-update', handleArbitrageUpdate);
 
-        return () => {
-            if (socket) socket.off('arbitrage-update');
-        };
+            return () => {
+                socket.off('arbitrage-update', handleArbitrageUpdate);
+            };
+        }
     }, [fetchData, socket]);
 
     return {

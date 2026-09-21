@@ -20,7 +20,7 @@ interface BondData {
 class BondController {
     async getBonds(_req: Request, res: Response): Promise<void> {
         try {
-            const cachedData = cache.get<Record<string, unknown>>('bonds_data');
+            const cachedData = await cache.get<Record<string, unknown>>('bonds_data');
             if (cachedData) {
                 res.json({ ...cachedData, cached: true });
                 return;
@@ -61,7 +61,7 @@ class BondController {
             res.json({ bonos: { disponibles: [], total: 0 }, estadisticas: { promedio: 0, minimo: 0, maximo: 0, spread: 0, masLiquido: null }, timestamp: new Date().toISOString() });
         } catch (error) {
             logger.error('Error en BondController.getBonds: %s', (error as Error).message);
-            res.status(500).json({ error: 'No se pudo obtener cotizaciones de bonos', message: (error as Error).message });
+            res.status(500).json({ error: 'No se pudo obtener cotizaciones de bonos' });
         }
     }
 }

@@ -60,9 +60,9 @@ const corsOptions: cors.CorsOptions = {
             /^https:\/\/rulos-locos\.com\.ar$/,
             /localhost:5173$/,
         ];
-        if (allowedPatterns.some(p => p.test(origin)) || origin === config.CLIENT_URL) {
-            callback(null, true);
-        } else if (origin.endsWith('.vercel.app')) {
+        // Orígenes extra configurables via env (separados por coma)
+        const extraOrigins = (process.env.CORS_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
+        if (allowedPatterns.some(p => p.test(origin)) || origin === config.CLIENT_URL || extraOrigins.includes(origin)) {
             callback(null, true);
         } else {
             logger.warn('CORS bloqueado para origen: %s', origin);
@@ -176,10 +176,13 @@ const swaggerSpec = {
         },
     },
 };
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-    customSiteTitle: 'Rulos Locos — API Docs',
-}));
-logger.info('Swagger UI disponible en /api/docs');
+const swaggerEnabled = process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true';
+if (swaggerEnabled) {
+    app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+        customSiteTitle: 'Rulos Locos — API Docs',
+    }));
+    logger.info('Swagger UI disponible en /api/docs');
+}
 
 // 404 API Error Handler - Prevent fallback to SPA
 app.use('/api/*', (req: Request, res: Response) => {

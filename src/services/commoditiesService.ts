@@ -62,7 +62,7 @@ function withFakeDelta(base: Omit<CommodityItem, 'change24h' | 'source'>[]): Com
 }
 
 export async function getCommodities(): Promise<CommodityItem[]> {
-    const cached = cache.get<CommodityItem[]>(CACHE_KEY);
+    const cached = await cache.get<CommodityItem[]>(CACHE_KEY);
     if (cached) return cached;
 
     // 1. Intentar API real

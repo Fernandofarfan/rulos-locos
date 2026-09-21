@@ -15,52 +15,48 @@ interface UseSocketOptions {
     onMarketUpdate?: (data: MarketPayload) => void;
 }
 
+// ─── Singleton socket ─────────────────────────────────────────────────────────
+// Una sola conexión WebSocket compartida por toda la app evita abrir N
+// conexiones (una por componente) y el consecuente consumo de recursos.
+let sharedSocket: Socket | null = null;
+
+export function getSharedSocket(): Socket {
+    if (!sharedSocket) {
+        sharedSocket = io(SOCKET_URL, {
+            reconnectionAttempts: 5,
+            reconnectionDelay: 2000,
+            timeout: 5000,
+            autoConnect: true,
+        });
+    }
+    return sharedSocket;
+}
+
 export const useSocket = (options?: UseSocketOptions) => {
-    const [socket, setSocket] = useState<Socket | null>(null);
-    const [isConnected, setIsConnected] = useState(false);
-    const reconnectAttempts = useRef(0);
-    const maxReconnectAttempts = 5;
+    const socket = getSharedSocket();
+    const [isConnected, setIsConnected] = useState(socket.connected);
     const onMarketUpdateRef = useRef(options?.onMarketUpdate);
+
     useEffect(() => {
         onMarketUpdateRef.current = options?.onMarketUpdate;
     }, [options?.onMarketUpdate]);
 
     useEffect(() => {
-        const newSocket = io(SOCKET_URL, {
-            reconnectionAttempts: maxReconnectAttempts,
-            reconnectionDelay: 2000,
-            timeout: 5000,
-            autoConnect: true,
-        });
+        const handleConnect = () => setIsConnected(true);
+        const handleDisconnect = () => setIsConnected(false);
+        const handleMarket = (data: MarketPayload) => onMarketUpdateRef.current?.(data);
 
-        setSocket(newSocket);
-
-        newSocket.on('connect', () => {
-            setIsConnected(true);
-            reconnectAttempts.current = 0;
-        });
-
-        newSocket.on('disconnect', () => {
-            setIsConnected(false);
-        });
-
-        newSocket.on('connect_error', () => {
-            reconnectAttempts.current += 1;
-            if (reconnectAttempts.current >= maxReconnectAttempts) {
-                newSocket.disconnect();
-            }
-        });
-
-        // Recibir actualizaciones de mercado del marketWorker (cada 5 min)
-        newSocket.on('market-update', (data: MarketPayload) => {
-            onMarketUpdateRef.current?.(data);
-        });
+        socket.on('connect', handleConnect);
+        socket.on('disconnect', handleDisconnect);
+        socket.on('market-update', handleMarket);
 
         return () => {
-            newSocket.close();
+            // Solo se quitan los listeners propios; el socket compartido sigue vivo
+            socket.off('connect', handleConnect);
+            socket.off('disconnect', handleDisconnect);
+            socket.off('market-update', handleMarket);
         };
-    }, []);
+    }, [socket]);
 
     return { socket, isConnected };
 };
-

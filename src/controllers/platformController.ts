@@ -17,7 +17,7 @@ interface PlatformResult {
 class PlatformController {
     async getPlatforms(_req: Request, res: Response): Promise<void> {
         try {
-            const cachedData = cache.get<{ available: PlatformResult[]; unavailable: PlatformResult[]; count: number }>('platforms_data');
+            const cachedData = await cache.get<{ available: PlatformResult[]; unavailable: PlatformResult[]; count: number }>('platforms_data');
             if (cachedData) {
                 res.json({ platforms: cachedData, cached: true, timestamp: new Date().toISOString() });
                 return;
@@ -63,7 +63,7 @@ class PlatformController {
             res.json({ platforms: responseData, cached: false, timestamp: new Date().toISOString() });
         } catch (error) {
             logger.error('Error en PlatformController.getPlatforms: %s', (error as Error).message);
-            res.status(500).json({ error: 'No se pudo obtener las cotizaciones', message: (error as Error).message });
+            res.status(500).json({ error: 'No se pudo obtener las cotizaciones' });
         }
     }
 }

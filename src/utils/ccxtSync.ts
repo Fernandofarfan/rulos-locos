@@ -63,13 +63,10 @@ export class PortfolioSyncService {
             const fetched = await client.fetchBalance();
             balances = fetched.total || {};
         } else if (targetExchange === 'lemon') {
-            // Mock Lemon Cash API implementation if Lemon isn't in CCXT
-            // In reality, you'd do a fetch() to Lemon's public API using the Bearer token
-            balances = {
-                'USDT': Math.random() * 500,
-                'BTC': 0.05,
-                'ARS': 150000
-            };
+            // Lemon no está soportado por CCXT todavía y no hay integración real.
+            // NUNCA fabricar balances falsos: se persistirían en el portfolio del usuario.
+            logger.warn('Sync Lemon omitido: integración real no disponible');
+            return;
         }
 
         // Now save to Prisma Portfolio (Overwriting existing synced items for this exchange)

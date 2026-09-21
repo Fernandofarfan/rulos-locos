@@ -9,7 +9,7 @@ export class AIController {
     async getInsight(req: Request, res: Response): Promise<void> {
         try {
             const cacheKey = 'daily_ai_insight';
-            const cachedInsight = cache.get<string>(cacheKey);
+            const cachedInsight = await cache.get<string>(cacheKey);
 
             if (cachedInsight) {
                 res.json({ insight: cachedInsight, cached: true });
@@ -81,7 +81,7 @@ export class AIController {
     async getRuloDelDia(_req: Request, res: Response): Promise<void> {
         try {
             const CACHE_KEY = 'rulo_del_dia';
-            const cached = cache.get<string>(CACHE_KEY);
+            const cached = await cache.get<string>(CACHE_KEY);
             if (cached) { res.json({ rulo: cached, cached: true }); return; }
 
             const [dolaresArray, cryptoAsk] = await Promise.all([

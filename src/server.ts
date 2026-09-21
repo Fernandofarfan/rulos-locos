@@ -38,8 +38,9 @@ io.on('connection', (socket) => {
 });
 
 const PORT = Number(config.PORT) || 3001;
-const server = httpServer.listen(PORT, '127.0.0.1', () => {
-    logger.info(`🚀 Servidor y WebSockets corriendo en http://127.0.0.1:${PORT}`);
+const HOST = process.env.HOST || '0.0.0.0';
+const server = httpServer.listen(PORT, HOST, () => {
+    logger.info(`🚀 Servidor y WebSockets corriendo en http://${HOST}:${PORT}`);
     logger.info(`📝 Ambiente: ${config.NODE_ENV}`);
     logger.info(`🔑 Google Client ID cargado: ${process.env.GOOGLE_CLIENT_ID ? 'SÍ' : 'NO'}`);
 

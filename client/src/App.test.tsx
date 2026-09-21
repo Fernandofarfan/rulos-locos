@@ -309,6 +309,7 @@ describe('calcRSI', () => {
 // Mock useSocket para evitar conexión WebSocket real
 vi.mock('./hooks/useSocket', () => ({
     useSocket: () => ({ socket: null, isConnected: false }),
+    getSharedSocket: () => ({ on: vi.fn(), off: vi.fn(), connected: false }),
 }));
 
 import { PriceAlerts } from './components/PriceAlerts';

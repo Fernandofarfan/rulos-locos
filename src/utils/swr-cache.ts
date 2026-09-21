@@ -18,6 +18,8 @@ const CACHE = new Map<string, CacheEntry>();
 const INFLIGHT = new Map<string, Promise<unknown>>();
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
 const DEFAULT_MAX_TTL_MS = 30 * 60 * 1000;
+const MAX_ENTRIES = 500;
+const INFLIGHT_TIMEOUT_MS = 30_000;
 
 const cleanupTimer = setInterval(() => {
     const now = Date.now();
@@ -30,6 +32,17 @@ const cleanupTimer = setInterval(() => {
 }, CLEANUP_INTERVAL_MS);
 
 if (cleanupTimer.unref) cleanupTimer.unref();
+
+/** Evita crecimiento sin límite del Map (política: descartar la entrada más vieja). */
+function evictIfNeeded(): void {
+    if (CACHE.size <= MAX_ENTRIES) return;
+    let oldestKey: string | undefined;
+    let oldestTs = Infinity;
+    for (const [k, e] of CACHE) {
+        if (e.timestamp < oldestTs) { oldestTs = e.timestamp; oldestKey = k; }
+    }
+    if (oldestKey) CACHE.delete(oldestKey);
+}
 
 interface SWROptions {
     staleTTL: number;
@@ -49,6 +62,7 @@ export function swrCache(opts: SWROptions): RequestHandler {
         function setCache(body: unknown) {
             if (res.statusCode >= 200 && res.statusCode < 300) {
                 CACHE.set(key, { data: body, timestamp: Date.now(), revalidating: false });
+                evictIfNeeded();
             }
         }
 
@@ -58,6 +72,11 @@ export function swrCache(opts: SWROptions): RequestHandler {
                 setCache(body);
                 return originalJson(body);
             };
+            // Si el controller termina sin llamar res.json (sendStatus/send/error),
+            // liberamos cualquier INFLIGHT pendiente para no colgar futuras requests.
+            const clearInflight = () => { INFLIGHT.delete(key); };
+            res.once('finish', clearInflight);
+            res.once('close', clearInflight);
             next();
         }
 
@@ -66,20 +85,38 @@ export function swrCache(opts: SWROptions): RequestHandler {
             const inflight = INFLIGHT.get(key);
             if (inflight) {
                 logger.debug('SWR: coalescing request for %s', key);
-                inflight.then((data) => res.json(data)).catch(() => { patchAndNext(); });
+                inflight.then((data) => {
+                    if (data === undefined) { patchAndNext(); }
+                    else { res.json(data); }
+                }).catch(() => { patchAndNext(); });
                 return;
             }
 
             // First request in cold state: execute controller and share result
-            let resolveInflight: (data: unknown) => void;
+            let resolveInflight!: (data: unknown) => void;
             const promise = new Promise<unknown>((resolve) => { resolveInflight = resolve; });
             INFLIGHT.set(key, promise);
+
+            const finalize = (data?: unknown) => {
+                clearTimeout(timer);
+                if (INFLIGHT.get(key) === promise) INFLIGHT.delete(key);
+                resolveInflight(data);
+            };
+
+            // Failsafe: si el controller nunca responde, liberar el INFLIGHT
+            const timer = setTimeout(() => {
+                logger.warn('SWR: inflight timeout for %s, releasing', key);
+                finalize(undefined);
+            }, INFLIGHT_TIMEOUT_MS);
+            if (timer.unref) timer.unref();
+
+            res.once('finish', () => finalize(undefined));
+            res.once('close', () => finalize(undefined));
 
             const originalJson2 = res.json.bind(res);
             res.json = function (body: unknown) {
                 setCache(body);
-                resolveInflight!(body);
-                INFLIGHT.delete(key);
+                finalize(body);
                 return originalJson2(body);
             };
             next();

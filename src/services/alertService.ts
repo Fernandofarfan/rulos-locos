@@ -2,7 +2,7 @@ import prisma from '../utils/db';
 import logger from '../utils/logger';
 import notificationService from './notificationService';
 import { sendPriceAlertEmail } from './emailService';
-import rateController from '../controllers/rateController';
+import dolarApiService from './dolarApiService';
 
 interface CurrentPrices {
     blue?: number;
@@ -19,6 +19,10 @@ interface CoinGeckoPriceResponse {
 }
 
 class AlertService {
+    /** Cooldown en ms para evitar reenviar la misma alerta en cada ciclo (20 min) */
+    private readonly COOLDOWN_MS = 20 * 60 * 1000;
+    private lastTriggered = new Map<string, number>();
+
     /**
      * Obtener precios actuales de todas las fuentes
      */
@@ -26,13 +30,15 @@ class AlertService {
         try {
             const prices: CurrentPrices = {};
 
-            // Obtener tasa de cambio (incluye blue, mep, ccl)
-            const rateData = await (rateController as any).getRateData?.();
-            if (rateData) {
-                prices.blue = rateData.blue?.valor || rateData.blue?.venta;
-                prices.mep = rateData.mep?.valor || rateData.mep?.venta;
-                prices.ccl = rateData.ccl?.valor || rateData.ccl?.venta;
-            }
+            // Obtener cotizaciones (blue, mep, ccl) desde DolarAPI
+            const dolares = await dolarApiService.getAllDollars();
+            const blue = dolares.find((d) => d.casa === 'blue');
+            const mep = dolares.find((d) => d.casa === 'bolsa');
+            const ccl = dolares.find((d) => d.casa === 'contadoconliqui');
+
+            prices.blue = blue?.venta;
+            prices.mep = mep?.venta;
+            prices.ccl = ccl?.venta;
 
             // Obtener cripto (aproximado via coingecko o similar)
             try {
@@ -85,10 +91,10 @@ class AlertService {
                 return;
             }
 
-            // Obtener todas las alertas activas
+            // Obtener todas las alertas activas (solo el email del usuario, no todo el registro)
             const alerts = await prisma.alert.findMany({
                 where: { active: true },
-                include: { user: true },
+                include: { user: { select: { email: true } } },
             });
 
             if (alerts.length === 0) {
@@ -118,6 +124,13 @@ class AlertService {
                 );
 
                 if (shouldTrigger) {
+                    // Cooldown: evita reenviar la misma alerta en cada ciclo
+                    const last = this.lastTriggered.get(alert.id) ?? 0;
+                    if (Date.now() - last < this.COOLDOWN_MS) {
+                        logger.debug('Alerta %s en cooldown, omitiendo', alert.id);
+                        continue;
+                    }
+                    this.lastTriggered.set(alert.id, Date.now());
                     await this.sendAlertNotification(alert, currentPrice);
                 }
             }

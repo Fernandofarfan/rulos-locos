@@ -28,19 +28,19 @@ export function getJwtSecret(): string {
 
 export function signToken(payload: object, expiresIn?: string): string {
     const secret = getJwtSecret();
-    const options: jwt.SignOptions = {};
+    const options: jwt.SignOptions = { algorithm: 'HS256' };
     if (expiresIn) options.expiresIn = expiresIn as any;
     return jwt.sign(payload, secret, options);
 }
 
 export function signRefreshToken(payload: object): string {
     const secret = getJwtSecret();
-    return jwt.sign({ ...payload, type: 'refresh' }, secret, { expiresIn: JWT_REFRESH_EXPIRES_IN } as any);
+    return jwt.sign({ ...payload, type: 'refresh' }, secret, { algorithm: 'HS256', expiresIn: JWT_REFRESH_EXPIRES_IN } as any);
 }
 
 export function verifyRefreshToken(token: string): jwt.JwtPayload | string {
     const secret = getJwtSecret();
-    const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
+    const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as jwt.JwtPayload;
     if (decoded.type !== 'refresh') throw new Error('Invalid token type');
     return decoded;
 }
@@ -56,7 +56,7 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
 
     try {
         const secret = getJwtSecret();
-        const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
+        const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as jwt.JwtPayload;
         if (decoded.type === 'refresh') {
             res.status(401).json({ error: 'Refresh tokens cannot be used for API access' });
             return;
@@ -66,6 +66,36 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
     } catch {
         res.sendStatus(403);
     }
+}
+
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+    if (!req.user || typeof req.user === 'string') {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+    }
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean);
+    const userEmail = (req.user as jwt.JwtPayload).email;
+    if (!adminEmails.includes(userEmail)) {
+        res.status(403).json({ error: 'Admin access required' });
+        return;
+    }
+    next();
+}
+
+/**
+ * Permite acceso si viene un JWT de admin O el CRON_SECRET como Bearer token.
+ * Útil para endpoints invocados por Vercel Cron.
+ */
+export function requireAdminOrCron(req: Request, res: Response, next: NextFunction): void {
+    const cronSecret = process.env.CRON_SECRET;
+    const authHeader = req.headers['authorization'];
+    if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+        next();
+        return;
+    }
+    authenticateToken(req, res, () => {
+        requireAdmin(req, res, next);
+    });
 }
 
 export const JWT_SECRET_EXPORT = JWT_SECRET;

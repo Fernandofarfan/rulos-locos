@@ -16,7 +16,7 @@ export function initSentry() {
     Sentry.init({
         dsn,
         environment: config.NODE_ENV,
-        tracesSampleRate: 1.0,
+        tracesSampleRate: config.NODE_ENV === 'production' ? 0.1 : 1.0,
     });
 
     console.log('✅ Sentry inicializado en backend');

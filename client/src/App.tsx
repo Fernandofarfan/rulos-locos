@@ -564,7 +564,7 @@ function App() {
       <AIChat />
       <CommandPalette onViewChange={setActiveView} />
       <AdminDashboard />
-      <AchievementSystem />
+      <AchievementSystem activeView={activeView} />
     </>
   );
 }

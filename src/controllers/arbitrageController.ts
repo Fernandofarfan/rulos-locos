@@ -12,7 +12,7 @@ class ArbitrageController {
     async getArbitrage(_req: Request, res: Response): Promise<void> {
         try {
             let result: ArbitrageResult;
-            const cachedData = cache.get<ArbitrageResult>('arbitrage_data');
+            const cachedData = await cache.get<ArbitrageResult>('arbitrage_data');
             if (cachedData) {
                 result = cachedData;
             } else {
@@ -57,11 +57,18 @@ class ArbitrageController {
     async getBestRulo(_req: import('express').Request, res: import('express').Response): Promise<void> {
         try {
             const CACHE_KEY = 'best_rulo';
-            const cached = cache.get<object>(CACHE_KEY);
+            const cached = await cache.get<object>(CACHE_KEY);
             if (cached) { res.json(cached); return; }
 
-            const result = await arbitrageService.calculateArbitrage();
-            const d = result.dolares;
+            // Try to use pre-calculated arbitrage data from the worker
+            const arbitrageData = await cache.get<ArbitrageResult>('arbitrage_data');
+            let d: ArbitrageResult['dolares'];
+            if (arbitrageData) {
+                d = arbitrageData.dolares;
+            } else {
+                const result = await arbitrageService.calculateArbitrage();
+                d = result.dolares;
+            }
             const blue = d.blue, mep = d.mep, ccl = d.ccl, oficial = d.oficial;
 
             interface Candidate {

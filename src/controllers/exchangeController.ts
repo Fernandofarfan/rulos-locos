@@ -61,7 +61,7 @@ class ExchangeController {
             if (error.code === 'P2002') {
                 res.status(400).json({ error: 'Ya tienes una llave configurada para este Exchange.' });
             } else {
-                res.status(400).json({ error: error.message });
+                res.status(400).json({ error: 'No se pudo guardar la llave' });
             }
         }
     }

@@ -107,6 +107,6 @@ export async function sendDailySummary(_req: Request, res: Response) {
         res.json({ success: true, message: 'Resumen enviado por Telegram y Email' });
     } catch (error: any) {
         logger.error('Error enviando resumen diario: %s', error.message);
-        res.status(500).json({ error: 'Error enviando resumen', detail: error.message });
+        res.status(500).json({ error: 'Error enviando resumen' });
     }
 }

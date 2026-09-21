@@ -62,7 +62,7 @@ class DataController {
             });
         } catch (error) {
             logger.error('Error en DataController.getIndicators: %s', (error as Error).message);
-            res.status(500).json({ error: 'Error interno', message: (error as Error).message });
+            res.status(500).json({ error: 'Error interno' });
         }
     }
 }

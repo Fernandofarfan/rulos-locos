@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { useCallback, useRef } from 'react';
 
@@ -5,18 +6,27 @@ const DB_NAME = 'rulos-locos-offline';
 const STORE_NAME = 'cache';
 const DB_VERSION = 1;
 
+// Conexión única reutilizada: abrir una IDBDatabase por operación agota recursos
+let dbPromise: Promise<IDBDatabase> | null = null;
+
 function openDB(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, DB_VERSION);
-        req.onupgradeneeded = () => {
-            const db = req.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME);
-            }
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-    });
+    if (!dbPromise) {
+        dbPromise = new Promise((resolve, reject) => {
+            const req = indexedDB.open(DB_NAME, DB_VERSION);
+            req.onupgradeneeded = () => {
+                const db = req.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(STORE_NAME);
+                }
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => {
+                dbPromise = null;
+                reject(req.error);
+            };
+        });
+    }
+    return dbPromise;
 }
 
 async function idbGet<T>(key: string): Promise<{ data: T; timestamp: number } | null> {
@@ -27,6 +37,7 @@ async function idbGet<T>(key: string): Promise<{ data: T; timestamp: number } | 
         const req = store.get(key);
         req.onsuccess = () => resolve(req.result || null);
         req.onerror = () => resolve(null);
+        tx.onerror = () => resolve(null);
     });
 }
 
@@ -37,6 +48,8 @@ async function idbSet<T>(key: string, data: T): Promise<void> {
         const store = tx.objectStore(STORE_NAME);
         store.put({ data, timestamp: Date.now() }, key);
         tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+        tx.onabort = () => resolve();
     });
 }
 

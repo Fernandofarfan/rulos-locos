@@ -48,6 +48,59 @@ export const AlertBodySchema = z
 
 export type AlertBody = z.infer<typeof AlertBodySchema>;
 
+// ─── Esquemas adicionales (endpoints de usuario) ────────────────────────────────
+
+export const PortfolioCreateSchema = z.object({
+    asset: z.string().trim().min(1).max(20),
+    buyPrice: z.coerce.number().finite().positive('buyPrice debe ser mayor a 0'),
+    amount: z.coerce.number().finite().positive('amount debe ser mayor a 0'),
+    date: z.string().max(40).optional(),
+    note: z.string().max(500).optional(),
+});
+
+export const AlertCreateSchema = z.object({
+    asset: z.enum(['blue', 'mep', 'ccl', 'crypto', 'oficial']),
+    condition: z.enum(['above', 'below']),
+    threshold: z.coerce.number().finite().positive('threshold debe ser mayor a 0'),
+});
+
+export const PaperTradeSchema = z.object({
+    type: z.enum(['BUY', 'SELL']),
+    asset: z.string().trim().min(1).max(20),
+    amount: z.coerce.number().finite().positive('amount debe ser mayor a 0'),
+    price: z.coerce.number().finite().positive('price debe ser mayor a 0'),
+});
+
+export const ExchangeKeySchema = z.object({
+    exchange: z.string().trim().min(2).max(30),
+    apiKey: z.string().min(4).max(300),
+    apiSecret: z.string().min(4).max(300),
+    passthrough: z.string().max(300).optional(),
+});
+
+export const NewsletterSubscribeSchema = z.object({
+    email: z.string().email('Email inválido').max(200),
+});
+
+export const ChartInsightSchema = z.object({
+    labels: z.array(z.string()).min(1).max(500),
+    values: z.array(z.coerce.number()).min(1).max(500),
+    assetName: z.string().min(1).max(100),
+});
+
+export const PushSubscribeSchema = z.object({
+    endpoint: z.string().url(),
+    keys: z.object({
+        p256dh: z.string().min(1),
+        auth: z.string().min(1),
+    }),
+});
+
+export const AnalyticsEventSchema = z.object({
+    event: z.string().min(1).max(100),
+    section: z.string().max(100).optional(),
+}).passthrough();
+
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 function badRequest(res: Response, field: string, reason: string): void {
@@ -116,4 +169,22 @@ export function alertBody(req: Request, res: Response, next: NextFunction): void
 export function testBody(req: Request, _res: Response, next: NextFunction): void {
     req.body = {};
     next();
+}
+
+/**
+ * Crea un middleware que valida y normaliza req.body contra un schema Zod.
+ * Los campos desconocidos se descartan (comportamiento por defecto de Zod).
+ */
+export function validateBody(schema: z.ZodTypeAny) {
+    return (req: Request, res: Response, next: NextFunction): void => {
+        const parsed = schema.safeParse(req.body ?? {});
+        if (!parsed.success) {
+            const issue = parsed.error.issues[0];
+            const field = issue.path.length > 0 ? issue.path.join('.') : 'body';
+            badRequest(res, field, issue.message);
+            return;
+        }
+        req.body = parsed.data;
+        next();
+    };
 }

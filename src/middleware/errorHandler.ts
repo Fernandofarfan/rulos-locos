@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import logger from '../utils/logger';
 import { ZodError } from 'zod';
+import * as Sentry from '@sentry/node';
 
 /**
  * Interfaz para errores API
@@ -77,6 +78,20 @@ export const errorHandler = (
     message: err.message,
     stack: err.stack,
   });
+
+  // Reportar a Sentry solo si está inicializado
+  if (process.env.SENTRY_DSN) {
+    try {
+      Sentry.withScope((scope) => {
+        scope.setTag('correlationId', String(correlationId));
+        scope.setTag('method', _req.method);
+        scope.setTag('path', _req.path);
+        Sentry.captureException(err);
+      });
+    } catch {
+      /* no romper el handler por un fallo de Sentry */
+    }
+  }
 
   res.status(500).json({
     error: 'Internal server error',

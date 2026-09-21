@@ -1,9 +1,11 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 const TOKEN_KEY = 'rl_token';
+const REFRESH_KEY = 'rl_refresh';
 
 export interface AuthUser {
     id: string;
@@ -38,13 +40,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const getToken = () => localStorage.getItem(TOKEN_KEY);
 
-    const applyToken = (token: string) => {
+    const applyToken = (token: string, refreshToken?: string) => {
         localStorage.setItem(TOKEN_KEY, token);
+        if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     };
 
     const clearAuth = () => {
         localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(REFRESH_KEY);
         delete axios.defaults.headers.common['Authorization'];
         setUser(null);
     };
@@ -77,7 +81,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (data.require2fa) {
                 return { ok: false, require2fa: true, userId: data.userId };
             }
-            applyToken(data.token);
+            applyToken(data.token, data.refreshToken);
             setUser(data.user);
             return { ok: true };
         } catch (e: any) {
@@ -91,7 +95,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setError(null);
         try {
             const { data } = await axios.post(`${API_BASE}/auth/register`, payload);
-            applyToken(data.token);
+            applyToken(data.token, data.refreshToken);
             setUser(data.user);
             return { ok: true };
         } catch (e: any) {
@@ -105,7 +109,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setError(null);
         try {
             const { data } = await axios.post(`${API_BASE}/auth/google`, { credential });
-            applyToken(data.token);
+            applyToken(data.token, data.refreshToken);
             setUser(data.user);
             return true;
         } catch (e: any) {

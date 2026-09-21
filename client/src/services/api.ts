@@ -16,6 +16,49 @@ client.interceptors.request.use((config) => {
     return config;
 });
 
+const REFRESH_KEY = 'rl_refresh';
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+    const refreshToken = localStorage.getItem(REFRESH_KEY);
+    if (!refreshToken) return null;
+    try {
+        // Usar axios directo (no `client`) para no re-disparar el interceptor
+        const { data } = await axios.post(`${API_BASE}/auth/refresh`, { refreshToken });
+        if (data?.token) {
+            localStorage.setItem('rl_token', data.token);
+            if (data.refreshToken) localStorage.setItem(REFRESH_KEY, data.refreshToken);
+            return data.token as string;
+        }
+        return null;
+    } catch {
+        localStorage.removeItem('rl_token');
+        localStorage.removeItem(REFRESH_KEY);
+        return null;
+    }
+}
+
+client.interceptors.response.use(
+    (res) => res,
+    async (error) => {
+        const original = error.config;
+        if (error.response?.status === 401 && original && !original._retry) {
+            original._retry = true;
+            // Deduplicar refreshes concurrentes
+            if (!refreshPromise) {
+                refreshPromise = refreshAccessToken().finally(() => { refreshPromise = null; });
+            }
+            const newToken = await refreshPromise;
+            if (newToken) {
+                original.headers = original.headers || {};
+                original.headers.Authorization = `Bearer ${newToken}`;
+                return client(original);
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+
 async function withRetry<T>(fn: () => Promise<T>, tries = 2, delay = 800): Promise<T> {
     let lastError: unknown;
     for (let attempt = 0; attempt < tries; attempt++) {

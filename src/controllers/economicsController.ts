@@ -51,7 +51,7 @@ function getFallbackDashboard(): FallbackDashboard {
 class EconomicsController {
     async getDashboardData(_req: Request, res: Response): Promise<void> {
         try {
-            const cached = cache.get<FallbackDashboard>('economics_dashboard');
+            const cached = await cache.get<FallbackDashboard>('economics_dashboard');
             if (cached) { res.json({ ...cached }); return; }
 
             // Timeout global per request para evitar hangs infinitos (Vercel maxDuration)
@@ -295,7 +295,7 @@ class EconomicsController {
     async getMarketData(_req: Request, res: Response): Promise<void> {
         try {
             // Servir desde caché del marketWorker si está disponible (actualizado cada 5 min)
-            const cached = cache.get<object>('market_data');
+            const cached = await cache.get<object>('market_data');
             if (cached) { res.json(cached); return; }
 
             const [merval, cedears, bonds, global] = await Promise.all([
@@ -313,7 +313,7 @@ class EconomicsController {
     }
 
     async getNews(_req: Request, res: Response): Promise<void> {
-        const cached = cache.get<object[]>('economics_news');
+        const cached = await cache.get<object[]>('economics_news');
         if (cached) { res.json(cached); return; }
 
         const FEEDS = [
@@ -376,7 +376,7 @@ class EconomicsController {
 
     async getRates(_req: Request, res: Response): Promise<void> {
         try {
-            const cached = cache.get<unknown>('economics_rates');
+            const cached = await cache.get<unknown>('economics_rates');
             if (cached) { res.json(cached); return; }
 
             const [depositResult, inflationResult] = await Promise.allSettled([
@@ -411,7 +411,7 @@ class EconomicsController {
 
     async getYieldCurve(_req: Request, res: Response): Promise<void> {
         try {
-            const cached = cache.get<unknown>('economics_yield_curve');
+            const cached = await cache.get<unknown>('economics_yield_curve');
             if (cached) { res.json(cached); return; }
 
             interface BondMeta { ticker: string; name: string; law: string; maturityYear: number; couponPct: number; durationYrs: number; faceValue: number }
@@ -462,7 +462,7 @@ class EconomicsController {
 
     async getUVA(_req: Request, res: Response): Promise<void> {
         try {
-            const cached = cache.get<unknown>('economics_uva');
+            const cached = await cache.get<unknown>('economics_uva');
             if (cached) { res.json(cached); return; }
             const uvaData = await argentinaDatosService.getUVAData();
             if (!uvaData || (uvaData as unknown[]).length === 0) { res.json({ data: argentinaDatosService.generateMockUVASeries(), source: 'fallback', timestamp: new Date().toISOString() }); return; }
@@ -477,7 +477,7 @@ class EconomicsController {
 
     async getReservas(_req: Request, res: Response): Promise<void> {
         try {
-            const cached = cache.get<unknown>('economics_reservas');
+            const cached = await cache.get<unknown>('economics_reservas');
             if (cached) { res.json(cached); return; }
             const raw = await argentinaDatosService.getReservasHistory();
             if (!raw || (raw as unknown[]).length === 0) { res.json({ data: [], source: 'unavailable', timestamp: new Date().toISOString() }); return; }
@@ -497,7 +497,7 @@ class EconomicsController {
 
     async getCarryTradeData(_req: Request, res: Response): Promise<void> {
         try {
-            const cached = cache.get<unknown>('economics_carry_trade');
+            const cached = await cache.get<unknown>('economics_carry_trade');
             if (cached) { res.json(cached); return; }
             const [dollars, rates] = await Promise.all([argentinaDatosService.getHistoricalDollars(), argentinaDatosService.getDepositRates()]);
             type BlueSeries = { fecha: string; valor: number }[];
@@ -521,7 +521,7 @@ class EconomicsController {
 
     async getEquilibriumDollar(_req: Request, res: Response): Promise<void> {
         try {
-            const cached = cache.get<unknown>('economics_equilibrium');
+            const cached = await cache.get<unknown>('economics_equilibrium');
             if (cached) { res.json(cached); return; }
             const [reserves, baseMonetaria] = await Promise.all([bcraService.getReserves(), bcraService.getBaseMonetaria()]);
             const finalReserves = reserves || 45305;
@@ -538,7 +538,7 @@ class EconomicsController {
 
     async getHolidays(_req: Request, res: Response): Promise<void> {
         try {
-            const cached = cache.get<unknown>('economics_holidays');
+            const cached = await cache.get<unknown>('economics_holidays');
             if (cached) { res.json(cached); return; }
             const year = new Date().getFullYear();
             const [thisYear, nextYear] = await Promise.allSettled([argentinaDatosService.getHolidays(year), argentinaDatosService.getHolidays(year + 1)]);
@@ -561,7 +561,7 @@ class EconomicsController {
 
     async getPlazoFijo(_req: Request, res: Response): Promise<void> {
         try {
-            const cached = cache.get<unknown>('economics_plazo_fijo');
+            const cached = await cache.get<unknown>('economics_plazo_fijo');
             if (cached) { res.json(cached); return; }
             const data = await argentinaDatosService.getPlazoFijoBancos();
             if (!data) { res.json({ bancos: [], timestamp: new Date().toISOString(), isFallback: true }); return; }
@@ -576,7 +576,7 @@ class EconomicsController {
 
     async getFCI(_req: Request, res: Response): Promise<void> {
         try {
-            const cached = cache.get<unknown>('economics_fci');
+            const cached = await cache.get<unknown>('economics_fci');
             if (cached) { res.json(cached); return; }
             const data = await argentinaDatosService.getFCIMoneyMarket();
             const result = { fondos: data || [], timestamp: new Date().toISOString() };
@@ -590,7 +590,7 @@ class EconomicsController {
 
     async getCalendarEvents(_req: Request, res: Response): Promise<void> {
         try {
-            const cached = cache.get<unknown>('economics_calendar');
+            const cached = await cache.get<unknown>('economics_calendar');
             if (cached) { res.json(cached); return; }
 
             const KNOWN_EVENTS = [

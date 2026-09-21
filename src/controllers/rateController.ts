@@ -6,7 +6,7 @@ import logger from '../utils/logger';
 class RateController {
     async getRate(_req: Request, res: Response): Promise<void> {
         try {
-            const cachedData = cache.get<Record<string, unknown>>('rate_data');
+            const cachedData = await cache.get<Record<string, unknown>>('rate_data');
             if (cachedData) {
                 res.json({ ...cachedData, cached: true });
                 return;
