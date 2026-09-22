@@ -69,23 +69,23 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
             <TopProgress loading={loading || isRefreshing} />
             <OfflineBanner />
 
-            {/* Header */}
-            <header className="fixed top-0 left-0 right-0 z-50 px-6 py-4 transition-all duration-300">
-                <div className="max-w-7xl mx-auto glass-panel px-6 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-accent-primary/15 border border-accent-primary/25 flex items-center justify-center">
-                            <span className="text-base">⚡</span>
+            {/* Header Compacto */}
+            <header className="fixed top-0 left-0 right-0 z-50 px-4 py-2 transition-all duration-300">
+                <div className="max-w-7xl mx-auto glass-panel px-4 py-2 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-accent-primary/15 border border-accent-primary/25 flex items-center justify-center">
+                            <span className="text-sm">⚡</span>
                         </div>
                         <div>
-                            <h1 className="text-xl font-black tracking-tight leading-none">
+                            <h1 className="text-lg font-black tracking-tight leading-none">
                                 <span className="text-gradient-brand">Rulos Locos</span>
                             </h1>
                             <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-accent-primary tracking-wider uppercase">{t('header.subtitle')}</span>
+                                <span className="text-[11px] font-medium text-accent-primary tracking-wider uppercase">{t('header.subtitle')}</span>
                                 {lastUpdated && (
                                     <Tooltip content={`Actualizado: ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} placement="bottom">
                                         <span
-                                            className="flex items-center gap-1 text-[10px] text-slate-500 bg-slate-900/50 px-1.5 py-0.5 rounded border border-slate-800 min-w-[42px] justify-center cursor-default"
+                                            className="flex items-center gap-1 text-[10px] text-slate-500 bg-slate-900/50 px-1.5 py-0.2 rounded border border-slate-800 min-w-[38px] justify-center cursor-default"
                                         >
                                             {isRefreshing ? (
                                                 <RefreshCw size={8} className="animate-spin text-accent-primary flex-shrink-0" />
@@ -110,45 +110,36 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                         {navLink('herramientas', t('nav.tools'))}
                         {navLink('charts', t('nav.analysis'))}
                         {navLink('portfolio', t('nav.portfolio'))}
-                        <div className="h-4 w-px bg-white/10 mx-2"></div>
+                        <div className="h-4 w-px bg-white/10 mx-1.5"></div>
                         <Tooltip content="Buscar secciones (Ctrl+K)" placement="bottom">
                             <button
                                 onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
                                 aria-label="Buscar"
-                                className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all"
+                                className="p-1.5 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all"
                             >
-                                <Search size={18} />
+                                <Search size={16} />
                             </button>
                         </Tooltip>
                         <Tooltip content="Cambiar tema" placement="bottom">
                             <button
                                 onClick={toggleTheme}
                                 aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-                                className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all"
+                                className="p-1.5 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all"
                             >
-                                {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                                {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                             </button>
                         </Tooltip>
-                        <Tooltip content="Configurar alertas" placement="bottom">
+                        <Tooltip content="Alertas y Ajustes" placement="bottom">
                             <button
                                 onClick={() => setIsOverlayOpen(true)}
-                                aria-label="Configurar alertas"
-                                className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all"
+                                aria-label="Configurar alertas y ajustes"
+                                className="p-1.5 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all"
                             >
-                                <SlidersHorizontal size={18} />
+                                <SlidersHorizontal size={16} />
                             </button>
                         </Tooltip>
-                        <Tooltip content="Tema & apariencia" placement="bottom">
-                            <button
-                                onClick={() => setIsSettingsOpen(true)}
-                                aria-label="Abrir configuración"
-                                className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all"
-                            >
-                                <Settings size={20} />
-                            </button>
-                        </Tooltip>
-                        <a href="https://github.com/Fernandofarfan/rulos-locos" target="_blank" rel="noopener noreferrer" aria-label="Ver código en GitHub" className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all">
-                            <Github size={20} />
+                        <a href="https://github.com/Fernandofarfan/rulos-locos" target="_blank" rel="noopener noreferrer" aria-label="Ver código en GitHub" className="p-1.5 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all">
+                            <Github size={16} />
                         </a>
 
                         {/* Botón de Login / Avatar */}
@@ -156,20 +147,20 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                             <Tooltip content={`${user.email} — Cerrar sesión`} placement="bottom">
                                 <button
                                     onClick={logout}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-all border border-slate-700"
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-all border border-slate-700"
                                 >
-                                    <User size={14} />
+                                    <User size={13} />
                                     {user.name || user.email.split('@')[0]}
-                                    <LogOut size={12} className="text-slate-500" />
+                                    <LogOut size={11} className="text-slate-500" />
                                 </button>
                             </Tooltip>
                         ) : (
                             <Tooltip content="Iniciar sesión" placement="bottom">
                                 <button
                                     onClick={() => setIsLoginOpen(true)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 transition-all"
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 transition-all"
                                 >
-                                    <LogIn size={14} />
+                                    <LogIn size={13} />
                                     {t('login.enter')}
                                 </button>
                             </Tooltip>
@@ -263,8 +254,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                 </div>
             )}
 
-            {/* Bloomberg Market Ticker */}
-            <div className="fixed top-[88px] left-0 right-0 z-40">
+            {/* Bloomberg Market Ticker Compacto */}
+            <div className="fixed top-[56px] left-0 right-0 z-40">
                 <MarketTicker
                     rate={rate}
                     dolares={arbitrage?.dolares}
@@ -274,7 +265,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
             </div>
 
             {/* Main Content */}
-            <main className="flex-grow z-10 pt-[136px] pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+            <main className="flex-grow z-10 pt-[96px] pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
                 {children}
             </main>
 

@@ -36,3 +36,4 @@ data/
 
 # Test output files
 test-results.json
+.vercel

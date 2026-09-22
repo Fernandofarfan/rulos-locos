@@ -78,11 +78,9 @@ const YieldCurve = lazy(() => import('./components/YieldCurve').then(m => ({ def
 const CorrelationHeatmap = lazy(() => import('./components/CorrelationHeatmap').then(m => ({ default: m.CorrelationHeatmap })));
 const AssetComparer = lazy(() => import('./components/AssetComparer').then(m => ({ default: m.AssetComparer })));
 const CarryTradeMonitor = lazy(() => import('./components/CarryTradeMonitor').then(m => ({ default: m.CarryTradeMonitor })));
-const CorrelacionDolarInflacion = lazy(() => import('./components/CorrelacionDolarInflacion').then(m => ({ default: m.CorrelacionDolarInflacion })));
 
 // ── Sección 6: Portfolio & Mercados ───────────────────────────────────────────
 const PortfolioTracker = lazy(() => import('./components/PortfolioTracker').then(m => ({ default: m.PortfolioTracker })));
-const PortfolioManager = lazy(() => import('./components/PortfolioManager').then(m => ({ default: m.PortfolioManager })));
 const NewsFeed = lazy(() => import('./components/NewsFeed').then(m => ({ default: m.NewsFeed })));
 const EconomicCalendar = lazy(() => import('./components/EconomicCalendar').then(m => ({ default: m.EconomicCalendar })));
 const CommoditiesMonitor = lazy(() => import('./components/CommoditiesMonitor').then(m => ({ default: m.CommoditiesMonitor })));
@@ -108,6 +106,7 @@ function App() {
   const [showLanding, setShowLanding] = useState(false);
   const [panicDismissed, setPanicDismissed] = useState(false);
   const [toolsTab, setToolsTab] = useState<'consumo' | 'creditos' | 'inversion'>('consumo');
+  const [marketTab, setMarketTab] = useState<'tasas' | 'mercados'>('tasas');
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -262,23 +261,17 @@ function App() {
                   {/* AI Macro Analyzer */}
                   <SmartInsight />
 
-                  <MacroDashboard />
-                  <BrechaMonitor />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <IntradayBlueChart />
+                    <BrechaMonitor />
+                  </div>
+
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <MarketSentiment />
                     <div className="lg:col-span-2">
-                      <IntradayBlueChart />
+                      <HistoricalBlueChart currentBlue={arbitrage?.dolares?.blue?.venta} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <DolarConvergencia />
-                    <HistoricalBlueChart currentBlue={arbitrage?.dolares?.blue?.venta} />
-                  </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <RuloScanner />
-                    <RuloDelDia />
-                  </div>
-                  <FuturosRofex />
                 </div>
               </RevealSuspense>
             </div>
@@ -293,33 +286,77 @@ function App() {
                 id="mercado"
                 icon={Landmark}
                 title="Tasas & Mercado"
-                description="Tasas de interés, reservas, inflación, plazo fijo y fondos de inversión"
-                badge="BCRA · INDEC"
+                description="Tasas de interés, bonos soberanos, acciones Merval, CEDEARs, commodities y futuros"
+                badge="BCRA · INDEC · BYMA"
                 badgeColor="emerald"
               />
 
-              <RevealSuspense fallback={<SectionSkeleton cards={4} cols={2} height="h-44" />}>
-                <div className="space-y-6 pt-6 pb-4">
-                  <LiveBondsPanel />
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <InterestRates />
-                    <EquilibriumDollar />
+              {/* Sub-Tabs de Mercado */}
+              <div className="flex flex-wrap gap-2 p-1.5 bg-white/5 rounded-2xl border border-white/10 my-6 max-w-md">
+                <button
+                  onClick={() => setMarketTab('tasas')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    marketTab === 'tasas'
+                      ? 'bg-accent-primary text-white shadow-lg shadow-accent-primary/20'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Landmark size={14} />
+                  Tasas & Renta Fija
+                </button>
+                <button
+                  onClick={() => setMarketTab('mercados')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    marketTab === 'mercados'
+                      ? 'bg-accent-primary text-white shadow-lg shadow-accent-primary/20'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <BarChart3 size={14} />
+                  Acciones & Mercados
+                </button>
+              </div>
+
+              {marketTab === 'tasas' && (
+                <RevealSuspense fallback={<SectionSkeleton cards={4} cols={2} height="h-44" />}>
+                  <div className="space-y-6 pb-4">
+                    <LiveBondsPanel />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <InterestRates />
+                      <EquilibriumDollar />
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <ReservasBCRA />
+                      <InflationBreakdown />
+                    </div>
+                    <div id="cotizaciones" className="grid grid-cols-1 lg:grid-cols-2 gap-6 scroll-mt-32">
+                      <PlazoFijoBancos />
+                      <FCIMoneyMarket />
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <ReservasBCRA />
-                    <InflationBreakdown />
+                </RevealSuspense>
+              )}
+
+              {marketTab === 'mercados' && (
+                <RevealSuspense fallback={<SectionSkeleton cards={4} cols={2} height="h-44" />}>
+                  <div className="space-y-6 pb-4">
+                    <MacroDashboard />
+                    <DolarConvergencia />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <MervalTop20 />
+                      <CedearsPanel cclRate={arbitrage?.dolares?.ccl?.venta ?? 1200} />
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <CryptoDashboard cclRate={arbitrage?.dolares?.ccl?.venta ?? 1200} />
+                      <CommoditiesMonitor />
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <ROFEXPanel />
+                      <FuturosRofex />
+                    </div>
                   </div>
-                  <div id="cotizaciones" className="grid grid-cols-1 lg:grid-cols-2 gap-6 scroll-mt-32">
-                    <PlazoFijoBancos />
-                    <FCIMoneyMarket />
-                  </div>
-                  <CommoditiesMonitor />
-                  <ROFEXPanel />
-                  <CryptoDashboard cclRate={arbitrage?.dolares?.ccl?.venta ?? 1200} />
-                  <CedearsPanel cclRate={arbitrage?.dolares?.ccl?.venta ?? 1200} />
-                  <MervalTop20 />
-                </div>
-              </RevealSuspense>
+                </RevealSuspense>
+              )}
             </div>
           )}
 
@@ -339,13 +376,17 @@ function App() {
 
               <RevealSuspense fallback={<SectionSkeleton cards={2} cols={2} height="h-96" />}>
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 pt-6 pb-4 items-start">
-                  {/* Columna Izquierda: Oportunidades + Matriz */}
+                  {/* Columna Izquierda: Oportunidades + Scanner + Rulo del Día + Matriz */}
                   <div className="xl:col-span-7 flex flex-col gap-6">
                     <ArbitrageHub
                       opportunities={arbitrage?.opportunities ?? []}
                       history={arbitrage?.history ?? []}
                       loading={loading}
                     />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <RuloScanner />
+                      <RuloDelDia />
+                    </div>
                     <RulosMatrix />
                   </div>
 
@@ -505,7 +546,7 @@ function App() {
                 id="charts"
                 icon={LineChart}
                 title="Análisis Técnico"
-                description="Gráficos históricos, curva de rendimientos, correlaciones y carry trade"
+                description="Gráficos históricos, curva de rendimientos, matriz de correlaciones y carry trade"
                 badgeColor="cyan"
               />
 
@@ -520,8 +561,6 @@ function App() {
 
                   <YieldCurve />
                   <CorrelationHeatmap />
-
-                  <CorrelacionDolarInflacion />
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <AssetComparer />
@@ -541,14 +580,13 @@ function App() {
                 id="portfolio"
                 icon={Newspaper}
                 title="Portfolio, Noticias & Calendario"
-                description="Seguimiento de cartera, noticias financieras y eventos económicos"
+                description="Seguimiento de cartera unificado, distribución de activos, noticias financieras y agenda económica"
                 badgeColor="rose"
               />
 
-              <RevealSuspense fallback={<SectionSkeleton cards={3} cols={3} height="h-[600px]" />}>
-                <div className="space-y-6 pt-6 pb-4">
-                  <PortfolioManager />
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <RevealSuspense fallback={<SectionSkeleton cards={2} cols={2} height="h-[600px]" />}>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-6 pb-4 items-start">
+                  <div className="lg:col-span-7">
                     <PortfolioTracker
                       currentPrices={{
                         blue: arbitrage?.dolares?.blue?.venta ?? 0,
@@ -556,6 +594,8 @@ function App() {
                         crypto: rate?.ask ?? 0
                       }}
                     />
+                  </div>
+                  <div className="lg:col-span-5 flex flex-col gap-6">
                     <div id="news" className="scroll-mt-32">
                       <NewsFeed />
                     </div>

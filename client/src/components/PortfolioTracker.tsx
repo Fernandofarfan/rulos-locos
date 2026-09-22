@@ -133,6 +133,20 @@ export const PortfolioTracker: React.FC<PortfolioTrackerProps> = ({ currentPrice
     const totalProfit = totalCurrent - totalInitial;
     const profitPct = totalInitial > 0 ? (totalProfit / totalInitial) * 100 : 0;
 
+    // Asset breakdown distribution
+    const assetBreakdown = positions.reduce((acc, pos) => {
+        const val = getCurrentValue(pos);
+        acc[pos.asset] = (acc[pos.asset] || 0) + val;
+        return acc;
+    }, {} as Record<string, number>);
+
+    const assetColors: Record<string, { bg: string; text: string; bar: string }> = {
+        blue: { bg: 'bg-blue-500/20', text: 'text-blue-400', bar: 'bg-blue-500' },
+        mep: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', bar: 'bg-emerald-500' },
+        ccl: { bg: 'bg-purple-500/20', text: 'text-purple-400', bar: 'bg-purple-500' },
+        crypto: { bg: 'bg-amber-500/20', text: 'text-amber-400', bar: 'bg-amber-500' },
+    };
+
     const exportCSV = () => {
         if (positions.length === 0) return;
         const headers = ['ID', 'Activo', 'Monto Original', 'Precio Compra (ARS)', 'Valor Actual Estimado (ARS)', 'Ganancia (ARS)', 'Ganancia (%)', 'Fecha'];
@@ -215,7 +229,7 @@ export const PortfolioTracker: React.FC<PortfolioTrackerProps> = ({ currentPrice
             </div>
 
             {/* Resumen */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center justify-center">
                     <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-1">Valor Total</span>
                     <span className="text-xl font-black text-white">$ {totalCurrent.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
@@ -228,6 +242,46 @@ export const PortfolioTracker: React.FC<PortfolioTrackerProps> = ({ currentPrice
                     </div>
                 </div>
             </div>
+
+            {/* Asset Breakdown Bar */}
+            {totalCurrent > 0 && (
+                <div className="mb-6 p-3 bg-white/[0.02] border border-white/5 rounded-2xl">
+                    <div className="flex justify-between items-center text-[10px] uppercase font-bold text-slate-400 mb-2">
+                        <span>Distribución de Portafolio</span>
+                        <span>{positions.length} {positions.length === 1 ? 'posición' : 'posiciones'}</span>
+                    </div>
+                    <div className="h-2.5 w-full bg-white/5 rounded-full overflow-hidden flex gap-0.5">
+                        {Object.entries(assetBreakdown).map(([asset, val]) => {
+                            const pct = (val / totalCurrent) * 100;
+                            if (pct <= 0) return null;
+                            const color = assetColors[asset] || { bar: 'bg-accent-primary' };
+                            return (
+                                <div
+                                    key={asset}
+                                    style={{ width: `${pct}%` }}
+                                    className={`h-full ${color.bar} transition-all duration-500`}
+                                    title={`${asset.toUpperCase()}: ${pct.toFixed(1)}%`}
+                                />
+                            );
+                        })}
+                    </div>
+                    <div className="flex flex-wrap gap-3 mt-2.5 pt-2 border-t border-white/5">
+                        {Object.entries(assetBreakdown).map(([asset, val]) => {
+                            const pct = (val / totalCurrent) * 100;
+                            if (pct <= 0) return null;
+                            const color = assetColors[asset] || { text: 'text-slate-300', bar: 'bg-slate-400' };
+                            return (
+                                <div key={asset} className="flex items-center gap-1.5 text-xs">
+                                    <span className={`w-2 h-2 rounded-full ${color.bar}`} />
+                                    <span className="font-semibold text-slate-300 uppercase">{asset}:</span>
+                                    <span className={`font-bold ${color.text}`}>{pct.toFixed(1)}%</span>
+                                    <span className="text-[10px] text-slate-500">(${val.toLocaleString('es-AR', { maximumFractionDigits: 0 })})</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Form nueva posiciÃ³n */}
             {isAdding && (
