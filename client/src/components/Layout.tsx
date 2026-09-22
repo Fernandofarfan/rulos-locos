@@ -23,20 +23,40 @@ interface LayoutProps {
     children: React.ReactNode;
     activeView: string;
     onViewChange: (view: string) => void;
+    onOpenSearch?: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChange }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChange, onOpenSearch }) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
     const [isOverlayOpen, setIsOverlayOpen] = React.useState(false);
     const [isLoginOpen, setIsLoginOpen] = React.useState(false);
     const [isStatusOpen, setIsStatusOpen] = React.useState(false);
-    const { lastUpdated, rate, arbitrage, economics, loading, isRefreshing } = useDashboardData();
+    const { lastUpdated, rate, arbitrage, economics, loading, isRefreshing, refresh } = useDashboardData();
     const { user, logout } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const { lang, setLang, t } = useTranslation();
     const countdown = useRefreshCountdown(lastUpdated);
-    const [isSearchOpen, setIsSearchOpen] = React.useState(false);
+
+    // Bloquear scroll del body al abrir el menú móvil
+    React.useEffect(() => {
+        if (isMenuOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isMenuOpen]);
+
+    const handleSearch = () => {
+        if (onOpenSearch) {
+            onOpenSearch();
+        } else {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
+        }
+    };
 
     // Keyboard shortcuts: Alt+1..6 navega secciones, Escape cierra menú/settings/overlay
     useKeyboardShortcuts({
@@ -44,10 +64,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
             if (isMenuOpen) setIsMenuOpen(false);
             else if (isSettingsOpen) setIsSettingsOpen(false);
             else if (isOverlayOpen) setIsOverlayOpen(false);
-            else if (isSearchOpen) setIsSearchOpen(false);
             else if (isStatusOpen) setIsStatusOpen(false);
         },
-        onSearch: () => setIsSearchOpen(prev => !prev),
+        onSearch: handleSearch,
     });
 
     const navLink = (id: string, label: string) => (
@@ -83,9 +102,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-accent-primary tracking-wider uppercase">{t('header.subtitle')}</span>
                                 {lastUpdated && (
-                                    <Tooltip content={`Actualizado: ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} placement="bottom">
-                                        <span
-                                            className="flex items-center gap-1 text-[10px] text-slate-500 bg-slate-900/50 px-1.5 py-0.2 rounded border border-slate-800 min-w-[38px] justify-center cursor-default"
+                                    <Tooltip content={isRefreshing ? "Sincronizando cotizaciones..." : `Actualizado: ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Clic para refrescar`} placement="bottom">
+                                        <button
+                                            onClick={() => !isRefreshing && refresh()}
+                                            disabled={isRefreshing}
+                                            aria-label="Refrescar cotizaciones ahora"
+                                            className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-white bg-slate-900/50 hover:bg-slate-800/80 px-2 py-0.5 rounded border border-slate-800 hover:border-slate-700 min-w-[38px] justify-center cursor-pointer transition-all active:scale-95 disabled:opacity-75 disabled:cursor-wait"
                                         >
                                             {isRefreshing ? (
                                                 <RefreshCw size={8} className="animate-spin text-accent-primary flex-shrink-0" />
@@ -94,8 +116,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                                             ) : (
                                                 <Clock size={8} className="flex-shrink-0" />
                                             )}
-                                            {isRefreshing ? 'sync…' : `${countdown}s`}
-                                        </span>
+                                            <span>{isRefreshing ? 'sync…' : `${countdown}s`}</span>
+                                        </button>
                                     </Tooltip>
                                 )}
                             </div>
@@ -113,7 +135,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                         <div className="h-4 w-px bg-white/10 mx-1.5"></div>
                         <Tooltip content="Buscar secciones (Ctrl+K)" placement="bottom">
                             <button
-                                onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
+                                onClick={handleSearch}
                                 aria-label="Buscar"
                                 className="p-1.5 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all"
                             >
@@ -129,13 +151,22 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                                 {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                             </button>
                         </Tooltip>
-                        <Tooltip content="Alertas y Ajustes" placement="bottom">
+                        <Tooltip content="Alertas y Notificaciones" placement="bottom">
                             <button
                                 onClick={() => setIsOverlayOpen(true)}
-                                aria-label="Configurar alertas y ajustes"
+                                aria-label="Configurar alertas y notificaciones"
                                 className="p-1.5 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all"
                             >
                                 <SlidersHorizontal size={16} />
+                            </button>
+                        </Tooltip>
+                        <Tooltip content="Ajustes y Parámetros" placement="bottom">
+                            <button
+                                onClick={() => setIsSettingsOpen(true)}
+                                aria-label="Ajustes del sistema"
+                                className="p-1.5 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all"
+                            >
+                                <Settings size={16} />
                             </button>
                         </Tooltip>
                         <a href="https://github.com/Fernandofarfan/rulos-locos" target="_blank" rel="noopener noreferrer" aria-label="Ver código en GitHub" className="p-1.5 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all">
@@ -182,18 +213,30 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
             {/* Mobile Menu Overlay */}
             {isMenuOpen && (
                 <div
-                    className="fixed inset-0 z-40 bg-black/85 backdrop-blur-lg pt-24 px-5 md:hidden overflow-y-auto pb-8"
+                    className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-xl pt-20 px-5 md:hidden overflow-y-auto pb-10"
                     onClick={(e) => { if (e.target === e.currentTarget) setIsMenuOpen(false); }}
                 >
+                    {/* Header interno del menú móvil para cerrar */}
+                    <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Navegación</span>
+                        <button
+                            onClick={() => setIsMenuOpen(false)}
+                            aria-label="Cerrar menú"
+                            className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
                     <nav className="flex flex-col gap-1.5">
                         {(
                             [
-                                { id: 'dashboard', label: 'Dashboard', icon: BarChart3, badge: 'LIVE', badgeColor: 'text-blue-400 bg-blue-400/10' },
-                                { id: 'mercado', label: 'Tasas & Mercado', icon: Landmark, badge: 'BCRA', badgeColor: 'text-emerald-400 bg-emerald-400/10' },
-                                { id: 'arbitrage', label: 'Arbitraje', icon: Zap, badge: 'RT', badgeColor: 'text-amber-400 bg-amber-400/10' },
-                                { id: 'herramientas', label: 'Herramientas', icon: Wrench, badge: null, badgeColor: '' },
-                                { id: 'charts', label: 'Análisis Técnico', icon: LineChart, badge: null, badgeColor: '' },
-                                { id: 'portfolio', label: 'Portfolio & Noticias', icon: Newspaper, badge: null, badgeColor: '' },
+                                { id: 'dashboard', label: t('nav.dashboard'), icon: BarChart3, badge: 'LIVE', badgeColor: 'text-blue-400 bg-blue-400/10' },
+                                { id: 'mercado', label: t('nav.rates'), icon: Landmark, badge: 'BCRA', badgeColor: 'text-emerald-400 bg-emerald-400/10' },
+                                { id: 'arbitrage', label: t('nav.arbitrage'), icon: Zap, badge: 'RT', badgeColor: 'text-amber-400 bg-amber-400/10' },
+                                { id: 'herramientas', label: t('nav.tools'), icon: Wrench, badge: null, badgeColor: '' },
+                                { id: 'charts', label: t('nav.analysis'), icon: LineChart, badge: null, badgeColor: '' },
+                                { id: 'portfolio', label: t('nav.portfolio'), icon: Newspaper, badge: null, badgeColor: '' },
                             ] as const
                         ).map(({ id, label, icon: Icon, badge, badgeColor }) => (
                             <button
@@ -203,7 +246,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                                     setIsMenuOpen(false);
                                 }}
                                 className={[
-                                    'flex items-center gap-4 py-3.5 px-4 rounded-xl transition-all w-full text-left',
+                                    'flex items-center gap-4 py-3 px-4 rounded-xl transition-all w-full text-left',
                                     activeView === id
                                         ? 'bg-accent-primary/10 border border-accent-primary/20 text-white'
                                         : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent',
@@ -224,31 +267,79 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                             </button>
                         ))}
 
-                        {/* Acciones rápidas */}
-                        <div className="mt-3 pt-3 border-t border-border-subtle flex gap-2">
-                            <button
-                                onClick={() => { setIsMenuOpen(false); setIsOverlayOpen(true); }}
-                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-border-subtle text-slate-400 hover:text-white text-xs font-medium transition-all"
-                            >
-                                <SlidersHorizontal size={13} />
-                                Alertas
-                            </button>
-                            <button
-                                onClick={() => { setIsMenuOpen(false); setIsSettingsOpen(true); }}
-                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-border-subtle text-slate-400 hover:text-white text-xs font-medium transition-all"
-                            >
-                                <Settings size={13} />
-                                Ajustes
-                            </button>
-                            {!user && (
+                        {/* Preferencias y Acciones rápidas en Móvil */}
+                        <div className="mt-4 pt-4 border-t border-white/10 flex flex-col gap-3">
+                            <div className="flex items-center justify-between px-1">
+                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Preferencias</span>
+                                <div className="flex items-center gap-2">
+                                    {/* Selector de idioma móvil */}
+                                    <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg border border-white/5">
+                                        {LANGS.map(l => (
+                                            <button
+                                                key={l.id}
+                                                onClick={() => setLang(l.id)}
+                                                className={`text-xs px-2 py-0.5 rounded transition-all ${
+                                                    lang === l.id
+                                                        ? 'text-white bg-white/15 font-bold shadow-sm'
+                                                        : 'text-slate-400 hover:text-white'
+                                                }`}
+                                                title={l.label}
+                                            >
+                                                {l.flag}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {/* Alternador de tema móvil */}
+                                    <button
+                                        onClick={toggleTheme}
+                                        aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                                        className="p-1.5 rounded-lg bg-white/5 border border-white/5 text-slate-300 hover:text-white"
+                                    >
+                                        {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
                                 <button
-                                    onClick={() => { setIsMenuOpen(false); setIsLoginOpen(true); }}
-                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:text-blue-300 text-xs font-medium transition-all"
+                                    onClick={() => { setIsMenuOpen(false); handleSearch(); }}
+                                    className="flex items-center justify-center gap-2 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-white text-xs font-medium transition-all"
                                 >
-                                    <LogIn size={13} />
-                                    Ingresar
+                                    <Search size={14} />
+                                    Buscar
                                 </button>
-                            )}
+                                <button
+                                    onClick={() => { setIsMenuOpen(false); setIsOverlayOpen(true); }}
+                                    className="flex items-center justify-center gap-2 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-white text-xs font-medium transition-all"
+                                >
+                                    <SlidersHorizontal size={14} />
+                                    Alertas
+                                </button>
+                                <button
+                                    onClick={() => { setIsMenuOpen(false); setIsSettingsOpen(true); }}
+                                    className="flex items-center justify-center gap-2 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-white text-xs font-medium transition-all"
+                                >
+                                    <Settings size={14} />
+                                    Ajustes
+                                </button>
+                                {!user ? (
+                                    <button
+                                        onClick={() => { setIsMenuOpen(false); setIsLoginOpen(true); }}
+                                        className="flex items-center justify-center gap-2 py-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:text-blue-300 text-xs font-medium transition-all"
+                                    >
+                                        <LogIn size={14} />
+                                        Ingresar
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => { setIsMenuOpen(false); logout(); }}
+                                        className="flex items-center justify-center gap-2 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:text-red-300 text-xs font-medium transition-all"
+                                    >
+                                        <LogOut size={14} />
+                                        Salir
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </nav>
                 </div>
@@ -304,16 +395,17 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                         </button>
                     </div>
 
-                    <div className="flex items-center gap-6">
+                    <div className="flex flex-wrap items-center justify-center md:justify-end gap-3 sm:gap-4">
                         <a href="https://github.com/Fernandofarfan" target="_blank" rel="noopener noreferrer" className="text-xs text-slate-500 hover:text-white transition-colors flex items-center gap-1 group">
                             <Github size={12} className="group-hover:text-white transition-colors" /> GitHub
                         </a>
-                        <div className="h-4 w-px bg-white/10"></div>
+                        <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
                         <span className="text-xs text-slate-600">
                             v3.1.0
                         </span>
-                        <div className="h-4 w-px bg-white/10" />
+                        <div className="h-4 w-px bg-white/10 hidden sm:block" />
                         <QRShareButton />
+                        <div className="h-4 w-px bg-white/10 hidden sm:block" />
                         {/* Language selector */}
                         <div className="flex items-center gap-1">
                             {LANGS.map(l => (
@@ -322,7 +414,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                                     onClick={() => setLang(l.id)}
                                     className={`text-xs px-1.5 py-0.5 rounded transition-all ${
                                         lang === l.id
-                                            ? 'text-white bg-white/10'
+                                            ? 'text-white bg-white/10 font-bold'
                                             : 'text-slate-600 hover:text-slate-400'
                                     }`}
                                     title={l.label}
@@ -331,7 +423,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                                 </button>
                             ))}
                         </div>
-                        <div className="h-4 w-px bg-white/10" />
+                        <div className="h-4 w-px bg-white/10 hidden sm:block" />
                         <div className="relative">
                             <ThemeCustomizer />
                         </div>

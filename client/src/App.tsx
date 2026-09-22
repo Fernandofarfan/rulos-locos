@@ -179,7 +179,7 @@ function App() {
 
   return (
     <>
-      <Layout activeView={activeView} onViewChange={setActiveView}>
+      <Layout activeView={activeView} onViewChange={setActiveView} onOpenSearch={() => setSearchOpen(true)}>
         <div className="pb-16 animate-fade-in relative z-10 space-y-0">
 
           {/* Watchlist de favoritos */}
