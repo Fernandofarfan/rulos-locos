@@ -1,17 +1,14 @@
 import arbitrageService from '../services/arbitrageService';
 import logger from '../utils/logger';
 import cache from '../utils/cache';
-import type { Server } from 'socket.io';
+import * as spreadHistory from '../utils/spreadHistory';
 
 class ArbitrageWorker {
     private interval: ReturnType<typeof setInterval> | null = null;
-    private io: Server | null = null;
-
-    start(io: Server): void {
-        this.io = io;
+    start(): void {
         logger.info('🚀 Iniciando ArbitrageWorker...');
-        void this.runTask();
-        this.interval = setInterval(() => { void this.runTask(); }, 60000);
+        void this.runTask().catch(() => {});
+        this.interval = setInterval(() => { void this.runTask().catch(() => {}); }, 60000);
     }
 
     async runTask(): Promise<void> {
@@ -19,12 +16,11 @@ class ArbitrageWorker {
             logger.info('🔍 Ejecutando análisis de arbitraje en segundo plano...');
             const result = await arbitrageService.calculateArbitrage();
             cache.set('arbitrage_data', result, 60000);
-            if (this.io) {
-                this.io.emit('arbitrage-update', result);
-                logger.info('📡 Actualización de arbitraje enviada a los clientes.');
-            }
+            await spreadHistory.ensureLoaded();
+            await spreadHistory.appendResult(result);
         } catch (error) {
             logger.error('❌ Error en ArbitrageWorker: %s', (error as Error).stack);
+            throw error;
         }
     }
 

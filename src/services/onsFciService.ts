@@ -2,7 +2,6 @@
  * Servicio de datos de Obligaciones Negociables (ONs) argentinas.
  * Complementa FCIs y Plazos Fijos con información de renta fija corporativa.
  */
-import fetch from 'node-fetch';
 import logger from '../utils/logger';
 
 interface ONData {

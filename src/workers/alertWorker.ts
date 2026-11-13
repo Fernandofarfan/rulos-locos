@@ -22,10 +22,10 @@ class AlertWorker {
         logger.info('🚀 Iniciando AlertWorker (intervalo: %dms)...', checkIntervalMs);
 
         // Ejecutar inmediatamente
-        void this.runTask();
+        void this.runTask().catch(() => {});
 
         // Luego cada X milisegundos
-        this.interval = setInterval(() => { void this.runTask(); }, checkIntervalMs);
+        this.interval = setInterval(() => { void this.runTask().catch(() => {}); }, checkIntervalMs);
     }
 
     stop(): void {
@@ -44,6 +44,7 @@ class AlertWorker {
             logger.debug('✅ AlertWorker: Verificación completada');
         } catch (error) {
             logger.error('❌ AlertWorker error: %s', (error as Error).message);
+            throw error;
         }
     }
 

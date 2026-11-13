@@ -1,10 +1,7 @@
-import fetch from 'node-fetch';
-import https from 'https';
 import config from '../config';
 import logger from '../utils/logger';
 
 const BCRA_OFFICIAL_BASE = 'https://api.bcra.gob.ar';
-const sslAgent = new https.Agent({ rejectUnauthorized: false });
 
 const ID_RESERVAS = 1;
 const ID_BASE_MONETARIA = 15;
@@ -18,7 +15,6 @@ async function getBCRAVariable(idVariable: number): Promise<BCRAVariableResult> 
     const url = `${BCRA_OFFICIAL_BASE}/estadisticas/v3.0/monetarias/${idVariable}?offset=0&limit=1`;
     const r = await fetch(url, {
         headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
-        agent: sslAgent as unknown as Parameters<typeof fetch>[1] extends { agent?: unknown } ? Parameters<typeof fetch>[1]['agent'] : never,
         signal: AbortSignal.timeout(7000),
     } as Parameters<typeof fetch>[1]);
     if (!r.ok) throw new Error(`BCRA oficial v3 HTTP ${r.status} para idVariable ${idVariable}`);

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, User, Loader2, Minimize2 } from 'lucide-react';
 import { apiService } from '../services/api';
+import { FinancialDisclaimer } from './ui/FinancialDisclaimer';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -92,6 +93,7 @@ export const AIChat: React.FC = () => {
 
     return (
         <div className="fixed bottom-20 md:bottom-6 right-4 z-40 w-80 max-h-[70vh] flex flex-col glass-panel overflow-hidden animate-fade-in" style={{ transform: 'none' }}>
+            <FinancialDisclaimer />
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-white/5 bg-gradient-to-r from-blue-600/10 to-indigo-600/10">
                 <div className="flex items-center gap-2">

@@ -28,7 +28,6 @@ router.post('/subscribe', authenticateToken, async (req, res): Promise<void> => 
     if (!prisma) { res.status(503).json({ error: 'DB no disponible' }); return; }
     try {
         const { subscription } = req.body;
-        // @ts-ignore
         const userId = req.user?.id;
 
         if (!subscription || !subscription.endpoint || !userId) {

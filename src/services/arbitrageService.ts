@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import config from '../config';
 import dolarApiService, { DolarCasa } from './dolarApiService';
 import logger from '../utils/logger';
@@ -61,16 +60,13 @@ class ArbitrageService {
                 for (const exchange of exchanges) {
                     const promise = (async (): Promise<ExchangeData> => {
                         try {
-                            const controller = new AbortController();
-                            const timeoutId = setTimeout(() => controller.abort(), 4000);
                             const response = await fetch(
                                 `${config.API_URLS.CRIPTOYA}/${exchange}/${crypto}/ARS/1`,
                                 {
                                     headers: config.DEFAULT_HEADERS,
-                                    signal: controller.signal as unknown as AbortSignal,
+                                    signal: AbortSignal.timeout(4000),
                                 } as Parameters<typeof fetch>[1],
                             );
-                            clearTimeout(timeoutId);
                             if (!response.ok) throw new Error(`HTTP ${response.status}`);
                             const data = await response.json() as { ask?: number | string; bid?: number | string };
                             return {

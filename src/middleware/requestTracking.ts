@@ -13,8 +13,8 @@ export const requestTracking = (req: Request, res: Response, next: NextFunction)
   const startTime = Date.now();
 
   // Agregar tracking al objeto request
-  (req as any).correlationId = correlationId;
-  (req as any).startTime = startTime;
+  req.correlationId = correlationId;
+  req.startTime = startTime;
 
   // Setear header de response
   res.setHeader('x-correlation-id', correlationId);
@@ -26,7 +26,7 @@ export const requestTracking = (req: Request, res: Response, next: NextFunction)
 
   // Interceptar response para logging
   const originalSend = res.send.bind(res);
-  res.send = function(data: any) {
+  res.send = function(data: unknown) {
     const duration = Date.now() - startTime;
     const statusCode = res.statusCode;
 
@@ -54,6 +54,7 @@ export const requestTracking = (req: Request, res: Response, next: NextFunction)
  * Extiende Express Request con propiedades de tracking
  */
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       correlationId?: string;

@@ -19,8 +19,9 @@ class RateController {
             const rateData = {
                 ask,
                 bid,
-                source: (data.ask && data.bid) ? 'Binance P2P' : 'Fallback',
+                source: (data.ask && data.bid && !data.isFallback) ? 'Binance P2P' : 'Fallback',
                 timestamp: new Date().toISOString(),
+                updatedAt: data.isFallback || !data.time ? undefined : new Date(data.time * 1000).toISOString(),
             };
 
             cache.set('rate_data', rateData);

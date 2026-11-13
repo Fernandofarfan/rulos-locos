@@ -1,13 +1,10 @@
 /**
  * Tests de integración para la API de RulosLocos.
- * Se mockea node-fetch para que los servicios entren en su path de fallback
+ * Se mockea fetch para que los servicios entren en su path de fallback
  * sin hacer llamadas HTTP reales a APIs externas.
  */
 
-// Mockear node-fetch ANTES de requerir app.js para que los servicios usen el mock
-jest.mock('node-fetch', () => {
-    return jest.fn().mockRejectedValue(new Error('Network unavailable (test mock)'));
-});
+global.fetch = jest.fn().mockRejectedValue(new Error('Network unavailable (test mock)'));
 
 // Mockear Prisma para que no intente conectarse a la base de datos en tests
 jest.mock('../src/utils/db', () => ({
@@ -320,7 +317,9 @@ describe('GET /api/economics/calendar', () => {
     });
 
     it('todos los eventos son fechas futuras (hoy o posterior)', () => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit',
+        }).format(new Date());
         res.body.events.forEach(ev => {
             expect(ev.fecha >= today).toBe(true);
         });

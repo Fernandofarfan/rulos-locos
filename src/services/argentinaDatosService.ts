@@ -1,9 +1,6 @@
-import fetch from 'node-fetch';
-import https from 'https';
 import config from '../config';
 import logger from '../utils/logger';
 
-const sslAgent = new https.Agent({ rejectUnauthorized: false });
 
 export interface InflationData {
     mensual: number;
@@ -67,13 +64,10 @@ export interface FCIItem {
 class ArgentinaDatosService {
     async getInflation(): Promise<InflationData> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/indices/inflacion/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
 
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json() as Array<{ fecha: string; valor: number }>;
@@ -96,13 +90,10 @@ class ArgentinaDatosService {
 
     async getHistoricalInflation(): Promise<Array<{ fecha: string; valor: number }>> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/indices/inflacion/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error('API Error');
             const data = await response.json() as Array<{ fecha: string; valor: number }>;
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty API Data');
@@ -124,16 +115,13 @@ class ArgentinaDatosService {
 
     async getInflacionCategorias(): Promise<InflacionCategoria[] | null> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(
                 `${config.API_URLS.ARGENTINA_DATOS}/finanzas/indices/inflacion_categorias/`,
                 {
                     headers: config.DEFAULT_HEADERS,
-                    signal: controller.signal as unknown as AbortSignal,
+                    signal: AbortSignal.timeout(15000),
                 } as Parameters<typeof fetch>[1],
             );
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json() as InflacionCategoria[];
             if (Array.isArray(data) && data.length > 0) return data;
@@ -159,13 +147,10 @@ class ArgentinaDatosService {
 
     async getCountryRiskData(): Promise<Array<{ fecha: string; valor: number }>> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/indices/riesgo-pais/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error('API Error Risk');
             const data = await response.json() as Array<{ fecha: string; valor: number }>;
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty Risk Data');
@@ -198,14 +183,11 @@ class ArgentinaDatosService {
 
     private async fetchTypeSeries(tipo: string, fallbackStart: number): Promise<DollarSeriesItem[]> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const url = `${config.API_URLS.ARGENTINA_DATOS}/cotizaciones/dolares/${tipo}/`;
             const response = await fetch(url, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`HTTP ${response.status} para ${tipo}`);
             const data = await response.json() as Array<{ fecha: string; venta?: number; compra?: number; valor?: number }>;
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty');
@@ -287,13 +269,10 @@ class ArgentinaDatosService {
     async getDepositRates(): Promise<DepositRate> {
         try {
             // Endpoint depositos30dias fue discontinuado — usamos plazoFijo que tiene TNA por banco
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/tasas/plazoFijo/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json() as Array<{ tnaClientes?: number; tnaNoClientes?: number; fecha?: string }>;
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty data');
@@ -349,13 +328,10 @@ class ArgentinaDatosService {
 
     async getUVAData(): Promise<UVAItem[]> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/indices/uva/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json() as UVAItem[];
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty data');
@@ -375,13 +351,10 @@ class ArgentinaDatosService {
 
     async getHolidays(year: number): Promise<HolidayItem[] | null> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/feriados/${year}/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json() as HolidayItem[];
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty data');
@@ -394,13 +367,10 @@ class ArgentinaDatosService {
 
     async getPlazoFijoBancos(): Promise<PlazoFijoItem[] | null> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/tasas/plazoFijo/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json() as PlazoFijoItem[];
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty data');
@@ -421,13 +391,10 @@ class ArgentinaDatosService {
 
     async getFCIMoneyMarket(): Promise<FCIItem[] | null> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/fci/mercadoDinero/ultimo/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json() as FCIItem[];
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty data');
@@ -440,17 +407,13 @@ class ArgentinaDatosService {
 
     async getReservasHistory(): Promise<Array<{ fecha: string; valor: number }>> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const r = await fetch(
                 'https://api.bcra.gob.ar/estadisticas/v3.0/monetarias/1?offset=0&limit=400&order=desc',
                 {
                     headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
-                    agent: sslAgent as unknown as Parameters<typeof fetch>[1] extends { agent?: unknown } ? Parameters<typeof fetch>[1]['agent'] : never,
-                    signal: controller.signal as unknown as AbortSignal,
+                    signal: AbortSignal.timeout(15000),
                 } as Parameters<typeof fetch>[1],
             );
-            clearTimeout(timeoutId);
             if (!r.ok) throw new Error(`BCRA v3 HTTP ${r.status}`);
             const json = await r.json() as { results?: Array<{ valor: number; fecha: string }> };
             if (json.results && json.results.length > 0) {

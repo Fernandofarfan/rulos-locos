@@ -1,6 +1,7 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, RefreshCcw, Copy, Check, Share2, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface HeroCardProps {
     price: number;
@@ -42,6 +43,7 @@ export const HeroCard: React.FC<HeroCardProps> = ({ price, bid, source, loading,
 
     return (
         <div className="glass-panel p-8 h-full flex flex-col justify-center relative overflow-hidden group min-h-[280px]">
+            <DataFreshness source={source} updatedAt={updatedAt} />
             <div className="relative z-10 flex flex-col h-full justify-between">
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">

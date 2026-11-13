@@ -23,6 +23,10 @@ DATABASE_URL="postgresql://user:password@aws-host.pooler.supabase.com:6543/postg
 # JSON Web Token
 JWT_SECRET="un_secreto_imposible_de_adivinar"
 
+# Generar con openssl rand -hex 32; conservar y respaldar la clave
+ENCRYPTION_KEY="<64 caracteres hexadecimales>"
+CRON_SECRET="<secreto aleatorio>"
+
 # Google Auth (debe coincidir VITE_ y GOOGLE_)
 VITE_GOOGLE_CLIENT_ID="tu_google_client_id.apps.googleusercontent.com"
 GOOGLE_CLIENT_ID="tu_google_client_id.apps.googleusercontent.com"
@@ -31,6 +35,14 @@ GOOGLE_CLIENT_SECRET="tu_google_client_secret"
 # URLs
 CLIENT_URL="https://rulos-locos.vercel.app"
 ```
+
+### Migraciones, secretos y cron
+
+Con un respaldo y `DATABASE_URL` apuntando a la base de destino, aplicar las migraciones con `npx prisma migrate deploy`. No usar `prisma db push` como sustituto. Antes de migrar secretos existentes, configurar y respaldar `ENCRYPTION_KEY`: cambiarla luego impide descifrarlos. Ejecutar `npm run secrets:migrate -- --dry-run` para revisar los conteos y `npm run secrets:migrate` para cifrarlos; el comando es idempotente.
+
+En GitHub, configurar los dos secrets del repositorio `CRON_SECRET` (mismo valor configurado en Vercel) y `APP_URL` (URL pública de la aplicación, sin `/api`). El workflow `.github/workflows/cron-tick.yml` invoca `/api/cron/tick` cada cinco minutos y también permite ejecución manual; GitHub puede retrasar los horarios. No se añade un cron frecuente a Vercel Hobby.
+
+Los comandos `npm run smoke:health`, `smoke:apis`, `smoke:bcra`, `smoke:endpoints` y `smoke:redirect` realizan consultas reales a APIs externas; requieren acceso a red y pueden depender de disponibilidad externa.
 
 ### El Archivo de Configuración (`vercel.json`)
 El enrutamiento entre el frontend y la API se orquesta en `vercel.json`:

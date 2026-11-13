@@ -5,6 +5,12 @@
 import ccxt from 'ccxt';
 import prisma from '../utils/db';
 import logger from '../utils/logger';
+import { decryptSecret } from '../utils/crypto';
+import type { Exchange } from 'ccxt';
+
+function numberBalances(value: object | undefined): Record<string, number> {
+    return Object.fromEntries(Object.entries(value ?? {}).filter((entry): entry is [string, number] => typeof entry[1] === 'number'));
+}
 
 interface ExchangeBalance {
     exchange: string;
@@ -40,9 +46,9 @@ class RealExchangeService {
             const balance = await exchange.fetchBalance();
             return {
                 exchange: exchangeName.toUpperCase(),
-                free: balance.free || {},
-                used: balance.used || {},
-                total: balance.total || {},
+                free: numberBalances(balance.free),
+                used: numberBalances(balance.used),
+                total: numberBalances(balance.total),
             };
         } catch (err) {
             logger.warn('Exchange balance error [%s]: %s', exchangeName, (err as Error).message);
@@ -112,21 +118,23 @@ class RealExchangeService {
     private getAvailableExchanges(): string[] {
         try {
             // ccxt.exchanges lists all exchange ids
-            return (ccxt as any).exchanges || ['binance'];
+            return ccxt.exchanges || ['binance'];
         } catch {
             return ['binance'];
         }
     }
 
-    private createExchangeClient(name: string, apiKey: string, apiSecret: string, passthrough?: string | null): any {
+    private createExchangeClient(name: string, apiKey: string, apiSecret: string, passthrough?: string | null): Exchange | null {
         const upper = name.toUpperCase();
         try {
-            const exchanges: Record<string, any> = {
+            apiSecret = decryptSecret(apiSecret, 'base64');
+            passthrough = passthrough ? decryptSecret(passthrough, 'plain') : passthrough;
+            const exchanges: Record<string, () => Exchange> = {
                 'BINANCE': () => new ccxt.binance({ apiKey, secret: apiSecret, enableRateLimit: true }),
             };
             if (exchanges[upper]) return exchanges[upper]();
             // Try dynamic exchange resolution via ccxt
-            const ExchangeClass = (ccxt as any)[upper.toLowerCase()];
+            const ExchangeClass = (ccxt as unknown as Record<string, new (options: object) => Exchange>)[upper.toLowerCase()];
             if (ExchangeClass) {
                 return new ExchangeClass({ apiKey, secret: apiSecret, password: passthrough || undefined, enableRateLimit: true });
             }
@@ -136,14 +144,14 @@ class RealExchangeService {
         }
     }
 
-    private createPublicClient(name: string): any {
+    private createPublicClient(name: string): Exchange | null {
         const upper = name.toUpperCase();
         try {
-            const exchanges: Record<string, any> = {
+            const exchanges: Record<string, () => Exchange> = {
                 'BINANCE': () => new ccxt.binance({ enableRateLimit: true }),
             };
             if (exchanges[upper]) return exchanges[upper]();
-            const ExchangeClass = (ccxt as any)[upper.toLowerCase()];
+            const ExchangeClass = (ccxt as unknown as Record<string, new (options: object) => Exchange>)[upper.toLowerCase()];
             if (ExchangeClass) return new ExchangeClass({ enableRateLimit: true });
             return null;
         } catch {

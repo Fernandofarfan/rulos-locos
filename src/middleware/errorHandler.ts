@@ -9,7 +9,7 @@ import * as Sentry from '@sentry/node';
 export interface ApiError extends Error {
   statusCode?: number;
   code?: string;
-  details?: any;
+  details?: unknown;
 }
 
 /**
@@ -20,7 +20,7 @@ export class OperationalError extends Error {
     public statusCode: number,
     public code: string,
     message: string,
-    public details?: any
+    public details?: unknown
   ) {
     super(message);
     this.name = 'OperationalError';
@@ -34,7 +34,7 @@ export class OperationalError extends Error {
  * - Envía respuestas consistentes
  */
 export const errorHandler = (
-  err: any,
+  err: Error,
   _req: Request,
   res: Response,
   _next: NextFunction
@@ -49,7 +49,7 @@ export const errorHandler = (
     return res.status(400).json({
       error: 'Validation error',
       code: 'VALIDATION_ERROR',
-      details: err.issues.map((e: any) => ({
+      details: err.issues.map((e) => ({
         path: e.path.join('.'),
         message: e.message,
       })),
@@ -103,7 +103,7 @@ export const errorHandler = (
 /**
  * Wrapper para rutas async que captura errores automáticamente
  */
-export const asyncHandler = (fn: Function) => {
+export const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => unknown) => {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };

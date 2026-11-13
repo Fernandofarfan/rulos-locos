@@ -54,22 +54,14 @@ app.use(helmet({
 
 const corsOptions: cors.CorsOptions = {
     origin: (origin, callback) => {
-        if (!origin || config.NODE_ENV !== 'production') return callback(null, true);
-        const allowedPatterns = [
-            /^https:\/\/rulos-locos.*\.vercel\.app$/,
-            /^https:\/\/rulos-locos\.com\.ar$/,
-            /localhost:5173$/,
-        ];
-        // Orígenes extra configurables via env (separados por coma)
-        const extraOrigins = (process.env.CORS_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
-        if (allowedPatterns.some(p => p.test(origin)) || origin === config.CLIENT_URL || extraOrigins.includes(origin)) {
+        if (!origin || config.CORS_ORIGINS.includes(origin)) {
             callback(null, true);
         } else {
             logger.warn('CORS bloqueado para origen: %s', origin);
             callback(null, false);
         }
     },
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 };
 app.use(cors(corsOptions));

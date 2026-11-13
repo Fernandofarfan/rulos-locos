@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import fetch from 'node-fetch';
 import cache from '../utils/cache';
 import logger from '../utils/logger';
 

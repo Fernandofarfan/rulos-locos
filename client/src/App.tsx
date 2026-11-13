@@ -217,6 +217,8 @@ function App() {
                     ccl={arbitrage?.dolares?.ccl}
                     crypto={rate ? { bid: rate.bid, ask: rate.ask } : undefined}
                     rateChange={rateChange}
+                    cryptoUpdatedAt={rate?.updatedAt}
+                    cryptoSource={rate?.source}
                     loading={loading}
                   />
 
@@ -381,6 +383,7 @@ function App() {
                     <ArbitrageHub
                       opportunities={arbitrage?.opportunities ?? []}
                       history={arbitrage?.history ?? []}
+                      updatedAt={arbitrage?.dolares?.blue?.fechaActualizacion}
                       loading={loading}
                     />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -4,6 +4,8 @@ export interface PriceData {
     totalBid: number;
     totalAsk: number;
     source: string;
+    timestamp?: string;
+    updatedAt?: string;
 }
 
 export interface ArbitrageOpportunity {
@@ -89,4 +91,3 @@ export interface SpreadHistoryPoint {
     value: number;
     timestamp: number;
 }
-

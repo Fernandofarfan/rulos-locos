@@ -1,13 +1,14 @@
 import ccxt from 'ccxt';
 import prisma from './db';
 import logger from './logger';
+import { decryptSecret } from './crypto';
+import type { ExchangeKey } from '@prisma/client';
+import type { Exchange } from 'ccxt';
 
 export class PortfolioSyncService {
 
-    // Helper to decrypt keys (in a real app, use AES-256 decryption here based on APP_SECRET)
-    // For MVP we stored them in base64
-    private getSecret(base64Secret: string): string {
-        return Buffer.from(base64Secret, 'base64').toString('ascii');
+    private getSecret(stored: string): string {
+        return decryptSecret(stored, 'base64');
     }
 
     async syncUserPortfolio(userId: string): Promise<void> {
@@ -26,8 +27,8 @@ export class PortfolioSyncService {
             for (const key of keys) {
                 try {
                     await this.syncExchange(userId, key);
-                } catch (e: any) {
-                    logger.error(`Error syncing ${key.exchange} for user ${userId}: ${e.message}`);
+                } catch (e) {
+                    logger.error(`Error syncing ${key.exchange} for user ${userId}: ${(e as Error).message}`);
                 }
             }
         } catch (error) {
@@ -35,10 +36,10 @@ export class PortfolioSyncService {
         }
     }
 
-    private async syncExchange(userId: string, keyData: any): Promise<void> {
+    private async syncExchange(userId: string, keyData: ExchangeKey): Promise<void> {
         const exchangeId = keyData.exchange.toLowerCase();
 
-        let targetExchange = exchangeId;
+        const targetExchange = exchangeId;
         // Map some local exchanges if needed, CCXT supports Binance, OKX, etc directly.
         // For Lemon/Buenbit we might need custom fetchers if ccxt doesn't support them,
         // but let's assume standard ccxt for now or fallback.
@@ -49,19 +50,19 @@ export class PortfolioSyncService {
             return;
         }
 
-        let balances: any = {};
+        let balances: Record<string, number> = {};
 
         if (isCCXTSupported) {
-            const ExchangeClass = (ccxt as any)[targetExchange];
+            const ExchangeClass = (ccxt as unknown as Record<string, new (options: object) => Exchange>)[targetExchange];
             const client = new ExchangeClass({
                 apiKey: keyData.apiKey,
                 secret: this.getSecret(keyData.apiSecret),
-                password: keyData.passthrough, // For OKX/KuCoin
+                password: keyData.passthrough ? decryptSecret(keyData.passthrough, 'plain') : undefined,
                 enableRateLimit: true,
             });
 
             const fetched = await client.fetchBalance();
-            balances = fetched.total || {};
+            balances = Object.fromEntries(Object.entries(fetched.total || {}).filter((entry): entry is [string, number] => typeof entry[1] === 'number'));
         } else if (targetExchange === 'lemon') {
             // Lemon no está soportado por CCXT todavía y no hay integración real.
             // NUNCA fabricar balances falsos: se persistirían en el portfolio del usuario.
@@ -76,8 +77,7 @@ export class PortfolioSyncService {
             // We can use the 'notes' field or add a 'source' field. For now, let's just create/update them.
 
             for (const [coin, amount] of Object.entries(balances)) {
-                // @ts-ignore
-                const numAmount = Number(amount.total || amount);
+                const numAmount = Number(amount);
                 if (numAmount > 0 && !isNaN(numAmount)) {
                     // Overwrite the existing portfolio position for this coin synced by the user
                     const existing = await prisma.portfolioPosition.findFirst({
@@ -87,7 +87,7 @@ export class PortfolioSyncService {
                     if (existing) {
                         await prisma.portfolioPosition.update({
                             where: { id: existing.id },
-                            data: { amount: numAmount, date: new Date().toISOString().split('T')[0] }
+                            data: { amount: numAmount, date: new Date() }
                         });
                     } else {
                         await prisma.portfolioPosition.create({
@@ -96,7 +96,7 @@ export class PortfolioSyncService {
                                 asset: coin,
                                 amount: numAmount,
                                 buyPrice: 0,
-                                date: new Date().toISOString().split('T')[0],
+                                date: new Date(),
                                 note: `Synced from ${keyData.exchange}`
                             }
                         });

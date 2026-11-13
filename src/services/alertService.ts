@@ -3,6 +3,7 @@ import logger from '../utils/logger';
 import notificationService from './notificationService';
 import { sendPriceAlertEmail } from './emailService';
 import dolarApiService from './dolarApiService';
+import type { Alert } from '@prisma/client';
 
 interface CurrentPrices {
     blue?: number;
@@ -120,7 +121,7 @@ class AlertService {
                     alert.asset,
                     currentPrice,
                     alert.condition as 'above' | 'below',
-                    alert.threshold
+                    Number(alert.threshold)
                 );
 
                 if (shouldTrigger) {
@@ -136,6 +137,7 @@ class AlertService {
             }
         } catch (error) {
             logger.error('Error en checkAndTriggerAlerts: %s', (error as Error).message);
+            throw error;
         }
     }
 
@@ -143,7 +145,7 @@ class AlertService {
      * Enviar notificación por alerta activada
      */
     private async sendAlertNotification(
-        alert: any,
+        alert: Alert & { user: { email: string } },
         currentPrice: number
     ): Promise<void> {
         try {

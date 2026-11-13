@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { VitePWA } from 'vite-plugin-pwa'
+import vercelConfig from '../vercel.json'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -66,6 +67,11 @@ export default defineConfig(({ mode }) => ({
     setupFiles: ['./src/setupTests.ts'],
     exclude: ['node_modules', 'e2e'],
   },
+  preview: {
+    headers: {
+      'Content-Security-Policy': vercelConfig.headers[0].headers.find(header => header.key === 'Content-Security-Policy')!.value,
+    },
+  },
   server: {
     port: 5173,
     open: true,
@@ -73,11 +79,6 @@ export default defineConfig(({ mode }) => ({
       '/api': {
         target: 'http://127.0.0.1:3001',
         changeOrigin: true,
-        timeout: 20000,
-      },
-      '/socket.io': {
-        target: 'http://127.0.0.1:3001',
-        ws: true,
         timeout: 20000,
       },
     },

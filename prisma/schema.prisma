@@ -7,6 +7,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model SpreadPoint {
+  id        String   @id @default(cuid())
+  timestamp DateTime @unique
+  value     Float
+
+  @@index([timestamp])
+}
+
+enum AlertCondition {
+  above
+  below
+}
+
+enum VirtualTxType {
+  BUY
+  SELL
+  DEPOSIT
+}
+
 model User {
   id        String              @id @default(cuid())
   email     String              @unique
@@ -42,8 +61,8 @@ model PushSubscription {
 model Alert {
   id        String   @id @default(cuid())
   asset     String   // "blue" | "mep" | "ccl" | "crypto"
-  condition String   // "above" | "below"
-  threshold Float
+  condition AlertCondition
+  threshold Decimal @db.Decimal(20, 8)
   active    Boolean  @default(true)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -56,9 +75,9 @@ model Alert {
 model PortfolioPosition {
   id        String   @id @default(cuid())
   asset     String
-  buyPrice  Float
-  amount    Float
-  date      String
+  buyPrice  Decimal  @db.Decimal(20, 8)
+  amount    Decimal  @db.Decimal(20, 8)
+  date      DateTime @db.Date
   note      String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -70,7 +89,7 @@ model PortfolioPosition {
 model VirtualBalance {
   id              String   @id @default(cuid())
   currency        String   // "ARS" | "USD" | "USDT" | "BTC"
-  amount          Float    @default(0)
+  amount          Decimal  @default(0) @db.Decimal(20, 8)
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   updatedAt       DateTime @updatedAt
@@ -81,11 +100,11 @@ model VirtualBalance {
 
 model VirtualTransaction {
   id              String   @id @default(cuid())
-  type            String   // "BUY" | "SELL" | "DEPOSIT"
+  type            VirtualTxType
   asset           String   // "MEP" | "BLUE" | "CRYPTO"
-  amount          Float    // How much of the asset was bought/sold
-  price           Float    // Price per unit in ARS
-  totalArs        Float    // Total ARS impact
+  amount          Decimal  @db.Decimal(20, 8)
+  price           Decimal  @db.Decimal(20, 8)
+  totalArs        Decimal  @db.Decimal(20, 8)
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt       DateTime @default(now())

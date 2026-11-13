@@ -1,6 +1,7 @@
 import path from 'path';
 import dotenv from 'dotenv';
 import { z } from 'zod';
+import logger from '../utils/logger';
 
 dotenv.config();
 
@@ -13,6 +14,7 @@ const EnvSchema = z.object({
   NEWS_API_KEY: z.string().default(''),
   CLIENT_URL: z.string().url().default('http://localhost:5173'),
   JWT_SECRET: z.string().min(32),
+  ENCRYPTION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/),
   DATABASE_URL: z.string().default('file:./dev.db'),
   EMAIL_USER: z.string().email().optional(),
   EMAIL_PASS: z.string().optional(),
@@ -37,8 +39,19 @@ if (!_env.success) {
     process.stderr.write('\n❌ JWT_SECRET es obligatorio en producción. Abortando.\n');
     process.exit(1);
   }
+  const hasEncryptionError = _env.error.issues.some(i => i.path.includes('ENCRYPTION_KEY'));
+  if (hasEncryptionError && (process.env.NODE_ENV === 'production' || process.env.VERCEL)) {
+    process.stderr.write('\n❌ ENCRYPTION_KEY es obligatorio en producción. Abortando.\n');
+    process.exit(1);
+  }
 }
 const env = _env.success ? _env.data : ({ ...process.env, PORT: 3001, NODE_ENV: 'development' } as any);
+const encryptionKey = /^[0-9a-fA-F]{64}$/.test(process.env.ENCRYPTION_KEY || '')
+  ? process.env.ENCRYPTION_KEY!
+  : '0'.repeat(64);
+if (!/^[0-9a-fA-F]{64}$/.test(process.env.ENCRYPTION_KEY || '')) {
+  logger.warn('ENCRYPTION_KEY no configurado o inválido; usando clave de desarrollo. No usar en producción.');
+}
 
 interface Config {
   PORT: number | string;
@@ -56,6 +69,8 @@ interface Config {
   NEWS_API_KEY: string;
   CLIENT_URL: string;
   JWT_SECRET: string;
+  ENCRYPTION_KEY: string;
+  CORS_ORIGINS: string[];
   DEFAULT_HEADERS: Record<string, string>;
   EMAIL: {
     HOST: string;
@@ -83,6 +98,11 @@ const config: Config = {
   NEWS_API_KEY: env.NEWS_API_KEY || '',
   CLIENT_URL: env.CLIENT_URL || 'http://localhost:5173',
   JWT_SECRET: env.JWT_SECRET,
+  ENCRYPTION_KEY: encryptionKey,
+  CORS_ORIGINS: [...new Set([
+    'http://localhost:5173', 'https://rulos-locos.vercel.app',
+    process.env.CLIENT_URL, ...(process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim()),
+  ].filter((origin): origin is string => Boolean(origin)))],
   DEFAULT_HEADERS: {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'application/json',

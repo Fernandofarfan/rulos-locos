@@ -1,6 +1,7 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, ArrowDownLeft, ArrowUpRight, Copy, Check, Share2, RefreshCcw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Copy, Check, Share2 } from 'lucide-react';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface QuoteCardData {
     id: string;
@@ -14,12 +15,14 @@ interface QuoteCardData {
 }
 
 interface MainQuotesGridProps {
-    blue?: { compra?: number; venta?: number };
-    mep?: { compra?: number; venta?: number };
-    ccl?: { compra?: number; venta?: number };
+    blue?: { compra?: number; venta?: number; fechaActualizacion?: string };
+    mep?: { compra?: number; venta?: number; fechaActualizacion?: string };
+    ccl?: { compra?: number; venta?: number; fechaActualizacion?: string };
     crypto?: { bid?: number; ask?: number };
     rateChange?: number;
     loading?: boolean;
+    cryptoUpdatedAt?: string;
+    cryptoSource?: string;
 }
 
 export const MainQuotesGrid: React.FC<MainQuotesGridProps> = ({
@@ -29,6 +32,8 @@ export const MainQuotesGrid: React.FC<MainQuotesGridProps> = ({
     crypto,
     rateChange = 0,
     loading = false,
+    cryptoUpdatedAt,
+    cryptoSource,
 }) => {
     const { copy, copied } = useCopyToClipboard();
 
@@ -98,6 +103,7 @@ export const MainQuotesGrid: React.FC<MainQuotesGridProps> = ({
                         key={q.id}
                         className="glass-panel p-4 flex flex-col justify-between hover-lift relative group transition-all"
                     >
+                        <DataFreshness source={q.id === 'crypto' ? (cryptoSource || 'Binance P2P') : 'DolarAPI'} updatedAt={q.id === 'crypto' ? cryptoUpdatedAt : ({ blue, mep, ccl }[q.id as 'blue' | 'mep' | 'ccl']?.fechaActualizacion)} />
                         {/* Header card */}
                         <div className="flex items-center justify-between gap-2 mb-3">
                             <div className="flex items-center gap-2">

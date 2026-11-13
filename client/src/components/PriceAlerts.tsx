@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Trash2, Plus, AlertCircle, Send, Wifi, WifiOff } from 'lucide-react';
 import { apiService } from '../services/api';
-import { useSocket } from '../hooks/useSocket';
+import { useArbitrageStream } from '../hooks/useRealtime';
 import { Tooltip } from './ui/Tooltip';
 
 interface Alert {
@@ -29,8 +29,6 @@ export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
     const [permission, setPermission] = useState<NotificationPermission>('default');
 
 
-    // WebSocket — actualizaciones en tiempo real
-    const { socket, isConnected } = useSocket();
     const livePricesRef = useRef(prices);
 
     // Sincronizar precios del prop con la ref
@@ -86,11 +84,7 @@ export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
         setAlerts(alerts.map(a => a.id === id ? { ...a, active: state } : a));
     };
 
-    // Suscribirse a actualizaciones de arbitrage via WebSocket
-    useEffect(() => {
-        if (!socket) return;
-
-        const handleArbitrageUpdate = (data: { dolares?: { blue?: { venta?: number }; mep?: { venta?: number }; oficial?: { venta?: number }; crypto?: { venta?: number } } }) => {
+    const { connected: isConnected } = useArbitrageStream(data => {
             if (!data?.dolares) return;
             const updated = {
                 blue: data.dolares.blue?.venta ?? livePricesRef.current.blue,
@@ -99,11 +93,7 @@ export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
                 crypto: data.dolares.crypto?.venta ?? livePricesRef.current.crypto,
             };
             livePricesRef.current = updated;
-        };
-
-        socket.on('arbitrage-update', handleArbitrageUpdate);
-        return () => { socket.off('arbitrage-update', handleArbitrageUpdate); };
-    }, [socket]);
+    });
 
     // Load alerts from local storage
     useEffect(() => {

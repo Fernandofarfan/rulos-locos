@@ -1,5 +1,4 @@
 // Search for alternative endpoints for badlar and depositos en ArgentinaDatos
-const fetch = require('node-fetch');
 const candidates = [
   'finanzas/tasas/badlar',
   'finanzas/tasas/depositos30dias',

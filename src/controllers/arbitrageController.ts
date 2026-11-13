@@ -5,9 +5,6 @@ import cache from '../utils/cache';
 import * as spreadHistory from '../utils/spreadHistory';
 import type { ArbitrageResult } from '../services/arbitrageService';
 
-// Cargar historial persistido al arrancar
-spreadHistory.load();
-
 class ArbitrageController {
     async getArbitrage(_req: Request, res: Response): Promise<void> {
         try {
@@ -20,20 +17,8 @@ class ArbitrageController {
                 cache.set('arbitrage_data', result, 60000);
             }
 
-            // Calcular spread Blue vs MEP para historial
-            if (result.dolares?.blue && result.dolares?.mep) {
-                const blueBid = parseFloat(String(result.dolares.blue.compra));
-                const mepAsk = parseFloat(String(result.dolares.mep.venta));
-                if (blueBid > 0 && mepAsk > 0) {
-                    const spread = ((blueBid / mepAsk) - 1) * 100;
-                    const now = new Date();
-                    spreadHistory.append({
-                        time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        value: parseFloat(spread.toFixed(2)),
-                        timestamp: now.getTime(),
-                    });
-                }
-            }
+            await spreadHistory.ensureLoaded();
+            await spreadHistory.appendResult(result);
 
             res.json({ ...result, history: spreadHistory.getAll(), cached: !!cachedData });
         } catch (error) {

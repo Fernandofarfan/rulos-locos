@@ -590,8 +590,11 @@ class EconomicsController {
 
     async getCalendarEvents(_req: Request, res: Response): Promise<void> {
         try {
-            const cached = await cache.get<unknown>('economics_calendar');
-            if (cached) { res.json(cached); return; }
+            const todayStr = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit',
+            }).format(new Date());
+            const cached = await cache.get<{ events: { fecha: string }[]; sources: string[]; timestamp: string }>('economics_calendar');
+            if (cached) { res.json({ ...cached, events: cached.events.filter(event => event.fecha >= todayStr) }); return; }
 
             const KNOWN_EVENTS = [
                 { fecha: '2026-02-27', title: 'EMAE Diciembre 2025 — Actividad Económica', impact: 'medium', tipo: 'INDEC' },
@@ -612,20 +615,19 @@ class EconomicsController {
                 { fecha: '2026-12-10', title: 'IPC Noviembre 2026 — Inflación Mensual', impact: 'high', tipo: 'INDEC' },
             ];
 
-            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const today = new Date(`${todayStr}T00:00:00Z`);
             const bcraEvents = [];
             for (let mOffset = 0; mOffset <= 5; mOffset++) {
-                const d = new Date(today.getFullYear(), today.getMonth() + mOffset, 1);
-                while (d.getDay() !== 2) d.setDate(d.getDate() + 1);
+                const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + mOffset, 1));
+                while (d.getUTCDay() !== 2) d.setUTCDate(d.getUTCDate() + 1);
                 bcraEvents.push({ fecha: d.toISOString().split('T')[0], title: 'Licitación de Letras BCRA', impact: 'high', tipo: 'BCRA' });
             }
 
             type HolidayRaw = { fecha?: string; nombre?: string; tipo?: string };
             let holidayEvents: { fecha: string; title: string; impact: string; tipo: string; id: string }[] = [];
             try {
-                const year = today.getFullYear();
+                const year = today.getUTCFullYear();
                 const [thisYear, nextYear] = await Promise.allSettled([argentinaDatosService.getHolidays(year), argentinaDatosService.getHolidays(year + 1)]);
-                const todayStr = today.toISOString().split('T')[0];
                 const raw: HolidayRaw[] = [
                     ...(thisYear.status === 'fulfilled' ? ((thisYear.value ?? []) as HolidayRaw[]) : []),
                     ...(nextYear.status === 'fulfilled' ? ((nextYear.value ?? []) as HolidayRaw[]) : []),
@@ -633,7 +635,6 @@ class EconomicsController {
                 holidayEvents = raw.filter(h => h?.fecha && h.fecha >= todayStr).map((h, i) => ({ fecha: h.fecha!, title: h.nombre || 'Feriado Nacional', impact: 'low', tipo: h.tipo || 'Feriado', id: `holiday-${i}` }));
             } catch (e) { logger.warn('getCalendarEvents: no se pudieron obtener feriados: %s', (e as Error).message); }
 
-            const todayStr = today.toISOString().split('T')[0];
             const allRaw = [
                 ...KNOWN_EVENTS.map((e, i) => ({ ...e, id: `known-${i}` })),
                 ...bcraEvents.map((e, i) => ({ ...e, id: `bcra-${i}` })),

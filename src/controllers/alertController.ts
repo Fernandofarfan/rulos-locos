@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../utils/db';
+import { toPlain } from '../utils/serialize';
 import logger from '../utils/logger';
 import notificationService from '../services/notificationService';
 import { sendPriceAlertEmail } from '../services/emailService';
@@ -30,7 +31,7 @@ class AlertController {
                 orderBy: { createdAt: 'desc' },
             });
 
-            res.json(alerts);
+            res.json(toPlain(alerts));
         } catch (error) {
             logger.error('Error listando alertas: %s', (error as Error).message);
             res.status(500).json({ error: 'Error al listar alertas' });
@@ -66,7 +67,7 @@ class AlertController {
                 return;
             }
 
-            if (!['above', 'below'].includes(condition)) {
+            if (condition !== 'above' && condition !== 'below') {
                 res.status(400).json({ error: 'condition debe ser "above" o "below"' });
                 return;
             }
@@ -82,7 +83,7 @@ class AlertController {
             });
 
             logger.info('Alerta creada para usuario %s: %s %s %d', userId, asset, condition, threshold);
-            res.status(201).json(alert);
+            res.status(201).json(toPlain(alert));
         } catch (error) {
             logger.error('Error creando alerta: %s', (error as Error).message);
             res.status(500).json({ error: 'Error al crear alerta' });
@@ -136,7 +137,7 @@ class AlertController {
             });
 
             logger.info('Alerta actualizada: %s', id);
-            res.json(updated);
+            res.json(toPlain(updated));
         } catch (error) {
             logger.error('Error actualizando alerta: %s', (error as Error).message);
             res.status(500).json({ error: 'Error al actualizar alerta' });

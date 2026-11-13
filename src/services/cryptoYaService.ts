@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import config from '../config';
 import logger from '../utils/logger';
 
@@ -8,18 +7,16 @@ export interface P2PRate {
     totalAsk: number;
     totalBid: number;
     time: number;
+    isFallback?: boolean;
 }
 
 class CryptoYaService {
     async getBinanceP2P(crypto = 'USDT', fiat = 'ARS', volume = 1): Promise<P2PRate> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
             const response = await fetch(
                 `${config.API_URLS.CRIPTOYA}/binancep2p/${crypto}/${fiat}/${volume}`,
-                { signal: controller.signal as unknown as AbortSignal } as Parameters<typeof fetch>[1],
+                { signal: AbortSignal.timeout(10000) },
             );
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error('Error al consultar CriptoYa Binance P2P');
             return await response.json() as P2PRate;
         } catch {
@@ -29,6 +26,7 @@ class CryptoYaService {
                 totalAsk: 1205.50,
                 totalBid: 1195.20,
                 time: Math.floor(Date.now() / 1000),
+                isFallback: true,
             };
         }
     }
@@ -40,13 +38,17 @@ class CryptoYaService {
         volume = 1,
         signal?: AbortSignal,
     ): Promise<unknown> {
+        const timeoutSignal = AbortSignal.timeout(10000);
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const abortFromTimeout = () => controller.abort(timeoutSignal.reason);
+        const abortFromCaller = () => controller.abort(signal?.reason);
+        timeoutSignal.addEventListener('abort', abortFromTimeout, { once: true });
+        if (signal?.aborted) abortFromCaller();
+        else signal?.addEventListener('abort', abortFromCaller, { once: true });
         try {
-            const finalSignal = signal || controller.signal;
             const response = await fetch(
                 `${config.API_URLS.CRIPTOYA}/${exchange}/${crypto}/${fiat}/${volume}`,
-                { signal: finalSignal as AbortSignal } as Parameters<typeof fetch>[1],
+                { signal: controller.signal },
             );
             if (!response.ok) throw new Error(`Error en ${exchange}`);
             return response.json();
@@ -60,7 +62,8 @@ class CryptoYaService {
                 timestamp: new Date().toISOString(),
             };
         } finally {
-            clearTimeout(timeoutId);
+            timeoutSignal.removeEventListener('abort', abortFromTimeout);
+            signal?.removeEventListener('abort', abortFromCaller);
         }
     }
 }

@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 
 class NotificationService {
     async sendTelegramMessage(message: string): Promise<boolean> {

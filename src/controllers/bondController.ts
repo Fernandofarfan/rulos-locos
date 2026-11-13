@@ -2,6 +2,17 @@ import { Request, Response } from 'express';
 import cache from '../utils/cache';
 import dolarApiService from '../services/dolarApiService';
 import logger from '../utils/logger';
+import bondsService from '../services/bondsService';
+
+export const getBondsLive = async (_req: Request, res: Response): Promise<void> => {
+    try {
+        const data = await bondsService.getBondsLive();
+        res.json(data);
+    } catch (error) {
+        logger.error('Error in getBondsLive:', (error as Error).message);
+        res.status(500).json({ error: 'Error fetching bonds live data' });
+    }
+};
 
 interface BondData {
     bono: string;

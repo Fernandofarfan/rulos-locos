@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import logger from '../utils/logger';
 
 interface StooqQuote {
@@ -39,13 +38,10 @@ const STOOQ_TIMEOUT = 7000;
 async function getStooqQuote(symbol: string): Promise<StooqQuote | null> {
     try {
         const url = `https://stooq.com/q/l/?s=${encodeURIComponent(symbol)}&f=sd2cn&h&e=csv`;
-        const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), STOOQ_TIMEOUT);
         const r = await fetch(url, {
             headers: STOOQ_HEADERS,
-            signal: controller.signal as unknown as AbortSignal,
+            signal: AbortSignal.timeout(STOOQ_TIMEOUT),
         } as Parameters<typeof fetch>[1]);
-        clearTimeout(tid);
         if (!r.ok) return null;
         const text = await r.text();
         const lines = text.trim().split('\n');
@@ -61,14 +57,11 @@ async function getStooqQuote(symbol: string): Promise<StooqQuote | null> {
 
 async function getCoinGeckoPrices(ids: string[]): Promise<CoinGeckoResponse> {
     try {
-        const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 7000);
         const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd&include_24hr_change=true`;
         const r = await fetch(url, {
             headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
-            signal: controller.signal as unknown as AbortSignal,
+            signal: AbortSignal.timeout(7000),
         } as Parameters<typeof fetch>[1]);
-        clearTimeout(tid);
         if (!r.ok) throw new Error(`CoinGecko HTTP ${r.status}`);
         return (await r.json()) as CoinGeckoResponse;
     } catch (err) {
@@ -79,13 +72,10 @@ async function getCoinGeckoPrices(ids: string[]): Promise<CoinGeckoResponse> {
 
 async function getCCLRate(): Promise<number | null> {
     try {
-        const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 5000);
         const r = await fetch('https://dolarapi.com/v1/dolares/contadoconliqui', {
             headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
-            signal: controller.signal as unknown as AbortSignal,
+            signal: AbortSignal.timeout(5000),
         } as Parameters<typeof fetch>[1]);
-        clearTimeout(tid);
         if (!r.ok) throw new Error(`DolarAPI CCL HTTP ${r.status}`);
         const data = await r.json() as { compra?: string | number; venta?: string | number };
         const compra = parseFloat(String(data.compra)) || 0;

@@ -4,7 +4,6 @@
  * Usa el endpoint público de Matba-ROFEX disponible sin autenticación.
  * Si la API falla, devuelve datos estimados basados en el CCL actual.
  */
-import fetch from 'node-fetch';
 import dolarApiService from './dolarApiService';
 import logger from '../utils/logger';
 
@@ -60,13 +59,10 @@ class RofexService {
     async getContracts(): Promise<RofexContract[]> {
         try {
             // Intentar API real de Remarkets (ROFEX)
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
             const response = await fetch(
                 `${ROFEX_API}?symbol=DLR%2FMAR26&entries=BI,OF,LA&sinceTimestamp=0`,
-                { signal: controller.signal as unknown as AbortSignal }
+                { signal: AbortSignal.timeout(5000) }
             );
-            clearTimeout(timeoutId);
 
             if (response.ok) {
                 // Si responde, parsear lo que podamos

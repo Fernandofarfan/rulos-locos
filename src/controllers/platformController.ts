@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import fetch from 'node-fetch';
 import config from '../config';
 import cache from '../utils/cache';
 import logger from '../utils/logger';
@@ -34,13 +33,10 @@ class PlatformController {
 
             const promises = exchanges.map(async (exchange): Promise<PlatformResult> => {
                 try {
-                    const controller = new AbortController();
-                    const tid = setTimeout(() => controller.abort(), 5000);
                     const response = await fetch(`${config.API_URLS.CRIPTOYA}/${exchange.id}/USDT/ARS/1`, {
                         headers: config.DEFAULT_HEADERS,
-                        signal: controller.signal as unknown as AbortSignal,
+                        signal: AbortSignal.timeout(5000),
                     } as Parameters<typeof fetch>[1]);
-                    clearTimeout(tid);
                     if (!response.ok) throw new Error(`Error en ${exchange.name}`);
                     const data = await response.json() as { ask?: string | number; bid?: string | number };
                     return {

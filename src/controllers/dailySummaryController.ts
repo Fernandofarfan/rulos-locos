@@ -82,7 +82,6 @@ export async function sendDailySummary(_req: Request, res: Response) {
 
         if (prisma) {
             const users = await prisma.user.findMany({
-                where: { email: { not: null } },
                 select: { email: true, name: true },
                 take: 100,
             });

@@ -13,8 +13,8 @@ class ExchangeControllerExtended {
         try {
             await PortfolioSyncService.syncUserPortfolio(req.user!.id);
             res.json({ success: true, message: 'Portfolio synchronizado' });
-        } catch (error: any) {
-            logger.error('Error syncing portfolio: %s', error.message);
+        } catch (error) {
+            logger.error('Error syncing portfolio: %s', (error as Error).message);
             res.status(500).json({ error: 'No se pudo sincronizar el portfolio' });
         }
     }
@@ -24,8 +24,8 @@ class ExchangeControllerExtended {
             const balance = await realExchangeService.getBalance(req.user!.id, req.params.name as string);
             if (!balance) { res.status(404).json({ error: 'Exchange no configurado' }); return; }
             res.json(balance);
-        } catch (e: any) {
-            logger.error('Error fetching balance: %s', e.message);
+        } catch (e) {
+            logger.error('Error fetching balance: %s', (e as Error).message);
             res.status(500).json({ error: 'No se pudo obtener el balance' });
         }
     }
@@ -34,8 +34,8 @@ class ExchangeControllerExtended {
         try {
             const valid = await realExchangeService.validateKeys(req.user!.id, req.params.name as string);
             res.json({ exchange: (req.params.name as string).toUpperCase(), valid });
-        } catch (e: any) {
-            logger.error('Error validating keys: %s', e.message);
+        } catch (e) {
+            logger.error('Error validating keys: %s', (e as Error).message);
             res.status(500).json({ error: 'No se pudieron validar las credenciales' });
         }
     }
@@ -44,8 +44,8 @@ class ExchangeControllerExtended {
         try {
             const prices = await realExchangeService.getMultiExchangePrices(decodeURIComponent(req.params.symbol as string));
             res.json(prices);
-        } catch (e: any) {
-            logger.error('Error fetching prices: %s', e.message);
+        } catch (e) {
+            logger.error('Error fetching prices: %s', (e as Error).message);
             res.status(500).json({ error: 'No se pudieron obtener los precios' });
         }
     }
@@ -74,8 +74,8 @@ class ExchangeControllerExtended {
                 }
             }
             res.json({ success: true, message: 'Email registrado para newsletter (modo guest).' });
-        } catch (e: any) {
-            logger.error('Error subscribing newsletter: %s', e.message);
+        } catch (e) {
+            logger.error('Error subscribing newsletter: %s', (e as Error).message);
             res.status(500).json({ error: 'No se pudo registrar el email' });
         }
     }

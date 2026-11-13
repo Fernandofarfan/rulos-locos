@@ -4,13 +4,16 @@ import prisma from '../utils/db';
 import { getJwtSecret, signToken, signRefreshToken, verifyRefreshToken } from '../middleware/auth';
 import logger from '../utils/logger';
 import { OAuth2Client } from 'google-auth-library';
+import { decryptSecret, encryptSecret } from '../utils/crypto';
+import { toPlain } from '../utils/serialize';
 
 // otplib y qrcode se importan de manera lazy (son módulos ESM que crashean en CJS serverless)
-let _totp: import('otplib').TOTP | null = null;
-async function getTotp(): Promise<import('otplib').TOTP> {
+let _totp: import('otplib').OTP | null = null;
+const importOtplib = new Function('return import("otplib")') as () => Promise<typeof import('otplib')>;
+async function getTotp(): Promise<import('otplib').OTP> {
     if (_totp) return _totp;
-    const { TOTP } = await import('otplib');
-    _totp = new TOTP();
+    const { OTP } = await importOtplib();
+    _totp = new OTP();
     return _totp;
 }
 async function getQRCode() {
@@ -101,8 +104,7 @@ class AuthController {
                 }
 
                 const totp = await getTotp();
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const isValid = (totp as any).verify({ token: twoFactorCode, secret: user.twoFactorSecret });
+                const isValid = (await totp.verify({ token: twoFactorCode, secret: decryptSecret(user.twoFactorSecret, 'plain') })).valid;
                 if (!isValid) {
                     res.status(401).json({ error: 'Código 2FA incorrecto o expirado.' });
                     return;
@@ -145,9 +147,10 @@ class AuthController {
                 return;
             }
 
-            const { password: _pw, ...userWithoutPassword } = user;
+            const { password: _pw, twoFactorSecret: _secret, ...userWithoutPassword } = user;
             void _pw;
-            res.json(userWithoutPassword);
+            void _secret;
+            res.json(toPlain(userWithoutPassword));
         } catch (error) {
             logger.error('Error fetching profile: %s', (error as Error).message);
             res.status(500).json({ error: 'Error interno' });
@@ -168,6 +171,7 @@ class AuthController {
 
     // Generar Secreto 2FA y devolver QR
     async generate2FA(req: AuthRequest, res: Response): Promise<void> {
+        if (!prisma) { res.status(503).json({ error: 'DB no disponible' }); return; }
         try {
             const userId = req.user?.id;
             if (!userId) { res.status(401).json({ error: 'No autorizado' }); return; }
@@ -176,18 +180,16 @@ class AuthController {
             if (!user) { res.status(404).json({ error: 'Usuario no encontrado' }); return; }
 
             const totp = await getTotp();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const secret = (totp as any).generateSecret();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const otpauth = (totp as any).keyuri(user.email, 'RulosLocos', secret);
+            const secret = totp.generateSecret();
+            const otpauth = totp.generateURI({ label: user.email, issuer: 'RulosLocos', secret });
 
             await prisma.user.update({
                 where: { id: userId },
-                data: { twoFactorSecret: secret }
+                data: { twoFactorSecret: encryptSecret(secret) }
             });
 
             const QRCode = await getQRCode();
-            const qrCodeDataUrl = await (QRCode as any).toDataURL(otpauth);
+            const qrCodeDataUrl = await QRCode.toDataURL(otpauth);
 
             res.json({ secret, qrCode: qrCodeDataUrl });
         } catch (error) {
@@ -198,6 +200,7 @@ class AuthController {
 
     // Validar el primer código y activar
     async verifyAndEnable2FA(req: AuthRequest, res: Response): Promise<void> {
+        if (!prisma) { res.status(503).json({ error: 'DB no disponible' }); return; }
         try {
             const userId = req.user?.id;
             const { token } = req.body as { token?: string };
@@ -208,8 +211,7 @@ class AuthController {
             if (!user || !user.twoFactorSecret) { res.status(400).json({ error: 'No hay secreto 2FA generado.' }); return; }
 
             const totp = await getTotp();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const isValid = (totp as any).verify({ token, secret: user.twoFactorSecret });
+            const isValid = (await totp.verify({ token, secret: decryptSecret(user.twoFactorSecret, 'plain') })).valid;
 
             if (!isValid) {
                 res.status(400).json({ error: 'Código 2FA incorrecto o vencido.' });
@@ -229,6 +231,7 @@ class AuthController {
     }
 
     async disable2FA(req: AuthRequest, res: Response): Promise<void> {
+        if (!prisma) { res.status(503).json({ error: 'DB no disponible' }); return; }
         try {
             const userId = req.user?.id;
             if (!userId) { res.status(401).json({ error: 'No autorizado' }); return; }

@@ -1,4 +1,3 @@
-const fetch = require('node-fetch');
 const tests = [
   'finanzas/tasas/depositos30dias',  
   'finanzas/tasas/badlar',
@@ -17,7 +16,7 @@ const tests = [
       const r = await fetch('https://api.argentinadatos.com/v1/' + p + '/', {
         headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
         redirect: 'follow',
-        timeout: 8000
+        signal: AbortSignal.timeout(8000)
       });
       const t = await r.text();
       let parsed; try { parsed = JSON.parse(t); } catch (e) { parsed = null; }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Target, TrendingUp, TrendingDown, RefreshCw, AlertTriangle } from 'lucide-react';
+import { FinancialDisclaimer } from './ui/FinancialDisclaimer';
 
 interface DataPoint { day: number; price: number; }
 
@@ -78,6 +79,7 @@ export const PricePredictor: React.FC<PredictorProps> = ({ currentBlue = 0 }) =>
 
     return (
         <div className="glass-panel no-lift p-5">
+            <FinancialDisclaimer />
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <Target size={14} className="text-fuchsia-400" />

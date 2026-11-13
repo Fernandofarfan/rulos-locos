@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import config from '../config';
 import { CircuitBreaker } from '../utils/circuitBreaker';
 
@@ -25,13 +24,10 @@ class DolarApiService {
     async getAllDollars(): Promise<DolarCasa[]> {
         return this.cb.execute(
             async () => {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000);
                 const response = await fetch(`${config.API_URLS.DOLARAPI}/dolares`, {
                     headers: config.DEFAULT_HEADERS,
-                    signal: controller.signal as Parameters<typeof fetch>[1] extends object ? AbortSignal : never,
+                    signal: AbortSignal.timeout(5000),
                 } as Parameters<typeof fetch>[1]);
-                clearTimeout(timeoutId);
                 if (!response.ok) throw new Error('Error en DolarAPI');
                 return await response.json() as DolarCasa[];
             },
@@ -41,13 +37,10 @@ class DolarApiService {
 
     async getBlueDollar(): Promise<DolarCasa> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
             const response = await fetch(`${config.API_URLS.DOLARAPI}/dolares/blue`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(5000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error('Error obteniendo dólar blue');
             return await response.json() as DolarCasa;
         } catch {

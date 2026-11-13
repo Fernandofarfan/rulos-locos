@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Calculator, ArrowRight, DollarSign, Settings, TrendingUp, AlertTriangle, Clock } from 'lucide-react';
 import { formatARS } from '../utils/formatARS';
+import { FinancialDisclaimer } from './ui/FinancialDisclaimer';
 
 interface ArbitrageCalculatorProps {
     blueBid: number;
@@ -111,6 +112,7 @@ export const ArbitrageCalculator: React.FC<ArbitrageCalculatorProps> = ({ blueBi
 
     return (
         <div className="glass-panel relative overflow-hidden flex flex-col">
+            <FinancialDisclaimer />
             {/* Header */}
             <div className="p-5 border-b border-white/5 bg-white/5 flex justify-between items-center z-10 relative">
                 <div>

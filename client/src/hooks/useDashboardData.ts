@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiService } from '../services/api';
-import { useSocket } from './useSocket';
+import { pollArbitrage, useArbitrageStream } from './useRealtime';
 import type { PriceData, ArbitrageOpportunity, SpreadHistoryPoint, DashboardData } from '../types';
 
 interface DolarType {
     compra: number;
     venta: number;
+    fechaActualizacion?: string;
 }
 
 interface ArbitrageState {
+    timestamp?: string;
     opportunities: ArbitrageOpportunity[];
     history?: SpreadHistoryPoint[];
     dolares: {
@@ -40,7 +42,10 @@ export const useDashboardData = () => {
     const [rateChange, setRateChange] = useState<number>(0);
     const previousAskRef = useRef<number | null>(null);
     const hasDataRef = useRef(false);
-    const { socket } = useSocket();
+    useArbitrageStream(data => {
+        setArbitrage(data);
+        setLoadingArbitrage(false);
+    });
 
     const fetchData = useCallback(async () => {
         // Si ya tenemos datos, hacer refetch silencioso (stale-while-revalidate)
@@ -65,7 +70,7 @@ export const useDashboardData = () => {
 
         const doFetchArbitrage = async () => {
             try {
-                const data = await apiService.getArbitrage();
+                const data = await pollArbitrage();
                 setArbitrage(data);
             } catch (e) {
                 console.error(e);
@@ -96,22 +101,8 @@ export const useDashboardData = () => {
     }, []);
 
     useEffect(() => {
-        // Fetch initially, then let WebSockets handle all the updates
         fetchData();
-
-        if (socket) {
-            const handleArbitrageUpdate = (data: any) => {
-                setArbitrage(data);
-                if (data.rate) setRate(data.rate);
-                setLastUpdated(new Date());
-            };
-            socket.on('arbitrage-update', handleArbitrageUpdate);
-
-            return () => {
-                socket.off('arbitrage-update', handleArbitrageUpdate);
-            };
-        }
-    }, [fetchData, socket]);
+    }, [fetchData]);
 
     return {
         rate, arbitrage, economics,
