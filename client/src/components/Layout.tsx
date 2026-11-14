@@ -16,7 +16,6 @@ import { TopProgress } from './ui/TopProgress';
 import { ScrollToTop } from './ui/ScrollToTop';
 import { OfflineBanner } from './ui/OfflineBanner';
 import { QRShareButton } from './QRShare';
-import { useTranslation, LANGS } from '../hooks/useTranslation';
 import { ThemeCustomizer } from './ThemeCustomizer';
 
 interface LayoutProps {
@@ -35,7 +34,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
     const { lastUpdated, rate, arbitrage, economics, loading, isRefreshing, refresh } = useDashboardData();
     const { user, logout } = useAuth();
     const { theme, toggleTheme } = useTheme();
-    const { lang, setLang, t } = useTranslation();
     const countdown = useRefreshCountdown(lastUpdated);
 
     // Bloquear scroll del body al abrir el menú móvil
@@ -100,7 +98,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                                 <span className="text-gradient-brand">Rulos Locos</span>
                             </h1>
                             <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-medium text-accent-primary tracking-wider uppercase">{t('header.subtitle')}</span>
+                                <span className="text-[11px] font-medium text-accent-primary tracking-wider uppercase">Pro Dashboard</span>
                                 {lastUpdated && (
                                     <Tooltip content={isRefreshing ? "Sincronizando cotizaciones..." : `Actualizado: ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Clic para refrescar`} placement="bottom">
                                         <button
@@ -126,12 +124,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
 
                     {/* Desktop Nav */}
                     <nav className="hidden md:flex items-center gap-1">
-                        {navLink('dashboard', t('nav.dashboard'))}
-                        {navLink('mercado', t('nav.rates'))}
-                        {navLink('arbitrage', t('nav.arbitrage'))}
-                        {navLink('herramientas', t('nav.tools'))}
-                        {navLink('charts', t('nav.analysis'))}
-                        {navLink('portfolio', t('nav.portfolio'))}
+                        {navLink('dashboard', 'Dashboard')}
+                        {navLink('mercado', 'Tasas')}
+                        {navLink('arbitrage', 'Arbitraje')}
+                        {navLink('herramientas', 'Herramientas')}
+                        {navLink('charts', 'Análisis')}
+                        {navLink('portfolio', 'Portfolio')}
                         <div className="h-4 w-px bg-white/10 mx-1.5"></div>
                         <Tooltip content="Buscar secciones (Ctrl+K)" placement="bottom">
                             <button
@@ -192,7 +190,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                                     className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 transition-all"
                                 >
                                     <LogIn size={13} />
-                                    {t('login.enter')}
+                                    Ingresar
                                 </button>
                             </Tooltip>
                         )}
@@ -231,12 +229,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                     <nav className="flex flex-col gap-1.5">
                         {(
                             [
-                                { id: 'dashboard', label: t('nav.dashboard'), icon: BarChart3, badge: 'LIVE', badgeColor: 'text-blue-400 bg-blue-400/10' },
-                                { id: 'mercado', label: t('nav.rates'), icon: Landmark, badge: 'BCRA', badgeColor: 'text-emerald-400 bg-emerald-400/10' },
-                                { id: 'arbitrage', label: t('nav.arbitrage'), icon: Zap, badge: 'RT', badgeColor: 'text-amber-400 bg-amber-400/10' },
-                                { id: 'herramientas', label: t('nav.tools'), icon: Wrench, badge: null, badgeColor: '' },
-                                { id: 'charts', label: t('nav.analysis'), icon: LineChart, badge: null, badgeColor: '' },
-                                { id: 'portfolio', label: t('nav.portfolio'), icon: Newspaper, badge: null, badgeColor: '' },
+                                { id: 'dashboard', label: 'Dashboard', icon: BarChart3, badge: 'LIVE', badgeColor: 'text-blue-400 bg-blue-400/10' },
+                                { id: 'mercado', label: 'Tasas', icon: Landmark, badge: 'BCRA', badgeColor: 'text-emerald-400 bg-emerald-400/10' },
+                                { id: 'arbitrage', label: 'Arbitraje', icon: Zap, badge: 'RT', badgeColor: 'text-amber-400 bg-amber-400/10' },
+                                { id: 'herramientas', label: 'Herramientas', icon: Wrench, badge: null, badgeColor: '' },
+                                { id: 'charts', label: 'Análisis', icon: LineChart, badge: null, badgeColor: '' },
+                                { id: 'portfolio', label: 'Portfolio', icon: Newspaper, badge: null, badgeColor: '' },
                             ] as const
                         ).map(({ id, label, icon: Icon, badge, badgeColor }) => (
                             <button
@@ -272,23 +270,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                             <div className="flex items-center justify-between px-1">
                                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Preferencias</span>
                                 <div className="flex items-center gap-2">
-                                    {/* Selector de idioma móvil */}
-                                    <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg border border-white/5">
-                                        {LANGS.map(l => (
-                                            <button
-                                                key={l.id}
-                                                onClick={() => setLang(l.id)}
-                                                className={`text-xs px-2 py-0.5 rounded transition-all ${
-                                                    lang === l.id
-                                                        ? 'text-white bg-white/15 font-bold shadow-sm'
-                                                        : 'text-slate-400 hover:text-white'
-                                                }`}
-                                                title={l.label}
-                                            >
-                                                {l.flag}
-                                            </button>
-                                        ))}
-                                    </div>
                                     {/* Alternador de tema móvil */}
                                     <button
                                         onClick={toggleTheme}
@@ -374,7 +355,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                             <span className="text-white font-bold tracking-tight">Rulos Locos <span className="text-accent-primary">Pro</span></span>
                         </div>
                         <p className="text-xs text-slate-500 max-w-xs">
-                            {t('footer.description')}
+                            Plataforma avanzada de análisis y arbitraje financiero en tiempo real.
                         </p>
                     </div>
 
@@ -384,13 +365,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                             className="flex flex-col items-end gap-1 group text-left transition-all p-1.5 rounded-lg hover:bg-white/5 cursor-pointer"
                             title="Ver estado de APIs y servicios"
                         >
-                            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider group-hover:text-slate-400">{t('footer.status')}</span>
+                            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider group-hover:text-slate-400">Estado del Sistema</span>
                             <div className="flex items-center gap-2">
                                 <span className="relative flex h-2 w-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                 </span>
-                                <span className="text-xs font-mono text-emerald-400 group-hover:underline">{t('footer.operative')}</span>
+                                <span className="text-xs font-mono text-emerald-400 group-hover:underline">OPERATIVO</span>
                             </div>
                         </button>
                     </div>
@@ -405,24 +386,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                         </span>
                         <div className="h-4 w-px bg-white/10 hidden sm:block" />
                         <QRShareButton />
-                        <div className="h-4 w-px bg-white/10 hidden sm:block" />
-                        {/* Language selector */}
-                        <div className="flex items-center gap-1">
-                            {LANGS.map(l => (
-                                <button
-                                    key={l.id}
-                                    onClick={() => setLang(l.id)}
-                                    className={`text-xs px-1.5 py-0.5 rounded transition-all ${
-                                        lang === l.id
-                                            ? 'text-white bg-white/10 font-bold'
-                                            : 'text-slate-600 hover:text-slate-400'
-                                    }`}
-                                    title={l.label}
-                                >
-                                    {l.flag}
-                                </button>
-                            ))}
-                        </div>
                         <div className="h-4 w-px bg-white/10 hidden sm:block" />
                         <div className="relative">
                             <ThemeCustomizer />
