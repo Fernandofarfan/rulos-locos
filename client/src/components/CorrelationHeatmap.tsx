@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Grid, RefreshCw, Info } from 'lucide-react';
 import { apiService } from '../services/api';
+import { filterSeries } from '../utils/dateWindow';
 
 const ASSETS = [
     { key: 'blue',     label: 'Blue',    color: '#3b82f6' },
-    { key: 'mep',      label: 'MEP',     color: '#8b5cf6' },
+    { key: 'mep',      label: 'MEP',     color: '#a78bfa' },
     { key: 'ccl',      label: 'CCL',     color: '#06b6d4' },
     { key: 'oficial',  label: 'Oficial', color: '#10b981' },
     { key: 'risk',     label: 'Riesgo País', color: '#ef4444' },
@@ -49,10 +50,10 @@ function rLabel(r: number): string {
 
 type Range = '3M' | '6M' | '1Y';
 
-const RANGE_POINTS: Record<Range, number> = { '3M': 90, '6M': 180, '1Y': 365 };
+const RANGE_MONTHS: Record<Range, number> = { '3M': 3, '6M': 6, '1Y': 12 };
 
 export const CorrelationHeatmap: React.FC = () => {
-    const [series, setSeries] = useState<Record<string, number[]>>({});
+    const [series, setSeries] = useState<Record<string, { labels: string[]; values: number[] }>>({});
     const [loading, setLoading] = useState(true);
     const [range, setRange] = useState<Range>('1Y');
     const [tooltip, setTooltip] = useState<{ i: number; j: number; r: number } | null>(null);
@@ -62,10 +63,10 @@ export const CorrelationHeatmap: React.FC = () => {
         const results = await Promise.allSettled(
             ASSETS.map(a => apiService.getHistorical(a.key, '1Y'))
         );
-        const newSeries: Record<string, number[]> = {};
+        const newSeries: Record<string, { labels: string[]; values: number[] }> = {};
         results.forEach((res, idx) => {
             if (res.status === 'fulfilled' && res.value?.values?.length) {
-                newSeries[ASSETS[idx].key] = res.value.values as number[];
+                newSeries[ASSETS[idx].key] = res.value;
             }
         });
         setSeries(newSeries);
@@ -74,19 +75,24 @@ export const CorrelationHeatmap: React.FC = () => {
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
-    // Slice each series to the range length then take last N
-    const N = RANGE_POINTS[range];
-    const sliced: Record<string, number[]> = {};
+    const sliced: Record<string, { labels: string[]; values: number[] }> = {};
     ASSETS.forEach(a => {
-        const s = series[a.key] ?? [];
-        sliced[a.key] = s.slice(-N);
+        const s = series[a.key] ?? { labels: [], values: [] };
+        sliced[a.key] = filterSeries(s, RANGE_MONTHS[range]);
     });
 
     // Build correlation matrix
     const matrix: number[][] = ASSETS.map((a, i) =>
         ASSETS.map((b, j) => {
             if (i === j) return 1;
-            return pearson(sliced[a.key] ?? [], sliced[b.key] ?? []);
+            const left = sliced[a.key];
+            const right = sliced[b.key];
+            const rightByDate = new Map(right.labels.map((date, index) => [date.slice(0, 10), right.values[index]]));
+            const pairs = left.labels.flatMap((date, index) => {
+                const value = rightByDate.get(date.slice(0, 10));
+                return value === undefined ? [] : [[left.values[index], value]];
+            });
+            return pearson(pairs.map(pair => pair[0]), pairs.map(pair => pair[1]));
         })
     );
 
@@ -117,7 +123,7 @@ export const CorrelationHeatmap: React.FC = () => {
                             </button>
                         ))}
                     </div>
-                    <button onClick={fetchAll} className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors">
+                    <button onClick={fetchAll} aria-label="Actualizar correlaciones" className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors">
                         <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>
@@ -153,7 +159,7 @@ export const CorrelationHeatmap: React.FC = () => {
                                 <tr>
                                     <th className="w-20" />
                                     {ASSETS.map(a => (
-                                        <th key={a.key} className="text-[10px] font-bold pb-2 px-1" style={{ color: a.color }}>
+                                        <th key={a.key} className="correlation-asset text-[10px] font-bold pb-2 px-1" style={{ color: a.color }}>
                                             {a.label}
                                         </th>
                                     ))}
@@ -162,7 +168,7 @@ export const CorrelationHeatmap: React.FC = () => {
                             <tbody>
                                 {ASSETS.map((a, i) => (
                                     <tr key={a.key}>
-                                        <td className="text-[10px] font-bold pr-2 text-right" style={{ color: a.color }}>
+                                        <td className="correlation-asset text-[10px] font-bold pr-2 text-right" style={{ color: a.color }}>
                                             {a.label}
                                         </td>
                                         {ASSETS.map((b, j) => {
@@ -186,7 +192,7 @@ export const CorrelationHeatmap: React.FC = () => {
                                                         }}
                                                     >
                                                         <span
-                                                            className="font-mono font-black text-xs"
+                                                            className={`font-mono font-black text-xs ${i === j || r === 0 ? 'correlation-neutral' : r > 0 ? 'correlation-positive' : 'correlation-negative'}`}
                                                             style={{ color: i === j ? '#fff' : rColor(r) }}
                                                         >
                                                             {i === j ? '—' : r > 0 ? `+${r.toFixed(2)}` : r.toFixed(2)}
@@ -212,7 +218,7 @@ export const CorrelationHeatmap: React.FC = () => {
 
                     <div className="flex items-start gap-1.5 text-[10px] text-slate-600 italic">
                         <Info size={10} className="mt-0.5 shrink-0" />
-                        Correlación de Pearson calculada sobre los últimos {N} puntos de datos históricos disponibles. No implica causalidad.
+                        Correlación de Pearson calculada sobre fechas coincidentes del período seleccionado. No implica causalidad.
                     </div>
                 </>
             )}

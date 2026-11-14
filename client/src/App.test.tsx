@@ -306,10 +306,11 @@ describe('calcRSI', () => {
 // PriceAlerts
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Mock useSocket para evitar conexión WebSocket real
-vi.mock('./hooks/useSocket', () => ({
-    useSocket: () => ({ socket: null, isConnected: false }),
-    getSharedSocket: () => ({ on: vi.fn(), off: vi.fn(), connected: false }),
+// Mock de actualización en tiempo real
+vi.mock('./hooks/useRealtime', () => ({
+    pollArbitrage: vi.fn().mockResolvedValue({ opportunities: [], dolares: {} }),
+    useArbitrageStream: () => ({ connected: false }),
+    useMarketStream: () => ({ connected: false }),
 }));
 
 import { PriceAlerts } from './components/PriceAlerts';
@@ -372,4 +373,3 @@ describe('PriceAlerts', () => {
         expect(screen.getByRole('link', { name: /bot push/i })).toBeTruthy();
     });
 });
-

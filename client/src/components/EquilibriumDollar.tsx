@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Shield, ArrowRight, AlertTriangle, TrendingUp } from 'lucide-react';
 import { apiService } from '../services/api';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface EquilibriumData {
     theoretical: number;
     reserves: number;
     baseMonetaria: number;
     timestamp: string;
+    source?: string;
+    estimated?: boolean;
+    isEstimated?: boolean;
 }
 
 export const EquilibriumDollar: React.FC = () => {
@@ -49,6 +53,7 @@ export const EquilibriumDollar: React.FC = () => {
 
     return (
         <div className="glass-panel p-6 border-amber-500/10">
+            <DataFreshness source={data.source ?? 'BCRA'} updatedAt={data.timestamp} isEstimated={data.isEstimated || data.estimated} />
             {/* Header */}
             <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">

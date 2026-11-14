@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Calculator, TrendingUp, TrendingDown } from 'lucide-react';
+import { projectSavings, savingsReturnPct } from '../utils/financial';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface Instrument {
     id: string;
@@ -11,24 +13,15 @@ interface Instrument {
 }
 
 const INSTRUMENTS: Instrument[] = [
-    { id: 'pf', label: 'Plazo Fijo', emoji: '🏦', color: 'text-blue-400', annualReturn: 110, description: 'TNA BADLAR ~110%' },
-    { id: 'mep', label: 'Dólar MEP', emoji: '💵', color: 'text-emerald-400', annualReturn: 15, description: '~15% anual en USD' },
-    { id: 'usdt', label: 'USDT/Cripto', emoji: '⚡', color: 'text-amber-400', annualReturn: 12, description: 'Stablecoins ~12% APY' },
-    { id: 'btc', label: 'Bitcoin', emoji: '₿', color: 'text-orange-400', annualReturn: 80, description: 'Historial: ~80% anual' },
-    { id: 'merval', label: 'Merval (ARS)', emoji: '📈', color: 'text-violet-400', annualReturn: 180, description: 'Promedio últimos 3 años' },
-    { id: 'inflation', label: 'Inflación', emoji: '🔥', color: 'text-rose-400', annualReturn: 145, description: 'Inflación proyectada 2025' },
+    { id: 'pf', label: 'Plazo Fijo', emoji: '🏦', color: 'text-blue-400', annualReturn: 110, description: 'Supuesto: 110% TNA' },
+    { id: 'mep', label: 'Dólar MEP', emoji: '💵', color: 'text-emerald-400', annualReturn: 15, description: 'Supuesto: 15% anual' },
+    { id: 'usdt', label: 'USDT/Cripto', emoji: '⚡', color: 'text-amber-400', annualReturn: 12, description: 'Supuesto: 12% anual' },
+    { id: 'btc', label: 'Bitcoin', emoji: '₿', color: 'text-orange-400', annualReturn: 80, description: 'Supuesto: 80% anual' },
+    { id: 'merval', label: 'Merval (ARS)', emoji: '📈', color: 'text-violet-400', annualReturn: 180, description: 'Supuesto: 180% anual' },
+    { id: 'inflation', label: 'Inflación', emoji: '🔥', color: 'text-rose-400', annualReturn: 145, description: 'Supuesto: 145% anual' },
 ];
 
 const MONTHS_OPTIONS = [3, 6, 12, 24, 36];
-
-function project(amount: number, annualRate: number, months: number, monthly: number): number {
-    const r = annualRate / 100 / 12;
-    let acc = amount;
-    for (let i = 0; i < months; i++) {
-        acc = acc * (1 + r) + monthly;
-    }
-    return acc;
-}
 
 export const SavingsCalculator: React.FC = () => {
     const [amount, setAmount] = useState('1000000');
@@ -44,20 +37,21 @@ export const SavingsCalculator: React.FC = () => {
             .filter(i => selected.includes(i.id))
             .map(i => ({
                 ...i,
-                final: project(initial, i.annualReturn, months, monthlyDeposit),
-                gain: project(initial, i.annualReturn, months, monthlyDeposit) - initial - monthlyDeposit * months,
+                final: projectSavings(initial, i.annualReturn, months, monthlyDeposit, i.id === 'pf'),
+                gain: projectSavings(initial, i.annualReturn, months, monthlyDeposit, i.id === 'pf') - initial - monthlyDeposit * months,
             }))
             .sort((a, b) => b.final - a.final),
         [initial, monthlyDeposit, months, selected]
     );
 
     const inflation = INSTRUMENTS.find(i => i.id === 'inflation')!;
-    const inflationFinal = project(initial, inflation.annualReturn, months, monthlyDeposit);
+    const inflationFinal = projectSavings(initial, inflation.annualReturn, months, monthlyDeposit, false);
 
-    const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+    const fmt = (n: number) => Number.isFinite(n) ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n) : '—';
 
     return (
         <div className="glass-panel no-lift p-6">
+            <DataFreshness source="supuestos de simulación" isEstimated />
             <div className="flex items-center gap-2 mb-5">
                 <Calculator size={14} className="text-cyan-400" />
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Calculadora de Ahorro Proyectado</h3>
@@ -119,7 +113,7 @@ export const SavingsCalculator: React.FC = () => {
                 {results.map((r, idx) => {
                     const isInflation = r.id === 'inflation';
                     const beatsInflation = r.final > inflationFinal && !isInflation;
-                    const pct = initial > 0 ? ((r.final - initial) / initial) * 100 : 0;
+                    const pct = savingsReturnPct(r.final, initial, monthlyDeposit, months);
                     return (
                         <div key={r.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${idx === 0 && !isInflation ? 'border-white/15 bg-white/5' : 'border-white/5 bg-white/2'}`}>
                             <span className="text-xl w-7 flex-shrink-0 text-center">{r.emoji}</span>

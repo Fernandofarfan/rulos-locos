@@ -4,6 +4,9 @@ export interface PriceData {
     totalBid: number;
     totalAsk: number;
     source: string;
+    isEstimated?: boolean;
+    timestamp?: string;
+    updatedAt?: string;
 }
 
 export interface ArbitrageOpportunity {
@@ -16,6 +19,7 @@ export interface ArbitrageOpportunity {
     rentabilidad: number;
     ganancia: number;
     riesgo: string;
+    isEstimated?: boolean;
 }
 
 /** Indicador de inflación retornado por el backend */
@@ -23,6 +27,9 @@ export interface InflationData {
     mensual: number;
     interanual: number;
     fecha?: string;
+    source?: string;
+    estimated?: boolean;
+    isEstimated?: boolean;
     /** Variación por categoría INDEC (alimentos, indumentaria, etc.) */
     categorias?: Record<string, number> | null;
 }
@@ -89,4 +96,3 @@ export interface SpreadHistoryPoint {
     value: number;
     timestamp: number;
 }
-

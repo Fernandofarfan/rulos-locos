@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X, Bell, Volume2, SlidersHorizontal, TrendingUp } from 'lucide-react';
 
 import { useSettings } from '../hooks/useSettings';
@@ -25,6 +25,30 @@ export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClos
     } = settings;
 
     const { user } = useAuth();
+    const panelRef = useRef<HTMLDivElement>(null);
+    const closeRef = useRef(onClose);
+    useEffect(() => { closeRef.current = onClose; }, [onClose]);
+    useEffect(() => {
+        if (!isOpen) return;
+        const previous = document.activeElement as HTMLElement | null;
+        const panel = panelRef.current;
+        const focusable = () => [...(panel?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href]') ?? [])];
+        focusable()[0]?.focus();
+        const keydown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') { event.preventDefault(); closeRef.current(); }
+            if (event.key === 'Tab') {
+                const items = focusable();
+                if (!items.length) return;
+                const first = items[0], last = items[items.length - 1];
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+                else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+            }
+        };
+        document.addEventListener('keydown', keydown);
+        return () => { document.removeEventListener('keydown', keydown); previous?.focus(); };
+    }, [isOpen]);
+
+    if (!isOpen) return null;
 
     return (
         <>
@@ -37,6 +61,7 @@ export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClos
 
             {/* Panel lateral */}
             <div
+                ref={panelRef}
                 role="dialog"
                 aria-modal="true"
                 aria-label="Configuración de alertas"
@@ -72,6 +97,7 @@ export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClos
                         </label>
                         <input
                             type="range"
+                            aria-label="Umbral de Ganancia"
                             min="0.1"
                             max="5"
                             step="0.1"
@@ -102,6 +128,7 @@ export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClos
                         </div>
                         <button
                             role="switch"
+                            aria-label="Sonidos"
                             aria-checked={soundEnabled}
                             onClick={() => setSoundEnabled(!soundEnabled)}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${soundEnabled ? 'bg-blue-600' : 'bg-slate-700'}`}
@@ -123,6 +150,7 @@ export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClos
                         </div>
                         <button
                             role="switch"
+                            aria-label="Voz IA (Bloomberg)"
                             aria-checked={voiceEnabled}
                             onClick={() => setVoiceEnabled(!voiceEnabled)}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shadow-lg ${voiceEnabled ? 'bg-violet-600 shadow-violet-900/50' : 'bg-slate-700'}`}
@@ -144,6 +172,7 @@ export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClos
                         </div>
                         <button
                             role="switch"
+                            aria-label="Alertas de Telegram"
                             aria-checked={telegramAlerts}
                             onClick={() => setTelegramAlerts(!telegramAlerts)}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${telegramAlerts ? 'bg-sky-600' : 'bg-slate-700'}`}
@@ -191,4 +220,3 @@ export const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClos
         </>
     );
 };
-

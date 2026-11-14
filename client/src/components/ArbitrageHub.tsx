@@ -6,14 +6,21 @@ import type { ArbitrageOpportunity, SpreadHistoryPoint } from '../types';
 import MarketInsight from './MarketInsight';
 import { exportToCSV } from '../utils/exportCSV';
 import { RuloExecutionGuide } from './RuloExecutionGuide';
+import { DataFreshness } from './ui/DataFreshness';
+import { NetProfitability } from './NetProfitability';
+import { BestPlatforms } from './BestPlatforms';
+import { RuloHistory } from './RuloHistory';
+import { WidgetEmbed } from './WidgetEmbed';
 
 interface ArbitrageHubProps {
     opportunities: ArbitrageOpportunity[];
     history?: SpreadHistoryPoint[];
     loading?: boolean;
+    updatedAt?: string;
+    isEstimated?: boolean;
 }
 
-export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, history = [], loading }) => {
+export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, history = [], loading, updatedAt, isEstimated }) => {
     // Guide State
     const [guideOpen, setGuideOpen] = useState(false);
 
@@ -168,8 +175,13 @@ export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, histo
 
     return (
         <div className="glass-panel no-lift p-0 flex flex-col relative" aria-busy={loading}>
+            <NetProfitability />
+            <BestPlatforms />
+            <RuloHistory />
+            <WidgetEmbed />
             {/* Header */}
             <div className="p-5 border-b border-white/5 bg-white/[0.02] relative">
+                <DataFreshness source={isEstimated ? 'estimado' : 'DolarAPI y CryptoYa'} updatedAt={updatedAt} isEstimated={isEstimated} />
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                     <h3 className="text-base font-bold text-white flex items-center gap-2.5">
                         <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20 text-accent-primary">
@@ -192,6 +204,7 @@ export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, histo
                         <Tooltip content="Exportar CSV" placement="bottom">
                             <button
                                 onClick={handleExportCSV}
+                                aria-label="Exportar CSV"
                                 className="p-1.5 rounded-lg border border-transparent text-slate-500 hover:text-emerald-400 hover:border-emerald-500/30 hover:bg-emerald-500/10 transition-colors"
                             >
                                 <Download size={15} />
@@ -201,6 +214,7 @@ export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, histo
                         <Tooltip content={showSimHistory ? 'Ocultar historial' : 'Ver historial simulado'} placement="bottom">
                             <button
                                 onClick={() => setShowSimHistory(!showSimHistory)}
+                                aria-label={showSimHistory ? 'Ocultar historial' : 'Ver historial simulado'}
                                 className={`p-1.5 rounded-lg border transition-colors ${showSimHistory ? 'bg-white/10 border-white/20 text-white' : 'border-transparent text-slate-500 hover:text-white'}`}
                             >
                                 <History size={15} />
@@ -211,6 +225,7 @@ export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, histo
                         <div className="relative">
                             <button
                                 onClick={() => setShowConfig(!showConfig)}
+                                aria-label={alertsEnabled ? `Configurar alertas ${alertThreshold}%` : 'Configurar alertas'}
                                 className={`p-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${alertsEnabled ? 'bg-accent-primary/20 border-accent-primary/50 text-accent-primary' : 'bg-white/5 border-white/5 text-slate-400'}`}
                             >
                                 {alertsEnabled ? <BellRing size={15} /> : <Bell size={15} />}
@@ -257,7 +272,7 @@ export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, histo
                 {!showSimHistory && opportunities.length > 0 && (
                     <div className="flex items-center gap-1.5 mt-3">
                         <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mr-1">Ordenar:</span>
-                        {([['rentabilidad', 'Rentab.'], ['ganancia', 'Ganancia'], ['riesgo', 'Riesgo']] as [SortKey, string][]).map(([key, label]) => (
+                        {([['rentabilidad', 'Rentab. bruta'], ['ganancia', 'Ganancia bruta'], ['riesgo', 'Riesgo']] as [SortKey, string][]).map(([key, label]) => (
                             <button
                                 key={key}
                                 onClick={() => toggleSort(key)}
@@ -470,4 +485,3 @@ export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, histo
         </div>
     );
 };
-

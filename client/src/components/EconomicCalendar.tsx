@@ -8,6 +8,7 @@ interface Event {
     title: string;
     impact: 'high' | 'medium' | 'low';
     tipo?: string;
+    isEstimated?: boolean;
 }
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -88,6 +89,7 @@ export const EconomicCalendar: React.FC = () => {
                                 <h4 className="text-sm font-medium text-white group-hover:text-accent-primary transition-colors">
                                     {event.title}
                                 </h4>
+                                {event.isEstimated && <span className="text-[9px] text-amber-400">Estimado</span>}
                                 <span className={`text-[9px] uppercase tracking-wider font-bold ${
                                     event.impact === 'high' ? 'text-red-400' :
                                     event.impact === 'medium' ? 'text-orange-400' : 'text-blue-400'

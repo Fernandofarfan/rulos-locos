@@ -75,7 +75,7 @@ export const SectionDivider: React.FC<SectionDividerProps> = ({
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-lg font-bold text-white tracking-tight">{title}</h2>
             {badge && (
-              <span className={`text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full border ${BADGE_COLORS[badgeColor]} ${badge === 'LIVE' ? 'animate-pulse-soft' : ''} backdrop-blur-sm`}>
+              <span className={`text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full border ${BADGE_COLORS[badgeColor]} backdrop-blur-sm`}>
                 {badge === 'LIVE' && <span className="inline-block w-1.5 h-1.5 rounded-full bg-current mr-1.5 animate-ping"></span>}
                 {badge}
               </span>

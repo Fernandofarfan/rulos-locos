@@ -1,20 +1,17 @@
 import marketService from '../services/marketService';
 import logger from '../utils/logger';
 import cache from '../utils/cache';
-import type { Server } from 'socket.io';
+import economicsController from '../controllers/economicsController';
 
 const MARKET_POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
 const MARKET_CACHE_TTL_MS = 6 * 60 * 1000; // 6 minutos (algo más que el intervalo)
 
 class MarketWorker {
     private interval: ReturnType<typeof setInterval> | null = null;
-    private io: Server | null = null;
-
-    start(io?: Server): void {
-        if (io) this.io = io;
+    start(): void {
         logger.info('📈 Iniciando MarketWorker (polling cada 5 min)...');
-        void this.runTask();
-        this.interval = setInterval(() => { void this.runTask(); }, MARKET_POLL_INTERVAL_MS);
+        void this.runTask().catch(() => {});
+        this.interval = setInterval(() => { void this.runTask().catch(() => {}); }, MARKET_POLL_INTERVAL_MS);
     }
 
     async runTask(): Promise<void> {
@@ -33,15 +30,13 @@ class MarketWorker {
                 bonds,
                 global,
                 timestamp: new Date().toISOString(),
+                estimated: [...merval, ...cedears, ...bonds, ...global].some(item => item.estimated),
+                source: [...merval, ...cedears, ...bonds, ...global].some(item => item.estimated)
+                    ? 'estimado' : [...new Set([...merval, ...cedears, ...bonds, ...global].map(item => item.source))].join(', '),
             };
 
-            cache.set('market_data', payload, MARKET_CACHE_TTL_MS);
-
-            // Emitir actualización en tiempo real a todos los clientes conectados
-            if (this.io) {
-                this.io.emit('market-update', payload);
-                logger.info('📡 market-update emitido via Socket.IO');
-            }
+            await cache.setShared('market_data', { ...payload, updatedAt: payload.timestamp }, MARKET_CACHE_TTL_MS);
+            await economicsController.getDashboardSnapshot();
 
             logger.info(
                 '✅ MarketWorker: caché actualizado — merval:%d cedears:%d bonds:%d global:%d',
@@ -49,6 +44,7 @@ class MarketWorker {
             );
         } catch (error) {
             logger.error('❌ Error en MarketWorker: %s', (error as Error).stack);
+            throw error;
         }
     }
 

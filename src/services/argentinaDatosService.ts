@@ -1,14 +1,14 @@
-import fetch from 'node-fetch';
-import https from 'https';
 import config from '../config';
 import logger from '../utils/logger';
+import { recordSourceSuccess } from './sourceHealth';
 
-const sslAgent = new https.Agent({ rejectUnauthorized: false });
 
 export interface InflationData {
     mensual: number;
     interanual: number;
     fecha: string;
+    estimated?: boolean;
+    source?: string;
 }
 
 export interface DollarSeriesItem {
@@ -34,11 +34,14 @@ export interface DateValueItem {
 export interface InflacionCategoria {
     categoria: string;
     valor: number;
+    fecha?: string;
 }
 
 export interface DepositRate {
     fecha: string;
     valor: number;
+    estimated?: boolean;
+    source?: string;
 }
 
 export interface UVAItem {
@@ -65,44 +68,44 @@ export interface FCIItem {
 }
 
 class ArgentinaDatosService {
+    private readonly estimatedSeries = new WeakSet<object>();
+    private markEstimated<T extends object>(value: T): T { this.estimatedSeries.add(value); return value; }
+    isEstimated(value: object): boolean { return this.estimatedSeries.has(value); }
+
     async getInflation(): Promise<InflationData> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/indices/inflacion/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
 
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json() as Array<{ fecha: string; valor: number }>;
 
             if (Array.isArray(data) && data.length > 0) {
+                await recordSourceSuccess('argentinadatos');
                 const sorted = [...data].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
                 const lastMonth = sorted[0];
                 const last12 = sorted.slice(0, 12);
                 const interanualCalc = last12.length >= 12
                     ? (last12.reduce((acc, m) => acc * (1 + (m.valor ?? 0) / 100), 1) - 1) * 100
                     : null;
-                return { mensual: lastMonth.valor, interanual: interanualCalc ?? 18.5, fecha: lastMonth.fecha };
+                const estimated = interanualCalc === null;
+                return { mensual: lastMonth.valor, interanual: interanualCalc ?? 18.5, fecha: lastMonth.fecha, estimated, source: estimated ? 'estimado' : 'argentinadatos' };
             }
             throw new Error('Empty Data');
         } catch (err) {
             logger.warn('ArgentinaDatosService.getInflation fallback: %s', (err as Error).message);
-            return { mensual: 1.2, interanual: 18.5, fecha: new Date().toISOString().split('T')[0] };
+            return { mensual: 1.2, interanual: 18.5, fecha: new Date().toISOString().split('T')[0], estimated: true, source: 'estimado' };
         }
     }
 
     async getHistoricalInflation(): Promise<Array<{ fecha: string; valor: number }>> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/indices/inflacion/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error('API Error');
             const data = await response.json() as Array<{ fecha: string; valor: number }>;
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty API Data');
@@ -118,26 +121,37 @@ class ArgentinaDatosService {
                 val = Math.max(1.0, val + (Math.random() - 0.5));
                 result.push({ fecha: date.toISOString().split('T')[0], valor: parseFloat(val.toFixed(1)) });
             }
-            return result;
+            return this.markEstimated(result);
         }
     }
 
     async getInflacionCategorias(): Promise<InflacionCategoria[] | null> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
-            const response = await fetch(
-                `${config.API_URLS.ARGENTINA_DATOS}/finanzas/indices/inflacion_categorias/`,
-                {
-                    headers: config.DEFAULT_HEADERS,
-                    signal: controller.signal as unknown as AbortSignal,
-                } as Parameters<typeof fetch>[1],
-            );
-            clearTimeout(timeoutId);
+            const series = [
+                ['Alimentos', '146.3_IALIMENNAL_DICI_M_45'],
+                ['Salud', '146.3_ISALUDNAL_DICI_M_18'],
+                ['Vivienda', '146.3_IVIVIENNAL_DICI_M_52'],
+                ['Transporte', '146.3_ITRANSPNAL_DICI_M_23'],
+                ['Educación', '146.3_IEDUCACNAL_DICI_M_22'],
+                ['Restaurantes', '146.3_IRESTAUNAL_DICI_M_33'],
+            ];
+            const ids = series.map(([, id]) => id).join(',');
+            const response = await fetch(`https://apis.datos.gob.ar/series/api/series/?ids=${ids}&limit=2&sort=desc`,
+                { headers: config.DEFAULT_HEADERS, signal: AbortSignal.timeout(5000) });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json() as InflacionCategoria[];
-            if (Array.isArray(data) && data.length > 0) return data;
-            throw new Error('Empty response');
+            const data = await response.json() as { data?: Array<Array<string | number | null>> };
+            const [latest, previous] = data.data ?? [];
+            if (!latest || !previous || typeof latest[0] !== 'string' || typeof previous[0] !== 'string') throw new Error('Serie incompleta');
+            const [year, month] = latest[0].slice(0, 7).split('-').map(Number);
+            const expectedPrevious = new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 7);
+            if (previous[0].slice(0, 7) !== expectedPrevious) throw new Error('Faltan meses de IPC');
+            const categories = series.map(([categoria], i) => {
+                const current = Number(latest[i + 1]), prior = Number(previous[i + 1]);
+                if (!Number.isFinite(current) || !Number.isFinite(prior) || current <= 0 || prior <= 0) throw new Error('Índice inválido');
+                return { categoria, valor: (current / prior - 1) * 100, fecha: latest[0] as string };
+            });
+            await recordSourceSuccess('indec');
+            return categories;
         } catch (e) {
             logger.warn('getInflacionCategorias fallback: %s', (e as Error).message);
             return null;
@@ -159,13 +173,10 @@ class ArgentinaDatosService {
 
     async getCountryRiskData(): Promise<Array<{ fecha: string; valor: number }>> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/indices/riesgo-pais/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error('API Error Risk');
             const data = await response.json() as Array<{ fecha: string; valor: number }>;
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty Risk Data');
@@ -181,31 +192,28 @@ class ArgentinaDatosService {
                 val += (Math.random() - 0.5) * 20;
                 mockData.push({ fecha: d.toISOString().split('T')[0], valor: parseFloat(val.toFixed(0)) });
             }
-            return mockData;
+            return this.markEstimated(mockData);
         }
     }
 
-    async getRisk(): Promise<number> {
+    async getRisk(): Promise<{ valor: number; estimated: boolean }> {
         try {
             const data = await this.getCountryRiskData();
-            if (data.length > 0) return data[data.length - 1].valor;
-            return 633;
+            if (data.length > 0) return { valor: data[data.length - 1].valor, estimated: this.isEstimated(data) };
+            return { valor: 633, estimated: true };
         } catch (e) {
             logger.warn('getRisk fallback: %s', (e as Error).message);
-            return 1450;
+            return { valor: 1450, estimated: true };
         }
     }
 
     private async fetchTypeSeries(tipo: string, fallbackStart: number): Promise<DollarSeriesItem[]> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const url = `${config.API_URLS.ARGENTINA_DATOS}/cotizaciones/dolares/${tipo}/`;
             const response = await fetch(url, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`HTTP ${response.status} para ${tipo}`);
             const data = await response.json() as Array<{ fecha: string; venta?: number; compra?: number; valor?: number }>;
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty');
@@ -256,7 +264,7 @@ class ArgentinaDatosService {
             val -= (Math.random() - 0.48) * 8;
             data.push({ fecha: date.toISOString().split('T')[0], valor: Math.round(val) });
         }
-        return data.reverse();
+        return this.markEstimated(data.reverse());
     }
 
     getIndigenceData(): DateValueItem[] {
@@ -287,13 +295,10 @@ class ArgentinaDatosService {
     async getDepositRates(): Promise<DepositRate> {
         try {
             // Endpoint depositos30dias fue discontinuado — usamos plazoFijo que tiene TNA por banco
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/tasas/plazoFijo/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json() as Array<{ tnaClientes?: number; tnaNoClientes?: number; fecha?: string }>;
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty data');
@@ -307,10 +312,10 @@ class ArgentinaDatosService {
             const mediana = rawMediana < 1 ? rawMediana * 100 : rawMediana;
             const fechaRef = data[0]?.fecha ?? new Date().toISOString().split('T')[0];
             logger.info('getDepositRates (plazoFijo mediana): %s%% (fecha: %s)', mediana.toFixed(2), fechaRef);
-            return { fecha: fechaRef, valor: mediana };
+            return { fecha: fechaRef, valor: mediana, estimated: true, source: 'estimado' };
         } catch (e) {
             logger.warn('getDepositRates fallback: %s', (e as Error).message);
-            return { fecha: new Date().toISOString().split('T')[0], valor: 36.5 };
+            return { fecha: new Date().toISOString().split('T')[0], valor: 36.5, estimated: true, source: 'estimado' };
         }
     }
 
@@ -347,15 +352,12 @@ class ArgentinaDatosService {
         return result;
     }
 
-    async getUVAData(): Promise<UVAItem[]> {
+    async getUVAData(): Promise<{ data: UVAItem[]; source: string; estimated: boolean }> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/indices/uva/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json() as UVAItem[];
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty data');
@@ -366,22 +368,19 @@ class ArgentinaDatosService {
                 const step = Math.floor(arr.length / max);
                 return arr.filter((_, i) => i % step === 0 || i === arr.length - 1);
             };
-            return sample(sorted) as UVAItem[];
+            return { data: sample(sorted) as UVAItem[], source: 'argentinadatos', estimated: false };
         } catch (e) {
             logger.warn('getUVAData fallback mock: %s', (e as Error).message);
-            return this.generateMockUVASeries();
+            return { data: this.generateMockUVASeries(), source: 'estimado', estimated: true };
         }
     }
 
     async getHolidays(year: number): Promise<HolidayItem[] | null> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/feriados/${year}/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json() as HolidayItem[];
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty data');
@@ -394,13 +393,10 @@ class ArgentinaDatosService {
 
     async getPlazoFijoBancos(): Promise<PlazoFijoItem[] | null> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/tasas/plazoFijo/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json() as PlazoFijoItem[];
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty data');
@@ -421,13 +417,10 @@ class ArgentinaDatosService {
 
     async getFCIMoneyMarket(): Promise<FCIItem[] | null> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/fci/mercadoDinero/ultimo/`, {
                 headers: config.DEFAULT_HEADERS,
-                signal: controller.signal as unknown as AbortSignal,
+                signal: AbortSignal.timeout(15000),
             } as Parameters<typeof fetch>[1]);
-            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json() as FCIItem[];
             if (!Array.isArray(data) || data.length === 0) throw new Error('Empty data');
@@ -438,29 +431,26 @@ class ArgentinaDatosService {
         }
     }
 
-    async getReservasHistory(): Promise<Array<{ fecha: string; valor: number }>> {
+    async getReservasHistory(): Promise<{ data: Array<{ fecha: string; valor: number }>; source: string; estimated: boolean }> {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
             const r = await fetch(
-                'https://api.bcra.gob.ar/estadisticas/v3.0/monetarias/1?offset=0&limit=400&order=desc',
+                'https://api.bcra.gob.ar/estadisticas/v4.0/monetarias/1?offset=0&limit=400',
                 {
                     headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
-                    agent: sslAgent as unknown as Parameters<typeof fetch>[1] extends { agent?: unknown } ? Parameters<typeof fetch>[1]['agent'] : never,
-                    signal: controller.signal as unknown as AbortSignal,
+                    signal: AbortSignal.timeout(15000),
                 } as Parameters<typeof fetch>[1],
             );
-            clearTimeout(timeoutId);
-            if (!r.ok) throw new Error(`BCRA v3 HTTP ${r.status}`);
-            const json = await r.json() as { results?: Array<{ valor: number; fecha: string }> };
-            if (json.results && json.results.length > 0) {
-                const data = json.results
+            if (!r.ok) throw new Error(`BCRA v4 HTTP ${r.status}`);
+            const json = await r.json() as { results?: Array<{ detalle?: Array<{ valor: number; fecha: string }> }> };
+            const details = json.results?.flatMap(result => result.detalle ?? []) ?? [];
+            if (details.length > 0) {
+                const data = details
                     .map(p => ({ fecha: p.fecha, valor: p.valor }))
                     .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-                logger.info('getReservasHistory BCRA v3: %d puntos', data.length);
-                return data;
+                logger.info('getReservasHistory BCRA v4: %d puntos', data.length);
+                return { data, source: 'BCRA', estimated: false };
             }
-            throw new Error('Sin resultados BCRA v3');
+            throw new Error('Sin resultados BCRA v4');
         } catch (e) {
             logger.warn('getReservasHistory fallback: %s', (e as Error).message);
             const mockData: Array<{ fecha: string; valor: number }> = [];
@@ -472,7 +462,7 @@ class ArgentinaDatosService {
                 val += (Math.random() - 0.47) * 200;
                 mockData.push({ fecha: date.toISOString().split('T')[0], valor: Math.round(val) });
             }
-            return mockData;
+            return { data: mockData, source: 'estimado', estimated: true };
         }
     }
 }

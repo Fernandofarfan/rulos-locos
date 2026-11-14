@@ -1,13 +1,10 @@
 /**
  * Tests de integración para la API de RulosLocos.
- * Se mockea node-fetch para que los servicios entren en su path de fallback
+ * Se mockea fetch para que los servicios entren en su path de fallback
  * sin hacer llamadas HTTP reales a APIs externas.
  */
 
-// Mockear node-fetch ANTES de requerir app.js para que los servicios usen el mock
-jest.mock('node-fetch', () => {
-    return jest.fn().mockRejectedValue(new Error('Network unavailable (test mock)'));
-});
+global.fetch = jest.fn().mockRejectedValue(new Error('Network unavailable (test mock)'));
 
 // Mockear Prisma para que no intente conectarse a la base de datos en tests
 jest.mock('../src/utils/db', () => ({
@@ -43,10 +40,10 @@ function expectString(val) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('GET /api/health', () => {
-    it('devuelve status ok', async () => {
+    it('responde aunque la base no esté configurada', async () => {
         const res = await request(app).get('/api/health');
         expect(res.status).toBe(200);
-        expect(res.body).toHaveProperty('status', 'ok');
+        expect(res.body).toMatchObject({ status: 'degraded', checks: { database: 'unconfigured' } });
     });
 });
 
@@ -320,7 +317,9 @@ describe('GET /api/economics/calendar', () => {
     });
 
     it('todos los eventos son fechas futuras (hoy o posterior)', () => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit',
+        }).format(new Date());
         res.body.events.forEach(ev => {
             expect(ev.fecha >= today).toBe(true);
         });
@@ -361,10 +360,9 @@ describe('Validación — GET /api/economics/historical/:indicator', () => {
         expect(res.status).toBe(200);
     });
 
-    it('"5Y" ya no está en los rangos válidos → 400', async () => {
+    it('"5Y" es un rango válido → 200', async () => {
         const res = await request(app).get('/api/economics/historical?range=5Y');
-        expect(res.status).toBe(400);
-        expect(res.body).toHaveProperty('field', 'range');
+        expect(res.status).toBe(200);
     });
 });
 

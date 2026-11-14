@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { getSharedSocket } from './useSocket';
+import { useRef, useState, useCallback } from 'react';
+import { useArbitrageStream } from './useRealtime';
 import { useSoundAlert } from './useSoundAlert';
 import { useVoiceAlert } from './useVoiceAlert';
 import { fireToast } from './useToast';
@@ -75,27 +75,6 @@ export function useLiveBlue(opts: UseLiveBlueOptions = {}): LiveBlueData {
         }
     }, [alertThresholdPct, soundEnabled, voiceEnabled, play, speakPriceChange]);
 
-    useEffect(() => {
-        const socket = getSharedSocket();
-
-        const handleConnect = () => {
-            setData(prev => ({ ...prev, connected: true }));
-        };
-        const handleDisconnect = () => {
-            setData(prev => ({ ...prev, connected: false }));
-        };
-
-        socket.on('connect', handleConnect);
-        socket.on('disconnect', handleDisconnect);
-        socket.on('arbitrage-update', handleArbitrageUpdate);
-
-        return () => {
-            // No desconectar el socket compartido; solo quitar los listeners propios
-            socket.off('connect', handleConnect);
-            socket.off('disconnect', handleDisconnect);
-            socket.off('arbitrage-update', handleArbitrageUpdate);
-        };
-    }, [handleArbitrageUpdate]);
-
-    return data;
+    const { connected } = useArbitrageStream(handleArbitrageUpdate);
+    return { ...data, connected };
 }

@@ -67,7 +67,7 @@ const MarketInsight: React.FC<MarketInsightProps> = ({ arbitrageOpportunities })
             <h3 className={`font-semibold text-sm uppercase tracking-wider ${insight.color}`}>
               Market AI Insight
             </h3>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${insight.bg} ${insight.color} border border-current opacity-80`}>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${insight.bg} ${insight.color} border border-current`}>
               Score: {insight.score}/100
             </span>
           </div>

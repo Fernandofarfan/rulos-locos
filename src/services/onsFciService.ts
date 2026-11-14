@@ -2,8 +2,8 @@
  * Servicio de datos de Obligaciones Negociables (ONs) argentinas.
  * Complementa FCIs y Plazos Fijos con información de renta fija corporativa.
  */
-import fetch from 'node-fetch';
 import logger from '../utils/logger';
+import { recordSourceSuccess } from './sourceHealth';
 
 interface ONData {
     ticker: string;
@@ -60,7 +60,30 @@ class ONsFCIService {
     /**
      * Obtener ranking de Obligaciones Negociables.
      */
-    async getONs(): Promise<{ data: ONData[]; timestamp: string; source: string }> {
+    async getONs(): Promise<{ data: ONData[]; timestamp: string; source: string; estimated: boolean }> {
+        try {
+            const market = await fetch('https://data912.com/live/arg_corp', {
+                headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(5000),
+            });
+            if (market.ok) {
+                const quotes = await market.json() as Array<{ symbol: string; c: number }>;
+                if (Array.isArray(quotes)) {
+                    const bySymbol = new Map(quotes.filter(quote => Number.isFinite(quote.c) && quote.c > 0).map(quote => [quote.symbol, quote.c]));
+                    const rows = this.ONS_FALLBACKS.map(item => {
+                        const price = bySymbol.get(item.ticker.replace(/O$/, 'D'));
+                        return { ...item, ticker: price ? item.ticker.replace(/O$/, 'D') : item.ticker,
+                            precio: price ?? item.precio, source: 'estimado', estimated: true,
+                            priceSource: price ? 'Data912' : 'estimado', priceIsEstimated: !price };
+                    });
+                    if (rows.some(row => !row.priceIsEstimated)) {
+                        await recordSourceSuccess('data912');
+                        return { data: rows, timestamp: new Date().toISOString(), source: 'estimado', estimated: true };
+                    }
+                }
+            }
+        } catch (err) {
+            logger.debug('Data912 ONs no disponible: %s', (err as Error).message);
+        }
         try {
             // Intentar obtener de IAMC (Mercado Abierto Electrónico) o BYMA
             const response = await fetch('https://api.argentinadatos.com/v1/finanzas/ons', {
@@ -70,13 +93,13 @@ class ONsFCIService {
             if (response.ok) {
                 const remoteData = await response.json() as ONData[];
                 if (remoteData?.length > 0) {
-                    return { data: remoteData, timestamp: new Date().toISOString(), source: 'argentinadatos' };
+                    return { data: remoteData, timestamp: new Date().toISOString(), source: 'argentinadatos', estimated: false };
                 }
             }
         } catch (err) {
             logger.debug('ONs remote fetch failed: %s', (err as Error).message);
         }
-        return { data: this.ONS_FALLBACKS, timestamp: new Date().toISOString(), source: 'fallback' };
+        return { data: this.ONS_FALLBACKS.map(item => ({ ...item, source: 'estimado', estimated: true })), timestamp: new Date().toISOString(), source: 'estimado', estimated: true };
     }
 
     /**
@@ -88,6 +111,7 @@ class ONsFCIService {
         rentaVariable: FCIRanking[];
         timestamp: string;
         source: string;
+        estimated: boolean;
     }> {
         try {
             const response = await fetch('https://api.argentinadatos.com/v1/finanzas/fci', {
@@ -103,6 +127,7 @@ class ONsFCIService {
                         rentaVariable: remoteData.filter(f => f.tipo === 'renta-variable'),
                         timestamp: new Date().toISOString(),
                         source: 'argentinadatos',
+                        estimated: false,
                     };
                 }
             }
@@ -110,11 +135,12 @@ class ONsFCIService {
             logger.debug('FCI ranking remote fetch failed: %s', (err as Error).message);
         }
         return {
-            moneyMarket: this.FCI_FALLBACKS.filter(f => f.tipo === 'money-market'),
-            rentaFija: this.FCI_FALLBACKS.filter(f => f.tipo === 'renta-fija'),
-            rentaVariable: this.FCI_FALLBACKS.filter(f => f.tipo === 'renta-variable'),
+            moneyMarket: this.FCI_FALLBACKS.filter(f => f.tipo === 'money-market').map(f => ({ ...f, source: 'estimado', estimated: true })),
+            rentaFija: this.FCI_FALLBACKS.filter(f => f.tipo === 'renta-fija').map(f => ({ ...f, source: 'estimado', estimated: true })),
+            rentaVariable: this.FCI_FALLBACKS.filter(f => f.tipo === 'renta-variable').map(f => ({ ...f, source: 'estimado', estimated: true })),
             timestamp: new Date().toISOString(),
-            source: 'fallback',
+            source: 'estimado',
+            estimated: true,
         };
     }
 
@@ -125,6 +151,8 @@ class ONsFCIService {
         ons: ONData[];
         fciRanking: { moneyMarket: FCIRanking[]; rentaFija: FCIRanking[]; rentaVariable: FCIRanking[] };
         timestamp: string;
+        source: string;
+        estimated: boolean;
     }> {
         const [ons, fciRanking] = await Promise.all([
             this.getONs(),
@@ -134,6 +162,8 @@ class ONsFCIService {
             ons: ons.data,
             fciRanking,
             timestamp: new Date().toISOString(),
+            estimated: ons.estimated || fciRanking.estimated,
+            source: ons.estimated || fciRanking.estimated ? 'estimado' : 'argentinadatos',
         };
     }
 }

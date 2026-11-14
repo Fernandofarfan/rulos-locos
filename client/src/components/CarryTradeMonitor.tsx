@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { RefreshCw, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import { apiService } from '../services/api';
 import CandlestickChart from './CandlestickChart';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface CarryHistory {
     fecha: string;
@@ -51,6 +52,7 @@ export const CarryTradeMonitor: React.FC = () => {
 
     return (
         <div className="glass-panel p-6 space-y-6">
+            <DataFreshness source="estimado" updatedAt={undefined} isEstimated />
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

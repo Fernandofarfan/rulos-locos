@@ -2,17 +2,20 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Home, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import { apiService } from '../services/api';
 import CandlestickChart from './CandlestickChart';
+import { calculateUvaLoan } from '../utils/financial';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface UVAEntry { fecha: string; valor: number; }
 
-const fmt = (n: number) => n.toLocaleString('es-AR', { maximumFractionDigits: 0 });
-const fmtD = (n: number) => n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: number) => Number.isFinite(n) ? n.toLocaleString('es-AR', { maximumFractionDigits: 0 }) : '—';
+const fmtD = (n: number) => Number.isFinite(n) ? n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
 
 const PLAZOS = [10, 15, 20, 25, 30];
 
 export const UVALoanSimulator: React.FC = () => {
     const [uvaData, setUvaData] = useState<UVAEntry[]>([]);
     const [loading, setLoading] = useState(true);
+    const [freshness, setFreshness] = useState<{ source: string; timestamp?: string; estimated?: boolean; isEstimated?: boolean }>({ source: 'ArgentinaDatos' });
 
     // Inputs
     const [monto, setMonto] = useState('5000000');
@@ -27,6 +30,7 @@ export const UVALoanSimulator: React.FC = () => {
         setFetchError(false);
         try {
             const resp = await apiService.getUVA();
+            setFreshness(resp);
             if (resp?.data?.length) {
                 setUvaData(resp.data.sort((a: UVAEntry, b: UVAEntry) => a.fecha.localeCompare(b.fecha)));
             } else {
@@ -46,62 +50,12 @@ export const UVALoanSimulator: React.FC = () => {
         if (!uvaData.length) return null;
         const montoNum = parseFloat(monto.replace(/\./g, '').replace(',', '.'));
         const tnaNum = parseFloat(tna.replace(',', '.'));
-        if (isNaN(montoNum) || montoNum <= 0 || isNaN(tnaNum) || tnaNum <= 0) return null;
-
-        // Find UVA at start date
-        const sorted = [...uvaData].sort((a, b) => a.fecha.localeCompare(b.fecha));
-        const startEntry = sorted.find(e => e.fecha >= startDate);
-        if (!startEntry) return null;
-        const latestEntry = sorted[sorted.length - 1];
-
-        // Convert amount to UVA units
-        const capital_uva = montoNum / startEntry.valor;
-        const totalMonths = plazo * 12;
-        const tasaMensual = tnaNum / 12 / 100;
-
-        // French system PMT formula for UVA units
-        const pmt_uva = capital_uva * (tasaMensual * Math.pow(1 + tasaMensual, totalMonths)) /
-            (Math.pow(1 + tasaMensual, totalMonths) - 1);
-
-        // Build monthly evolution using actual UVA data where available, then extrapolate
-        const uvaByMonth: number[] = [];
-        const paymentARS: number[] = [];
-        const paymentLabels: string[] = [];
-
-        const startMs = new Date(startEntry.fecha).getTime();
-
-        for (let m = 0; m < totalMonths; m++) {
-            const targetDate = new Date(startMs + m * 30.44 * 24 * 3600 * 1000);
-            const targetStr = targetDate.toISOString().split('T')[0];
-
-            // Find closest UVA value in historical data
-            const closest = sorted.reduce((prev, curr) =>
-                Math.abs(new Date(curr.fecha).getTime() - targetDate.getTime()) <
-                    Math.abs(new Date(prev.fecha).getTime() - targetDate.getTime()) ? curr : prev
-            );
-
-            // If the date is in the future (beyond latest historical), extrapolate
-            let uvaVal: number;
-            if (targetStr > latestEntry.fecha) {
-                // Simple extrapolation based on last 12-month growth rate
-                const entry12ago = sorted[Math.max(0, sorted.length - 365)];
-                const growthRate = latestEntry.valor / entry12ago.valor;
-                const monthsAhead = Math.round((targetDate.getTime() - new Date(latestEntry.fecha).getTime()) / (30.44 * 24 * 3600 * 1000));
-                const monthlyGrowth = Math.pow(growthRate, 1 / 12);
-                uvaVal = latestEntry.valor * Math.pow(monthlyGrowth, monthsAhead);
-            } else {
-                uvaVal = closest.valor;
-            }
-
-            const cuotaARS = pmt_uva * uvaVal;
-            uvaByMonth.push(uvaVal);
-            paymentARS.push(cuotaARS);
-            paymentLabels.push(targetStr.substring(0, 7)); // YYYY-MM
-        }
-
+        if (isNaN(montoNum) || isNaN(tnaNum)) return null;
+        const loan = calculateUvaLoan(uvaData, montoNum, startDate, plazo, tnaNum);
+        if (!loan) return null;
+        const { capital: capital_uva, payment: pmt_uva, start: startEntry, latest: latestEntry, paymentARS, paymentLabels, total: totalPagado } = loan;
         const cuotaInicial = pmt_uva * startEntry.valor;
         const cuotaActual = pmt_uva * latestEntry.valor;
-        const totalPagado = paymentARS.reduce((s, x) => s + x, 0);
         const totalIntereses = totalPagado - montoNum;
         const maxCuota = Math.max(...paymentARS);
 
@@ -129,6 +83,7 @@ export const UVALoanSimulator: React.FC = () => {
 
     return (
         <div className="glass-panel p-6 space-y-5">
+            <DataFreshness source={freshness.source} updatedAt={freshness.timestamp} isEstimated={freshness.isEstimated || freshness.estimated} />
             <div className="flex items-center gap-3">
                 <div className="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
                     <Home size={16} className="text-indigo-400" />
@@ -136,7 +91,7 @@ export const UVALoanSimulator: React.FC = () => {
                 <div>
                     <h3 className="text-sm font-bold text-white uppercase tracking-widest">Simulador Préstamo UVA</h3>
                     <p className="text-[10px] text-slate-500 mt-0.5">
-                        Evolución real de cuotas · Sistema Francés · Índice UVA oficial BCRA
+                        Evolución de cuotas · Sistema Francés · Índice UVA
                     </p>
                 </div>
             </div>
@@ -146,6 +101,7 @@ export const UVALoanSimulator: React.FC = () => {
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Monto del Préstamo (ARS)</label>
                     <input
+                        aria-label="Monto del Préstamo (ARS)"
                         type="text"
                         value={monto}
                         onChange={e => setMonto(e.target.value.replace(/[^0-9.,]/g, ''))}
@@ -156,6 +112,7 @@ export const UVALoanSimulator: React.FC = () => {
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fecha de Origen</label>
                     <input
+                        aria-label="Fecha de Origen"
                         type="date"
                         value={startDate}
                         min={minDate}
@@ -167,6 +124,7 @@ export const UVALoanSimulator: React.FC = () => {
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">TNA (%)</label>
                     <input
+                        aria-label="TNA (%)"
                         type="text"
                         value={tna}
                         onChange={e => setTna(e.target.value)}

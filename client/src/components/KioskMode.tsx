@@ -4,9 +4,11 @@ import { useDashboardData } from '../hooks/useDashboardData';
 
 // Formato de moneda para el kiosco
 const formatKioskPrice = (price: number) => {
+    if (!Number.isFinite(price)) return '—';
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(price);
 };
 const formatCompact = (n: number) => {
+    if (!Number.isFinite(n)) return '—';
     if (n >= 1e12) return `${(n / 1e12).toFixed(1)}T`;
     if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
     if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;

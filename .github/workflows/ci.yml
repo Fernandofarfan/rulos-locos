@@ -16,10 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -34,11 +34,10 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Lint
-        run: npx eslint . --max-warnings 0
-        continue-on-error: true
+        run: npx eslint .
 
       - name: Run tests
-        run: npm test -- --forceExit
+        run: npm test
         env:
           NODE_ENV: test
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/rulos_test?schema=public"
@@ -49,10 +48,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
 
@@ -62,12 +61,11 @@ jobs:
 
       - name: TypeScript check
         working-directory: client
-        run: npx tsc --noEmit
+        run: npx tsc -b --noEmit
 
       - name: Lint
         working-directory: client
-        run: npx eslint . --max-warnings 0
-        continue-on-error: true
+        run: npx eslint .
 
       - name: Run vitest
         working-directory: client
@@ -80,10 +78,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
 
@@ -144,7 +142,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - run: npm install

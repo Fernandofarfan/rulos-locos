@@ -5,6 +5,7 @@
  */
 import { z } from 'zod';
 import { Request, Response, NextFunction } from 'express';
+import { ROUTE_IDS } from '../services/netArbitrage';
 
 // ─── Esquemas ─────────────────────────────────────────────────────────────────
 
@@ -14,10 +15,21 @@ const VALID_INDICATORS = [
     'risk', 'riesgo', 'inflation', 'inflacion',
 ] as const;
 
-const VALID_RANGES = ['1M', '3M', '6M', '1Y', 'ALL', 'MAX'] as const;
+const VALID_RANGES = ['1M', '3M', '6M', '1Y', '2Y', '5Y', 'ALL'] as const;
 
 export const IndicatorSchema = z.enum(VALID_INDICATORS);
 export const RangeSchema = z.enum(VALID_RANGES);
+
+export const RegisterSchema = z.object({
+    email: z.string().trim().toLowerCase().email().max(254),
+    password: z.string().min(8).max(128),
+    name: z.string().max(100).optional(),
+});
+export const LoginSchema = z.object({
+    email: z.string().trim().toLowerCase().email().max(254),
+    password: z.string().min(1).max(128),
+    twoFactorCode: z.union([z.string().regex(/^\d{6}$/), z.literal('')]).optional(),
+});
 
 export const PricesSchema = z.object({
     blue: z.coerce.number().nonnegative().optional(),
@@ -58,11 +70,20 @@ export const PortfolioCreateSchema = z.object({
     note: z.string().max(500).optional(),
 });
 
-export const AlertCreateSchema = z.object({
-    asset: z.enum(['blue', 'mep', 'ccl', 'crypto', 'oficial']),
-    condition: z.enum(['above', 'below']),
-    threshold: z.coerce.number().finite().positive('threshold debe ser mayor a 0'),
-});
+export const AlertCreateSchema = z.union([
+    z.object({
+        kind: z.literal('PRICE').optional(),
+        asset: z.enum(['blue', 'mep', 'ccl', 'crypto', 'oficial']),
+        condition: z.enum(['above', 'below']),
+        threshold: z.coerce.number().finite().positive('threshold debe ser mayor a 0'),
+    }),
+    z.object({
+        kind: z.literal('RULO'),
+        routeId: z.string().refine(value => ROUTE_IDS.includes(value), 'Ruta inválida'),
+        threshold: z.coerce.number().finite().min(-50).max(50),
+        capital: z.coerce.number().finite().min(10_000).max(10_000_000_000).default(1_000_000),
+    }),
+]);
 
 export const PaperTradeSchema = z.object({
     type: z.enum(['BUY', 'SELL']),

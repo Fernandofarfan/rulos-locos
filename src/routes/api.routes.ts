@@ -2,13 +2,17 @@ import express from 'express';
 import logger from '../utils/logger';
 import rateController from '../controllers/rateController';
 import platformController from '../controllers/platformController';
+import { getBestPlatforms } from '../controllers/platformBestController';
 import bondController from '../controllers/bondController';
-import { getBondsLive } from '../controllers/bondsController';
+import { getBondsLive } from '../controllers/bondController';
 import arbitrageController from '../controllers/arbitrageController';
+import { getNetArbitrage } from '../controllers/netArbitrageController';
+import { getRuloHistory } from '../controllers/ruloHistoryController';
 import dataController from '../controllers/dataController';
 import economicsController from '../controllers/economicsController';
 import notificationController from '../controllers/notificationController';
 import portfolioController from '../controllers/portfolioController';
+import { getPortfolioValuation } from '../controllers/portfolioValuationController';
 import alertController from '../controllers/alertController';
 import { getRofexContracts } from '../controllers/rofexController';
 import * as validate from '../middleware/validate';
@@ -22,11 +26,17 @@ import virtualTradingController from '../controllers/virtualTradingController';
 import exchangeController from '../controllers/exchangeController';
 import { getApiStatus } from '../controllers/statusController';
 import { getDailySummary, sendDailySummary } from '../controllers/dailySummaryController';
-import { trackEvent, getAnalyticsSummary } from '../controllers/analyticsController';
+import { trackEvent, track, getAnalyticsSummary } from '../controllers/analyticsController';
 import { sendWeeklyNewsletter, previewNewsletter } from '../controllers/weeklyNewsletterController';
 import { telegramBotController } from '../controllers/telegramBotController';
 import { registerWebhook, listWebhooks, deleteWebhook } from '../controllers/webhookController';
 import { getOGImage } from '../controllers/ogImageController';
+import arbitrageWorker from '../workers/arbitrageWorker';
+import marketWorker from '../workers/marketWorker';
+import alertWorker from '../workers/alertWorker';
+import cache from '../utils/cache';
+import { checkSourceHealth } from '../services/sourceHealth';
+import { getApiHealth } from '../controllers/healthController';
 
 // SWR presets
 const swr30s = swrCache({ staleTTL: 30_000, maxTTL: 5 * 60_000 });
@@ -37,9 +47,41 @@ const router = express.Router();
 
 router.get('/rate', swr30s, (req, res) => rateController.getRate(req, res));
 router.get('/platforms', (req, res) => platformController.getPlatforms(req, res));
+router.get('/platforms/best', (req, res) => getBestPlatforms(req, res));
 router.get('/bonds', swr5m, (req, res) => bondController.getBonds(req, res));
 router.get('/bonds/live', swr30s, (req, res) => getBondsLive(req, res));
 router.get('/arbitrage', swr30s, (req, res) => arbitrageController.getArbitrage(req, res));
+router.get('/arbitrage/net', (req, res) => getNetArbitrage(req, res));
+router.get('/arbitrage/history', (req, res) => getRuloHistory(req, res));
+router.get('/market', async (_req, res) => {
+    try {
+        let data = await cache.get('market_data');
+        if (!data) {
+            await marketWorker.runTask();
+            data = await cache.get('market_data');
+        }
+        res.json(data);
+    } catch (error) {
+        logger.error('Error en /market: %s', (error as Error).message);
+        res.status(503).json({ error: 'Datos de mercado no disponibles' });
+    }
+});
+router.all('/cron/tick', requireAdminOrCron, async (_req, res) => {
+    const settled = await Promise.allSettled([
+        arbitrageWorker.runTask(), marketWorker.runTask(), alertWorker.runTask(),
+    ]);
+    const taskStatus = (result: PromiseSettledResult<void | 'skipped'>) =>
+        result.status === 'fulfilled' && result.value === 'skipped' ? 'skipped' : result.status;
+    const results = { arbitrage: taskStatus(settled[0]), market: taskStatus(settled[1]), alerts: taskStatus(settled[2]) };
+    const ok = settled.every(result => result.status !== 'rejected');
+    const errors: Record<string, string> = {};
+    (['arbitrage', 'market', 'alerts'] as const).forEach((name, index) => {
+        const result = settled[index];
+        if (result.status === 'rejected') errors[name] = result.reason instanceof Error ? result.reason.message : String(result.reason);
+    });
+    await checkSourceHealth();
+    res.status(ok ? 200 : 500).json({ ok, results, ...(ok ? {} : { errors }), ts: new Date().toISOString() });
+});
 
 router.get('/economics/dashboard', swr60s, (req, res) => economicsController.getDashboardData(req, res));
 router.get('/economics/historical', validate.rangeQuery, (req, res) => economicsController.getHistoricalData(req, res));
@@ -78,46 +120,48 @@ router.get('/arbitrage/best-rulo', swr30s, (req, res) => arbitrageController.get
 router.get('/status', (req, res) => getApiStatus(req, res));
 
 // Portfolio (requiere JWT)
-router.get('/portfolio', authenticateToken, rateLimiters.normal, (req, res) => portfolioController.list(req as any, res));
-router.post('/portfolio', authenticateToken, rateLimiters.normal, validate.validateBody(validate.PortfolioCreateSchema), (req, res) => portfolioController.create(req as any, res));
-router.delete('/portfolio/:id', authenticateToken, rateLimiters.normal, (req, res) => portfolioController.remove(req as any, res));
-router.get('/portfolio/stats', authenticateToken, rateLimiters.fast, (req, res) => portfolioController.stats(req as any, res));
-router.get('/portfolio/export/json', authenticateToken, rateLimiters.fast, (req, res) => portfolioController.exportJSON(req as any, res));
-router.get('/portfolio/export/csv', authenticateToken, rateLimiters.fast, (req, res) => portfolioController.exportCSV(req as any, res));
-router.post('/portfolio/import/json', authenticateToken, rateLimiters.normal, (req, res) => portfolioController.importJSON(req as any, res));
-router.post('/portfolio/import/csv', authenticateToken, rateLimiters.normal, (req, res) => portfolioController.importCSV(req as any, res));
-router.post('/portfolio/sync', authenticateToken, rateLimiters.normal, (req: any, res) => exchangeExtendedController.syncPortfolio(req, res));
+router.get('/portfolio', authenticateToken, rateLimiters.normal, (req, res) => portfolioController.list(req, res));
+router.get('/portfolio/valuation', authenticateToken, rateLimiters.normal, (req, res) => getPortfolioValuation(req, res));
+router.post('/portfolio', authenticateToken, rateLimiters.normal, validate.validateBody(validate.PortfolioCreateSchema), (req, res) => portfolioController.create(req, res));
+router.delete('/portfolio/:id', authenticateToken, rateLimiters.normal, (req, res) => portfolioController.remove(req, res));
+router.get('/portfolio/stats', authenticateToken, rateLimiters.fast, (req, res) => portfolioController.stats(req, res));
+router.get('/portfolio/export/json', authenticateToken, rateLimiters.fast, (req, res) => portfolioController.exportJSON(req, res));
+router.get('/portfolio/export/csv', authenticateToken, rateLimiters.fast, (req, res) => portfolioController.exportCSV(req, res));
+router.post('/portfolio/import/json', authenticateToken, rateLimiters.normal, (req, res) => portfolioController.importJSON(req, res));
+router.post('/portfolio/import/csv', authenticateToken, rateLimiters.normal, (req, res) => portfolioController.importCSV(req, res));
+router.post('/portfolio/sync', authenticateToken, rateLimiters.normal, (req, res) => exchangeExtendedController.syncPortfolio(req, res));
 
 // Alerts (requiere JWT)
-router.get('/alerts', authenticateToken, rateLimiters.fast, (req, res) => alertController.list(req as any, res));
-router.post('/alerts', authenticateToken, rateLimiters.normal, validate.validateBody(validate.AlertCreateSchema), (req, res) => alertController.create(req as any, res));
-router.patch('/alerts/:id', authenticateToken, rateLimiters.normal, (req, res) => alertController.update(req as any, res));
-router.delete('/alerts/:id', authenticateToken, rateLimiters.normal, (req, res) => alertController.delete(req as any, res));
-router.post('/alerts/:id/test', authenticateToken, rateLimiters.strict, (req, res) => alertController.test(req as any, res));
+router.get('/alerts', authenticateToken, rateLimiters.fast, (req, res) => alertController.list(req, res));
+router.post('/alerts', authenticateToken, rateLimiters.normal, validate.validateBody(validate.AlertCreateSchema), (req, res) => alertController.create(req, res));
+router.patch('/alerts/:id', authenticateToken, rateLimiters.normal, (req, res) => alertController.update(req, res));
+router.delete('/alerts/:id', authenticateToken, rateLimiters.normal, (req, res) => alertController.delete(req, res));
+router.post('/alerts/:id/test', authenticateToken, rateLimiters.strict, (req, res) => alertController.test(req, res));
 
 // Paper Trading (requiere JWT)
-router.get('/paper-trading/balance', authenticateToken, (req, res) => virtualTradingController.initBalance(req as any, res));
-router.post('/paper-trading/trade', authenticateToken, rateLimiters.normal, validate.validateBody(validate.PaperTradeSchema), (req, res) => virtualTradingController.trade(req as any, res));
+router.get('/paper-trading/balance', authenticateToken, (req, res) => virtualTradingController.initBalance(req, res));
+router.post('/paper-trading/trade', authenticateToken, rateLimiters.normal, validate.validateBody(validate.PaperTradeSchema), (req, res) => virtualTradingController.trade(req, res));
 
 // API Keys Externas (requiere JWT)
-router.get('/exchange-keys', authenticateToken, (req, res) => exchangeController.listKeys(req as any, res));
-router.post('/exchange-keys', authenticateToken, rateLimiters.normal, validate.validateBody(validate.ExchangeKeySchema), (req, res) => exchangeController.addKey(req as any, res));
-router.delete('/exchange-keys/:id', authenticateToken, (req, res) => exchangeController.removeKey(req as any, res));
+router.get('/exchange-keys', authenticateToken, (req, res) => exchangeController.listKeys(req, res));
+router.post('/exchange-keys', authenticateToken, rateLimiters.normal, validate.validateBody(validate.ExchangeKeySchema), (req, res) => exchangeController.addKey(req, res));
+router.delete('/exchange-keys/:id', authenticateToken, (req, res) => exchangeController.removeKey(req, res));
 
 // Push Notifications PWA
 router.get('/push/vapid-public-key', (req, res) => pushController.getVapidPublicKey(req, res));
-router.post('/push/subscribe', authenticateToken, rateLimiters.strict, validate.validateBody(validate.PushSubscribeSchema), (req, res) => pushController.subscribe(req as any, res));
-router.delete('/push/unsubscribe', authenticateToken, rateLimiters.strict, (req, res) => pushController.unsubscribe(req as any, res));
+router.post('/push/subscribe', authenticateToken, rateLimiters.strict, validate.validateBody(validate.PushSubscribeSchema), (req, res) => pushController.subscribe(req, res));
+router.delete('/push/unsubscribe', authenticateToken, rateLimiters.strict, (req, res) => pushController.unsubscribe(req, res));
 
-router.get('/health', (_req, res) => res.json({ status: 'ok', version: '3.0.0' }));
+router.get('/health', getApiHealth);
 
 // Resumen diario (Telegram)
 router.get('/daily-summary', (req, res) => getDailySummary(req, res));
 router.post('/daily-summary/send', requireAdminOrCron, (req, res) => sendDailySummary(req, res));
 
 // Analytics
-router.post('/analytics/event', rateLimiters.fast, validate.validateBody(validate.AnalyticsEventSchema), (req, res) => trackEvent(req, res));
-router.get('/analytics/summary', (req, res) => getAnalyticsSummary(req, res));
+router.post('/analytics/event', rateLimiters.analytics, validate.validateBody(validate.AnalyticsEventSchema), (req, res) => trackEvent(req, res));
+router.post('/analytics/track', rateLimiters.analytics, (req, res) => track(req, res));
+router.get('/analytics/summary', authenticateToken, requireAdmin, (req, res) => getAnalyticsSummary(req, res));
 
 // Newsletter
 router.post('/newsletter/send', authenticateToken, requireAdmin, (req, res) => sendWeeklyNewsletter(req, res));
@@ -129,24 +173,6 @@ router.post('/analytics/vitals', rateLimiters.fast, (req, res) => {
     if (!metric) { res.status(400).json({ error: 'Missing metric' }); return; }
     logger.info('[WebVital] %s: %sms (%s)', metric, value, page || '/');
     res.json({ ok: true });
-});
-
-// SSE — Server-Sent Events for live rates (singleton broadcaster)
-import { sseBroadcaster } from '../utils/sse-broadcaster';
-router.get('/sse/rates', (req, res) => {
-    res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no',
-    });
-    res.write('data: {"connected":true}\n\n');
-
-    sseBroadcaster.addClient(res);
-
-    req.on('close', () => {
-        sseBroadcaster.removeClient(res);
-    });
 });
 
 // Telegram Bot Webhook
@@ -168,12 +194,12 @@ router.get('/economics/fci-ranking', swr60s, (req, res) => onsFciController.getF
 router.get('/economics/renta-fija', swr60s, (req, res) => onsFciController.getRentaFija(req, res));
 
 // Exchange real connection
-router.get('/exchange/:name/balance', authenticateToken, rateLimiters.normal, (req: any, res) => exchangeExtendedController.getBalance(req, res));
-router.get('/exchange/:name/validate', authenticateToken, rateLimiters.fast, (req: any, res) => exchangeExtendedController.validateKeys(req, res));
+router.get('/exchange/:name/balance', authenticateToken, rateLimiters.normal, (req, res) => exchangeExtendedController.getBalance(req, res));
+router.get('/exchange/:name/validate', authenticateToken, rateLimiters.fast, (req, res) => exchangeExtendedController.validateKeys(req, res));
 router.get('/exchange/prices/:symbol', rateLimiters.normal, (req, res) => exchangeExtendedController.getPrices(req, res));
 
 // Paper Trading tier limits (usage tracking)
-router.get('/paper-trading/usage', authenticateToken, rateLimiters.fast, (req: any, res) => exchangeExtendedController.getUsage(req, res));
+router.get('/paper-trading/usage', authenticateToken, rateLimiters.fast, (req, res) => exchangeExtendedController.getUsage(req, res));
 
 // Newsletter via email
 router.post('/newsletter/subscribe', rateLimiters.strict, validate.validateBody(validate.NewsletterSubscribeSchema), (req, res) => exchangeExtendedController.subscribeNewsletter(req, res));

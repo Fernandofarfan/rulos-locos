@@ -19,8 +19,10 @@ class RateController {
             const rateData = {
                 ask,
                 bid,
-                source: (data.ask && data.bid) ? 'Binance P2P' : 'Fallback',
+                source: (data.ask && data.bid && !data.isFallback) ? 'CriptoYa (Binance P2P)' : 'estimado',
+                isEstimated: !(data.ask && data.bid && !data.isFallback),
                 timestamp: new Date().toISOString(),
+                updatedAt: data.isFallback || !data.time ? undefined : new Date(data.time * 1000).toISOString(),
             };
 
             cache.set('rate_data', rateData);
@@ -29,7 +31,7 @@ class RateController {
             logger.error('Error en RateController.getRate: %s', (error as Error).message);
             res.json({
                 ask: 1205.50, bid: 1195.20,
-                source: 'Offline (fallback)',
+                source: 'estimado', isEstimated: true,
                 timestamp: new Date().toISOString(),
                 cached: false,
             });

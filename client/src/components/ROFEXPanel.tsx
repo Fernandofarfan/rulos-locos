@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, Clock, RefreshCw } from 'lucide-react';
 import { apiService } from '../services/api';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface RofexContract {
     symbol: string;
@@ -10,6 +11,9 @@ interface RofexContract {
     impliedRate: number;
     change: number;
     openInterest?: number;
+    source?: string;
+    estimated?: boolean;
+    isEstimated?: boolean;
 }
 
 export const ROFEXPanel: React.FC = () => {
@@ -53,6 +57,10 @@ export const ROFEXPanel: React.FC = () => {
                 </span>
             </div>
 
+            <DataFreshness source={contracts[0]?.source ?? 'estimado'} updatedAt={undefined} isEstimated={contracts.some(c => c.isEstimated || c.estimated)} />
+            {contracts.some(c => c.isEstimated || c.estimated) && <p className="text-xs text-amber-300 mb-2">
+                Valores estimados: no se dispone de cotizaciones públicas verificadas de ROFEX.
+            </p>}
             <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                     <thead>
@@ -94,7 +102,7 @@ export const ROFEXPanel: React.FC = () => {
                 </table>
             </div>
             <p className="text-[9px] text-slate-700 mt-3 text-right">
-                Tasas implícitas basadas en precios de mercado. Actualizadas c/60s.
+                Tasas implícitas orientativas. Actualizadas c/60s.
             </p>
         </div>
     );

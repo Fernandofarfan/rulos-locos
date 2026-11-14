@@ -1,6 +1,8 @@
 import path from 'path';
 import dotenv from 'dotenv';
 import { z } from 'zod';
+import logger from '../utils/logger';
+import { parseEncryptionKeys } from './encryption';
 
 dotenv.config();
 
@@ -13,7 +15,10 @@ const EnvSchema = z.object({
   NEWS_API_KEY: z.string().default(''),
   CLIENT_URL: z.string().url().default('http://localhost:5173'),
   JWT_SECRET: z.string().min(32),
-  DATABASE_URL: z.string().default('file:./dev.db'),
+  ENCRYPTION_KEY: z.string().optional(),
+  ENCRYPTION_KEYS: z.string().optional(),
+  ENCRYPTION_KEY_ID: z.string().optional(),
+  DATABASE_URL: z.string().optional(),
   EMAIL_USER: z.string().email().optional(),
   EMAIL_PASS: z.string().optional(),
   EMAIL_HOST: z.string().default('smtp.gmail.com'),
@@ -39,6 +44,25 @@ if (!_env.success) {
   }
 }
 const env = _env.success ? _env.data : ({ ...process.env, PORT: 3001, NODE_ENV: 'development' } as any);
+let encryptionKeys: Record<string, string> = {};
+let invalidKeyring = false;
+try {
+  encryptionKeys = parseEncryptionKeys(process.env.ENCRYPTION_KEYS, process.env.ENCRYPTION_KEY_ID);
+} catch {
+  invalidKeyring = true;
+}
+const hasLegacyKey = /^[0-9a-fA-F]{64}$/.test(process.env.ENCRYPTION_KEY || '');
+const production = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
+const configuredEncryption = !invalidKeyring && (hasLegacyKey || Object.keys(encryptionKeys).length > 0);
+const encryptionAvailable = configuredEncryption || !production;
+if (!configuredEncryption && production) {
+  logger.error('Cifrado no disponible: configurá ENCRYPTION_KEY o ENCRYPTION_KEYS y ENCRYPTION_KEY_ID válidos.');
+} else if (!configuredEncryption) {
+  logger.warn('ENCRYPTION_KEY no configurado o inválido; usando clave de desarrollo. No usar en producción.');
+}
+const encryptionKey = configuredEncryption && hasLegacyKey
+  ? process.env.ENCRYPTION_KEY!
+  : configuredEncryption || production ? '' : '0'.repeat(64);
 
 interface Config {
   PORT: number | string;
@@ -56,6 +80,11 @@ interface Config {
   NEWS_API_KEY: string;
   CLIENT_URL: string;
   JWT_SECRET: string;
+  ENCRYPTION_KEY: string;
+  ENCRYPTION_KEYS: Record<string, string>;
+  ENCRYPTION_KEY_ID: string;
+  ENCRYPTION_AVAILABLE: boolean;
+  CORS_ORIGINS: string[];
   DEFAULT_HEADERS: Record<string, string>;
   EMAIL: {
     HOST: string;
@@ -83,6 +112,14 @@ const config: Config = {
   NEWS_API_KEY: env.NEWS_API_KEY || '',
   CLIENT_URL: env.CLIENT_URL || 'http://localhost:5173',
   JWT_SECRET: env.JWT_SECRET,
+  ENCRYPTION_KEY: encryptionKey,
+  ENCRYPTION_KEYS: encryptionKeys,
+  ENCRYPTION_KEY_ID: configuredEncryption && Object.keys(encryptionKeys).length ? process.env.ENCRYPTION_KEY_ID || '' : '',
+  ENCRYPTION_AVAILABLE: encryptionAvailable,
+  CORS_ORIGINS: [...new Set([
+    'http://localhost:5173', 'https://rulos-locos.vercel.app',
+    process.env.CLIENT_URL, ...(process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim()),
+  ].filter((origin): origin is string => Boolean(origin)))],
   DEFAULT_HEADERS: {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'application/json',

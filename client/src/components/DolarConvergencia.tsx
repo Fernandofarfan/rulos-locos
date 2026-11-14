@@ -67,8 +67,8 @@ export const DolarConvergencia: React.FC = () => {
         return () => clearInterval(iv);
     }, []);
 
-    const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
-    const fmtB = (n: number) => `$${(n / 1000).toFixed(1)}B USD`;
+    const fmt = (n: number) => Number.isFinite(n) ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n) : '—';
+    const fmtB = (n: number) => Number.isFinite(n) ? `$${(n / 1000).toFixed(1)}B USD` : '—';
 
     if (!data) return (
         <div className="glass-panel no-lift p-6 flex items-center justify-center h-48 animate-pulse">

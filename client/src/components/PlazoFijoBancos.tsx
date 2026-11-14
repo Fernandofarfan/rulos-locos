@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { fixedDepositRates } from '../utils/financial';
 import { RefreshCw, Building2, Search, X as XIcon } from 'lucide-react';
 import { Tooltip } from './ui/Tooltip';
 import { apiService } from '../services/api';
@@ -11,8 +12,8 @@ interface Banco {
     logo?: string;
 }
 
-const tnaToTEM = (tna: number) => ((1 + tna / 100 / 365) ** 30 - 1) * 100;
-const tnaToTEA = (tna: number) => ((1 + tna / 100 / 365) ** 365 - 1) * 100;
+const tnaToTEM = (tna: number) => fixedDepositRates(tna).period * 100;
+const tnaToTEA = (tna: number) => fixedDepositRates(tna).annual * 100;
 
 const colorForTNA = (tna: number): string => {
     if (tna >= 40) return 'text-emerald-400';

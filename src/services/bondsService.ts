@@ -9,6 +9,8 @@ export interface BondQuote {
     parity: number;
     tir: number;
     change: number;
+    source: string;
+    estimated: boolean;
 }
 
 class BondsService {
@@ -47,6 +49,8 @@ class BondsService {
                     parity: parseFloat((b.parity + randomDiff).toFixed(1)),
                     tir: parseFloat((b.tir - randomDiff * 0.1).toFixed(1)),
                     change: parseFloat((b.change + randomDiff).toFixed(2)),
+                    source: 'estimado',
+                    estimated: true,
                 };
             });
 

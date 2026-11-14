@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import prisma from '../utils/db';
 import logger from '../utils/logger';
+import { Prisma } from '@prisma/client';
+import { toPlain } from '../utils/serialize';
 
 interface AuthRequest extends Request {
     user?: { id: string; email: string };
@@ -38,7 +40,7 @@ class VirtualTradingController {
             }
 
             const allBalances = await prisma.virtualBalance.findMany({ where: { userId } });
-            res.json(allBalances);
+            res.json(toPlain(allBalances));
         } catch (error) {
             logger.error('Error initBalance: %s', (error as Error).message);
             res.status(500).json({ error: 'Internal server error' });
@@ -53,29 +55,30 @@ class VirtualTradingController {
             if (!userId) { res.status(401).json({ error: 'No autorizado' }); return; }
 
             const { type, asset, amount, price } = req.body as { type: 'BUY' | 'SELL'; asset: string; amount: number; price: number };
-            const totalArs = amount * price;
+            const amountDecimal = new Prisma.Decimal(amount);
+            const totalArs = amountDecimal.mul(new Prisma.Decimal(price));
 
             // Transacción atómica
-            await prisma.$transaction(async (tx: any) => {
-                let arsBal = await tx.virtualBalance.findUnique({ where: { userId_currency: { userId, currency: 'ARS' } } });
+            await prisma.$transaction(async (tx) => {
+                const arsBal = await tx.virtualBalance.findUnique({ where: { userId_currency: { userId, currency: 'ARS' } } });
                 if (!arsBal && type === 'SELL') throw new Error("No ARS balance to sell against");
 
-                let assetBal = await tx.virtualBalance.findUnique({ where: { userId_currency: { userId, currency: asset } } });
+                const assetBal = await tx.virtualBalance.findUnique({ where: { userId_currency: { userId, currency: asset } } });
 
                 if (type === 'BUY') {
-                    if (!arsBal || arsBal.amount < totalArs) throw new Error("Saldo ARS insuficiente para la compra");
+                    if (!arsBal || arsBal.amount.lessThan(totalArs)) throw new Error("Saldo ARS insuficiente para la compra");
 
                     // Restar ARS
                     await tx.virtualBalance.update({
                         where: { id: arsBal.id },
-                        data: { amount: arsBal.amount - totalArs }
+                        data: { amount: arsBal.amount.minus(totalArs) }
                     });
 
                     // Sumar Asset
                     if (assetBal) {
                         await tx.virtualBalance.update({
                             where: { id: assetBal.id },
-                            data: { amount: assetBal.amount + amount }
+                            data: { amount: assetBal.amount.plus(amountDecimal) }
                         });
                     } else {
                         await tx.virtualBalance.create({
@@ -83,19 +86,19 @@ class VirtualTradingController {
                         });
                     }
                 } else if (type === 'SELL') {
-                    if (!assetBal || assetBal.amount < amount) throw new Error(`Saldo ${asset} insuficiente para la venta`);
+                    if (!assetBal || assetBal.amount.lessThan(amountDecimal)) throw new Error(`Saldo ${asset} insuficiente para la venta`);
 
                     // Restar Asset
                     await tx.virtualBalance.update({
                         where: { id: assetBal.id },
-                        data: { amount: assetBal.amount - amount }
+                        data: { amount: assetBal.amount.minus(amountDecimal) }
                     });
 
                     // Sumar ARS
                     if (arsBal) {
                         await tx.virtualBalance.update({
                             where: { id: arsBal.id },
-                            data: { amount: arsBal.amount + totalArs }
+                            data: { amount: arsBal.amount.plus(totalArs) }
                         });
                     } else {
                         await tx.virtualBalance.create({
@@ -112,7 +115,7 @@ class VirtualTradingController {
 
             // Devolver saldos actualizados
             const finalBalances = await prisma.virtualBalance.findMany({ where: { userId } });
-            res.json(finalBalances);
+            res.json(toPlain(finalBalances));
 
         } catch (error) {
             logger.warn('Trade err: %s', (error as Error).message);

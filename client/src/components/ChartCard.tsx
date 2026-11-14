@@ -4,6 +4,8 @@ import { apiService } from '../services/api';
 import CandlestickChart from './CandlestickChart';
 import { ErrorCard } from './ui/ErrorCard';
 import { Tooltip } from './ui/Tooltip';
+import { filterSeries } from '../utils/dateWindow';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface ChartCardProps {
     title: string;
@@ -48,24 +50,10 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, indicator, color = 
         fetchChartData();
     }, [indicator, range, dolarType]);
 
-    // Slice data based on range
     const getSlicedData = () => {
         if (!data?.values?.length) return { labels: [], values: [] };
-        const total = data.values.length;
-        const isMonthly = indicator === 'inflation';
-        const sliceMap: Record<string, number> = {
-            '1M': isMonthly ? 6 : 30,
-            '3M': isMonthly ? 12 : 90,
-            '6M': isMonthly ? 24 : 180,
-            '1Y': isMonthly ? 48 : 365,
-            'ALL': total,
-        };
-        const count = sliceMap[range] ?? total;
-        const start = Math.max(0, total - count);
-        return {
-            labels: data.labels.slice(start),
-            values: data.values.slice(start),
-        };
+        const months: Record<string, number> = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12 };
+        return range === 'ALL' ? data : filterSeries(data, months[range]);
     };
 
     const { labels, values } = getSlicedData();
@@ -126,6 +114,8 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, indicator, color = 
     return (
         <>
             <div className="glass-panel no-lift p-6 flex flex-col h-[350px] relative overflow-hidden group">
+                {labels.length > 0 && <span className="sr-only" aria-label="Fechas del gráfico">{labels[0]} — {labels[labels.length - 1]}</span>}
+                {(data?.isEstimated || data?.estimated) && <DataFreshness source={data.source ?? 'estimado'} updatedAt={data.timestamp} isEstimated />}
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4 relative z-10">
                     <div>
@@ -146,6 +136,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, indicator, color = 
                             </div>
                             {indicator === 'blue' && (
                                 <select
+                                    aria-label="Tipo de dólar"
                                     value={dolarType}
                                     onChange={(e) => setDolarType(e.target.value)}
                                     className="bg-white/5 text-[10px] text-slate-400 p-1 rounded-lg border border-white/5 outline-none focus:border-accent-primary/50 focus:text-white transition-colors uppercase font-bold tracking-wider cursor-pointer hover:bg-white/10"
@@ -164,6 +155,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, indicator, color = 
                             <Tooltip content={showCandles ? 'Cambiar a Área' : 'Cambiar a Velas'}>
                                 <button
                                     onClick={() => setShowCandles(!showCandles)}
+                                    aria-label={showCandles ? 'Cambiar a área' : 'Cambiar a velas'}
                                     className={`p-2 rounded-xl transition-colors ${showCandles ? 'bg-accent-secondary/20 text-accent-secondary' : 'hover:bg-white/5 text-slate-500 hover:text-white'}`}
                                 >
                                     <CandleIcon size={16} />
@@ -173,6 +165,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, indicator, color = 
                         <Tooltip content={showVolume ? 'Ocultar Volumen' : 'Mostrar Volumen'}>
                             <button
                                 onClick={() => setShowVolume(!showVolume)}
+                                aria-label={showVolume ? 'Ocultar volumen' : 'Mostrar volumen'}
                                 className={`p-2 rounded-xl transition-colors ${showVolume ? 'bg-teal-500/20 text-teal-400' : 'hover:bg-white/5 text-slate-500 hover:text-white'}`}
                             >
                                 <BarChart3 size={16} />

@@ -3,6 +3,8 @@ import { Plus, Trash2, TrendingUp, TrendingDown, Briefcase, Wallet, Cloud, Cloud
 import { apiService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { EmptyState } from './ui/EmptyState';
+import { PortfolioValuation } from './PortfolioValuation';
+import { PortfolioCSVImport } from './PortfolioCSVImport';
 
 interface Position {
     id: string;
@@ -91,7 +93,7 @@ export const PortfolioTracker: React.FC<PortfolioTrackerProps> = ({ currentPrice
             asset: newPos.asset,
             buyPrice: parseFloat(newPos.buyPrice),
             amount: parseFloat(newPos.amount),
-            date: new Date().toLocaleDateString('es-AR'),
+            date: new Date().toISOString().slice(0, 10),
         };
 
         if (user && syncMode === 'api') {
@@ -173,7 +175,7 @@ export const PortfolioTracker: React.FC<PortfolioTrackerProps> = ({ currentPrice
     };
 
     return (
-        <div className="glass-panel p-6 flex flex-col min-h-[400px] md:h-[600px]" aria-busy={syncing}>
+        <div className="glass-panel p-6 flex flex-col min-h-[400px]" aria-busy={syncing}>
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -227,6 +229,8 @@ export const PortfolioTracker: React.FC<PortfolioTrackerProps> = ({ currentPrice
                     </button>
                 </div>
             </div>
+
+            {user && <><PortfolioValuation revision={positions.length} /><PortfolioCSVImport onImported={() => { void loadFromApi(); }} /></>}
 
             {/* Resumen */}
             <div className="grid grid-cols-2 gap-4 mb-4">

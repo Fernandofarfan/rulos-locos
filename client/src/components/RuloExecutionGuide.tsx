@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { BookOpen, CheckCircle2, AlertTriangle, ShieldCheck, X, ArrowRight, HelpCircle } from 'lucide-react';
+import { BookOpen, AlertTriangle, ShieldCheck, X } from 'lucide-react';
+import { FinancialDisclaimer } from './ui/FinancialDisclaimer';
 
 interface RuloExecutionGuideProps {
     isOpen: boolean;
@@ -21,6 +22,7 @@ export const RuloExecutionGuide: React.FC<RuloExecutionGuideProps> = ({ isOpen, 
                 className="relative glass-panel p-6 w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl max-h-[85vh] overflow-y-auto custom-scrollbar"
                 onClick={(e) => e.stopPropagation()}
             >
+                <FinancialDisclaimer />
                 {/* Header */}
                 <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
                     <div className="flex items-center gap-2.5">

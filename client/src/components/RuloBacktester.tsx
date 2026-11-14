@@ -162,6 +162,7 @@ export const RuloBacktester: React.FC = () => {
                 <div>
                     <label className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1 block">Capital (ARS)</label>
                     <input
+                        aria-label="Capital (ARS)"
                         type="number"
                         value={capital}
                         onChange={e => setCapital(Number(e.target.value))}
@@ -173,6 +174,7 @@ export const RuloBacktester: React.FC = () => {
                 <div>
                     <label className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1 block">Comisión (%)</label>
                     <input
+                        aria-label="Comisión (%)"
                         type="number"
                         step="0.1"
                         value={commission}

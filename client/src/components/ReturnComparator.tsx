@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { inflationReturn } from '../utils/financial';
 import { Scale, TrendingUp, DollarSign, RefreshCw } from 'lucide-react';
 import { apiService } from '../services/api';
+import { DataFreshness } from './ui/DataFreshness';
+import { filterSeries } from '../utils/dateWindow';
 
 const PERIODS = [
     { label: '3M', months: 3 },
@@ -37,15 +40,16 @@ export const ReturnComparator: React.FC = () => {
             apiService.getHistorical('inflation', range),
             apiService.getRates(),
         ]).then(([b, m, i, r]) => {
-            if (b.status === 'fulfilled') setBlueHist(b.value);
-            if (m.status === 'fulfilled') setMepHist(m.value);
-            if (i.status === 'fulfilled') setInflHist(i.value);
+            if (b.status === 'fulfilled') setBlueHist(filterSeries(b.value, period));
+            if (m.status === 'fulfilled') setMepHist(filterSeries(m.value, period));
+            if (i.status === 'fulfilled') setInflHist(filterSeries(i.value, period));
             if (r.status === 'fulfilled') setRates(r.value);
         }).finally(() => setLoading(false));
     }, [period]);
 
     const results = useMemo<InstrumentResult[]>(() => {
         const r: InstrumentResult[] = [];
+        if (!Number.isFinite(capital) || capital <= 0) return r;
 
         // Plazo Fijo — compound monthly TNA
         const tna = rates?.plazoFijo?.tna ?? 33;
@@ -59,7 +63,7 @@ export const ReturnComparator: React.FC = () => {
         });
 
         // Dolar Blue — buy at start, sell at end
-        if (blueHist.values.length > 1) {
+        if (blueHist.values.length > 1 && blueHist.values[0] > 0 && blueHist.values.at(-1)! > 0) {
             const start = blueHist.values[0];
             const end = blueHist.values[blueHist.values.length - 1];
             const usdBought = capital / start;
@@ -73,7 +77,7 @@ export const ReturnComparator: React.FC = () => {
         }
 
         // Dolar MEP
-        if (mepHist.values.length > 1) {
+        if (mepHist.values.length > 1 && mepHist.values[0] > 0 && mepHist.values.at(-1)! > 0) {
             const start = mepHist.values[0];
             const end = mepHist.values[mepHist.values.length - 1];
             const usdBought = capital / start;
@@ -87,13 +91,13 @@ export const ReturnComparator: React.FC = () => {
         }
 
         // Inflación — what you lose by keeping in ARS
-        if (inflHist.values.length > 0) {
+        if (inflHist.values.length > 0 && inflHist.values.every(value => Number.isFinite(value) && value > -100)) {
             const totalInflation = inflHist.values.reduce((acc, v) => acc * (1 + v / 100), 1);
             const lostPower = capital / totalInflation;
             r.push({
                 id: 'inflacion', label: 'Inflación', color: '#ef4444', icon: '📈',
                 initialValue: capital, finalValue: lostPower,
-                returnPct: -((totalInflation - 1) * 100),
+                returnPct: inflationReturn(totalInflation),
                 finalAmount: lostPower,
             });
         }
@@ -104,10 +108,11 @@ export const ReturnComparator: React.FC = () => {
     const maxAmount = Math.max(...results.map(r => r.finalAmount), capital);
 
     const fmt = (n: number) =>
-        new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+        Number.isFinite(n) ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n) : '—';
 
     return (
         <div className="glass-panel no-lift p-6">
+            <DataFreshness source="estimado" updatedAt={rates?.timestamp} estimated />
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                     <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
@@ -128,6 +133,7 @@ export const ReturnComparator: React.FC = () => {
                     <div className="relative">
                         <DollarSign size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                         <input
+                            aria-label="Capital inicial"
                             type="number"
                             value={capital}
                             onChange={e => setCapital(Number(e.target.value))}
@@ -186,7 +192,7 @@ export const ReturnComparator: React.FC = () => {
                                 }}
                             >
                                 {r.finalAmount / maxAmount > 0.2 && (
-                                    <span className="text-[9px] font-bold text-white/90 drop-shadow">
+                                    <span className="chart-value-label text-[9px] font-bold rounded px-1">
                                         {fmt(r.finalAmount)}
                                     </span>
                                 )}
@@ -214,7 +220,7 @@ export const ReturnComparator: React.FC = () => {
             )}
 
             <p className="text-[9px] text-slate-600 mt-4 text-center">
-                Rendimientos calculados con datos históricos reales. Rendimiento pasado no garantiza resultados futuros.
+                Rendimientos orientativos: plazo fijo estimado y series históricas cuando están disponibles. Rendimiento pasado no garantiza resultados futuros.
             </p>
         </div>
     );

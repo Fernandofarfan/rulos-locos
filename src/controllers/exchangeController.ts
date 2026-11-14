@@ -1,6 +1,12 @@
 import { Request, Response } from 'express';
 import prisma from '../utils/db';
 import logger from '../utils/logger';
+import { encryptSecret } from '../utils/crypto';
+import { respondEncryptionUnavailable } from '../utils/encryptionResponse';
+
+export function maskApiKey(key: string): string {
+    return `${key.slice(0, 4)}…${key.slice(-4)}`;
+}
 
 interface AuthRequest extends Request {
     user?: { id: string; email: string };
@@ -20,7 +26,7 @@ class ExchangeController {
                 select: { id: true, exchange: true, apiKey: true, createdAt: true, updatedAt: true }
             });
 
-            res.json(keys);
+            res.json(keys.map(key => ({ ...key, apiKey: maskApiKey(key.apiKey) })));
         } catch (error) {
             logger.error('Error listKeys: %s', (error as Error).message);
             res.status(500).json({ error: 'Internal server error' });
@@ -41,24 +47,22 @@ class ExchangeController {
                 return;
             }
 
-            // Idealmente acá se debería validar que la key conecta al exchange, o encriptarla antes de meterla a la DB
-            // Por simplicidad de este MVP, la guardaremos en Base64 básica (en Prod real se usa AES-256)
-
             const newKey = await prisma.exchangeKey.create({
                 data: {
                     userId,
                     exchange: exchange.toUpperCase(),
                     apiKey,
-                    apiSecret: Buffer.from(apiSecret).toString('base64'),
-                    passthrough
+                    apiSecret: encryptSecret(apiSecret),
+                    passthrough: passthrough ? encryptSecret(passthrough) : passthrough
                 }
             });
 
             res.status(201).json({ id: newKey.id, exchange: newKey.exchange, apiKey: newKey.apiKey });
 
-        } catch (error: any) {
-            logger.warn('AddKey err: %s', error.message);
-            if (error.code === 'P2002') {
+        } catch (error) {
+            if (respondEncryptionUnavailable(error, res)) return;
+            logger.warn('AddKey err: %s', (error as Error).message);
+            if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
                 res.status(400).json({ error: 'Ya tienes una llave configurada para este Exchange.' });
             } else {
                 res.status(400).json({ error: 'No se pudo guardar la llave' });

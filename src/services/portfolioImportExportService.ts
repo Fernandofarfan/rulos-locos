@@ -1,7 +1,7 @@
 import prisma from '../utils/db';
 import logger from '../utils/logger';
 
-interface PortfolioExportData {
+export interface PortfolioExportData {
     exportDate: string;
     positions: Array<{
         asset: string;
@@ -34,7 +34,10 @@ class PortfolioImportExportService {
 
             return {
                 exportDate: new Date().toISOString(),
-                positions: positions.map((p: any) => ({ ...p, note: p.note || undefined })),
+                positions: positions.map(p => ({
+                    ...p, amount: Number(p.amount), buyPrice: Number(p.buyPrice),
+                    date: p.date.toISOString().slice(0, 10), note: p.note || undefined,
+                })),
             };
         } catch (error) {
             logger.error('Error exportando portfolio: %s', (error as Error).message);
@@ -60,7 +63,7 @@ class PortfolioImportExportService {
             // Add rows
             for (const pos of positions) {
                 const note = pos.note ? `"${pos.note.replace(/"/g, '""')}"` : '';
-                csv += `${pos.asset},${pos.amount},${pos.buyPrice},${pos.date},${note}\n`;
+                csv += `${pos.asset},${pos.amount},${pos.buyPrice},${pos.date.toISOString().slice(0, 10)},${note}\n`;
             }
 
             return csv;
@@ -95,7 +98,7 @@ class PortfolioImportExportService {
                             asset: pos.asset,
                             buyPrice: pos.buyPrice,
                             amount: pos.amount,
-                            date: pos.date,
+                            date: new Date(`${pos.date}T00:00:00.000Z`),
                             note: pos.note,
                         },
                     });
@@ -145,7 +148,7 @@ class PortfolioImportExportService {
                             asset,
                             amount: parseFloat(amount),
                             buyPrice: parseFloat(buyPrice),
-                            date,
+                            date: new Date(`${date}T00:00:00.000Z`),
                             note: note || undefined,
                         },
                     });
@@ -178,8 +181,8 @@ class PortfolioImportExportService {
                 where: { userId },
             });
 
-            const totalInvested = positions.reduce((sum: number, pos: { buyPrice: number; amount: number }) => sum + pos.buyPrice * pos.amount, 0);
-            const assets = Array.from(new Set<string>(positions.map((pos: { asset: string }) => pos.asset)));
+            const totalInvested = positions.reduce((sum, pos) => sum + Number(pos.buyPrice) * Number(pos.amount), 0);
+            const assets = Array.from(new Set<string>(positions.map(pos => pos.asset)));
 
             return {
                 totalPositions: positions.length,

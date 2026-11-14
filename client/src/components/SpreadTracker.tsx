@@ -27,11 +27,11 @@ export const SpreadTracker: React.FC<SpreadTrackerProps> = ({ dolares, loading }
         { name: 'Oficial', emoji: '🏛️', buy: dolares?.oficial?.compra ?? 0, sell: dolares?.oficial?.venta ?? 0 },
     ].filter(r => r.buy > 0 && r.sell > 0);
 
-    const fmt = (n: number) => `$${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+    const fmt = (n: number) => Number.isFinite(n) ? `$${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}` : '—';
     const spreadPct = (buy: number, sell: number) =>
-        sell > 0 ? (((sell - buy) / buy) * 100).toFixed(1) : '0';
+        Number.isFinite(buy) && Number.isFinite(sell) && buy > 0 ? (((sell - buy) / buy) * 100).toFixed(1) : '—';
     const spreadAbs = (buy: number, sell: number) =>
-        (sell - buy).toFixed(0);
+        Number.isFinite(sell - buy) ? (sell - buy).toFixed(0) : '—';
 
     const maxSpread = Math.max(...rows.map(r => ((r.sell - r.buy) / r.buy) * 100));
 

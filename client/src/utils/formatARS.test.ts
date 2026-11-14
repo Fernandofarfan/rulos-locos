@@ -4,7 +4,7 @@
  * Ejecutar: npm test
  */
 import { describe, it, expect } from 'vitest';
-import { formatARS, formatPct, formatCompact, formatInt } from './formatARS';
+import { formatARS, formatPct, formatCompact, formatInt, formatUSD, formatChange, formatRelativeTime } from './formatARS';
 
 // ────────────────────────────────────────────────────────────────────────────
 // formatARS
@@ -26,8 +26,8 @@ describe('formatARS', () => {
     expect(formatARS(undefined)).toBe('--');
   });
 
-  it('retorna -- para NaN', () => {
-    expect(formatARS(NaN)).toBe('--');
+  it('retorna — para NaN', () => {
+    expect(formatARS(NaN)).toBe('—');
   });
 
   it('formatea cero correctamente', () => {
@@ -41,6 +41,13 @@ describe('formatARS', () => {
   it('formatea millones con separador de miles', () => {
     expect(formatARS(1_000_000)).toBe('$ 1.000.000');
   });
+});
+
+it('never displays non-finite numeric or invalid date values', () => {
+  for (const format of [formatARS, formatPct, formatCompact, formatInt, formatUSD, formatChange]) {
+    for (const value of [NaN, Infinity, -Infinity]) expect(format(value)).toBe('—');
+  }
+  expect(formatRelativeTime('invalid-date')).toBe('—');
 });
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Calculator, Info } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
+import { realRateProjection } from '../utils/financial';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface ResultBlock {
     label: string;
@@ -13,33 +15,21 @@ interface ResultBlock {
 export const RealRateCalculator: React.FC = () => {
     const { economics } = useDashboardData();
 
-    const inflacionMensual = economics?.macro?.inflation?.mensual ?? 0;
+    const inflation = economics?.macro?.inflation;
+    const hasInflation = Number.isFinite(inflation?.mensual);
+    const inflacionMensual = hasInflation ? inflation!.mensual : 0;
 
     const [tna, setTna] = useState('');
     const [plazo, setPlazo] = useState('30');
     const [capital, setCapital] = useState('1000000');
 
     const tnaNum = parseFloat(tna) || 0;
-    const plazoNum = parseInt(plazo) || 30;
-    const capitalNum = parseFloat(capital) || 1000000;
+    const plazoNum = Math.max(1, parseInt(plazo) || 30);
+    const capitalNum = Math.max(0, parseFloat(capital) || 0);
+    const { tasaEfectivaPeriodo, inflacionPeriodo, tasaReal, tasaRealAnualizada, gananciasBruta,
+        poderAdquisitivoPerdido, gananciaReal, capitalFinal, tem, tea } = realRateProjection(tnaNum, plazoNum, capitalNum, inflacionMensual);
 
-    // Tasa efectiva para el plazo
-    const tasaEfectivaPeriodo = (1 + tnaNum / 100 / 365) ** plazoNum - 1;
-    // Inflación estimada para el período (proporcional al plazo)
-    const inflacionPeriodo = (1 + inflacionMensual / 100) ** (plazoNum / 30) - 1;
-    // Tasa real Fisher: (1+nominal)/(1+inflacion) - 1
-    const tasaReal = tasaEfectivaPeriodo / (1 + inflacionPeriodo) - 1; // simplificado
-    const tasaRealAnualizada = (1 + tasaReal) ** (365 / plazoNum) - 1;
-
-    const gananciasBruta = capitalNum * tasaEfectivaPeriodo;
-    const poderAdquisitivoPerdido = capitalNum * inflacionPeriodo;
-    const gananciaReal = capitalNum * tasaReal;
-    const capitalFinal = capitalNum + gananciasBruta;
-
-    const tem = ((1 + tnaNum / 100 / 365) ** 30 - 1) * 100;
-    const tea = ((1 + tnaNum / 100 / 365) ** 365 - 1) * 100;
-
-    const hasData = tnaNum > 0;
+    const hasData = tnaNum > 0 && hasInflation;
 
     const results: ResultBlock[] = hasData ? [
         {
@@ -71,6 +61,8 @@ export const RealRateCalculator: React.FC = () => {
 
     return (
         <div className="glass-panel p-6 relative overflow-hidden">
+            <DataFreshness source={inflation?.source ?? 'estimado'} updatedAt={inflation?.fecha}
+                isEstimated={!inflation || inflation.isEstimated || inflation.estimated} />
             {/* Ambient glow */}
             <div className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-5 bg-accent-primary" />
 
@@ -83,7 +75,7 @@ export const RealRateCalculator: React.FC = () => {
                 </h3>
                 <div className="text-[9px] text-slate-500 text-right">
                     <div>Inflación mensual actual</div>
-                    <div className="text-amber-400 font-bold">{inflacionMensual.toFixed(1)}% mensual</div>
+                    <div className="text-amber-400 font-bold">{hasInflation ? `${inflacionMensual.toFixed(1)}% mensual` : 'No disponible'}</div>
                 </div>
             </div>
 
@@ -92,6 +84,7 @@ export const RealRateCalculator: React.FC = () => {
                 <div>
                     <label className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block mb-1">TNA (%)</label>
                     <input
+                        aria-label="TNA (%)"
                         type="number"
                         value={tna}
                         onChange={e => setTna(e.target.value)}
@@ -102,6 +95,7 @@ export const RealRateCalculator: React.FC = () => {
                 <div>
                     <label className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Plazo (días)</label>
                     <select
+                        aria-label="Plazo (días)"
                         value={plazo}
                         onChange={e => setPlazo(e.target.value)}
                         className="w-full bg-black/40 text-white text-sm border border-white/10 rounded-lg px-2 py-2 outline-none focus:border-accent-primary/50"
@@ -116,6 +110,7 @@ export const RealRateCalculator: React.FC = () => {
                 <div>
                     <label className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Capital ($)</label>
                     <input
+                        aria-label="Capital ($)"
                         type="number"
                         value={capital}
                         onChange={e => setCapital(e.target.value)}

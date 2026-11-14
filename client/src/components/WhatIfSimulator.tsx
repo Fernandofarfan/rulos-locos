@@ -67,7 +67,7 @@ export const WhatIfSimulator: React.FC = () => {
 
     const inflationResult = results.find(r => r.id === 'inflacion');
     const fmt = (n: number) =>
-        new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+        Number.isFinite(n) ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n) : '—';
 
     const maxFinal = Math.max(...results.map(r => r.final));
 

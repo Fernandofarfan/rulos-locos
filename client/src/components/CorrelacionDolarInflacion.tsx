@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { RefreshCw, TrendingUp, Info } from 'lucide-react';
+import { cutoffMonths } from '../utils/dateWindow';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface DataPoint {
     fecha: string;
     inflacionMensual: number;
     variacionBlue: number;
     label?: string;
+    isEstimated?: boolean;
 }
 
 // Fetches from ArgentinaDatos APIs
@@ -22,13 +25,13 @@ async function fetchCorrelacionData(): Promise<DataPoint[]> {
         const blueData = await blueRes.json() as { fecha: string; venta: number }[];
 
         // Take last 24 months of inflation
-        const inflLast24 = inflData.slice(-24);
+        const inflLast24 = inflData.filter(item => item.fecha >= cutoffMonths(24));
 
         const points: DataPoint[] = [];
         for (const infl of inflLast24) {
             const month = infl.fecha.slice(0, 7); // YYYY-MM
             // Find blue prices for start and end of this month
-            const monthPrices = blueData.filter(b => b.fecha.startsWith(month));
+            const monthPrices = blueData.filter(b => b.fecha.startsWith(month)).sort((a, b) => a.fecha.localeCompare(b.fecha));
             if (monthPrices.length < 2) continue;
             const startPrice = monthPrices[0].venta;
             const endPrice = monthPrices[monthPrices.length - 1].venta;
@@ -52,6 +55,7 @@ async function fetchCorrelacionData(): Promise<DataPoint[]> {
                 inflacionMensual: parseFloat(infl.toFixed(1)),
                 variacionBlue: parseFloat((infl * (0.6 + Math.random() * 0.8) - 2 + Math.random() * 4).toFixed(2)),
                 label: d.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }),
+                isEstimated: true,
             };
         });
     }
@@ -225,6 +229,7 @@ export const CorrelacionDolarInflacion: React.FC = () => {
 
     return (
         <div className="glass-panel p-5 space-y-4">
+            <DataFreshness source={data.some(point => point.isEstimated) ? 'estimado' : 'ArgentinaDatos'} updatedAt={undefined} isEstimated={data.some(point => point.isEstimated)} />
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <div className="p-2 bg-violet-500/10 rounded-xl border border-violet-500/20">
@@ -235,7 +240,7 @@ export const CorrelacionDolarInflacion: React.FC = () => {
                         <p className="text-[10px] text-slate-500 mt-0.5">Variación mensual Blue vs CPI (últimos 24 meses)</p>
                     </div>
                 </div>
-                <button onClick={load} className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors">
+                <button onClick={load} aria-label="Actualizar correlación" className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors">
                     <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
                 </button>
             </div>
@@ -266,6 +271,8 @@ export const CorrelacionDolarInflacion: React.FC = () => {
                     <>
                         <canvas
                             ref={canvasRef}
+                            role="img"
+                            aria-label="Gráfico de correlación entre inflación y variación del dólar"
                             className="w-full h-full rounded-lg"
                             onMouseMove={handleMouseMove}
                             onMouseLeave={() => setTooltip(null)}

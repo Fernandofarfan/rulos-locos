@@ -46,6 +46,7 @@ export const RuloDelDia: React.FC = () => {
                 </div>
                 <button
                     onClick={fetchRuloDelDia}
+                    aria-label="Actualizar rulo del día"
                     disabled={loading}
                     className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors disabled:opacity-40"
                 >

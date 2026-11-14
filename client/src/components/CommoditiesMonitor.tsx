@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Wheat, TrendingUp, TrendingDown, RefreshCw, Sprout } from 'lucide-react';
 import { apiService } from '../services/api';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface Commodity {
     name: string;
@@ -9,6 +10,8 @@ interface Commodity {
     change24h: number;
     unit: string;
     source: string;
+    estimated?: boolean;
+    isEstimated?: boolean;
 }
 
 const ICONS: Record<string, string> = {
@@ -48,6 +51,7 @@ export const CommoditiesMonitor: React.FC = () => {
 
     return (
         <div className="glass-panel p-6">
+            <DataFreshness source={commodities[0]?.source ?? 'estimado'} updatedAt={lastUpdated ?? undefined} isEstimated={commodities.some(c => c.isEstimated || c.estimated)} />
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -71,6 +75,7 @@ export const CommoditiesMonitor: React.FC = () => {
                     )}
                     <button
                         onClick={fetchData}
+                        aria-label="Actualizar commodities"
                         disabled={loading}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
                     >

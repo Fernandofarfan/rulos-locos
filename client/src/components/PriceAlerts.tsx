@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Bell, Trash2, Plus, AlertCircle, Send, Wifi, WifiOff } from 'lucide-react';
 import { apiService } from '../services/api';
-import { useSocket } from '../hooks/useSocket';
+import { useArbitrageStream } from '../hooks/useRealtime';
 import { Tooltip } from './ui/Tooltip';
+import { RuloAlerts } from './RuloAlerts';
+import { AuthContext } from '../contexts/AuthContext';
 
 interface Alert {
     id: string;
@@ -22,6 +24,7 @@ interface PriceAlertsProps {
 }
 
 export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
+    const auth = useContext(AuthContext);
     const [alerts, setAlerts] = useState<Alert[]>([]);
     const [newToken, setNewToken] = useState<'blue' | 'mep' | 'oficial' | 'crypto'>('blue');
     const [newPrice, setNewPrice] = useState<string>('');
@@ -29,8 +32,6 @@ export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
     const [permission, setPermission] = useState<NotificationPermission>('default');
 
 
-    // WebSocket — actualizaciones en tiempo real
-    const { socket, isConnected } = useSocket();
     const livePricesRef = useRef(prices);
 
     // Sincronizar precios del prop con la ref
@@ -86,11 +87,7 @@ export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
         setAlerts(alerts.map(a => a.id === id ? { ...a, active: state } : a));
     };
 
-    // Suscribirse a actualizaciones de arbitrage via WebSocket
-    useEffect(() => {
-        if (!socket) return;
-
-        const handleArbitrageUpdate = (data: { dolares?: { blue?: { venta?: number }; mep?: { venta?: number }; oficial?: { venta?: number }; crypto?: { venta?: number } } }) => {
+    const { connected: isConnected } = useArbitrageStream(data => {
             if (!data?.dolares) return;
             const updated = {
                 blue: data.dolares.blue?.venta ?? livePricesRef.current.blue,
@@ -99,11 +96,7 @@ export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
                 crypto: data.dolares.crypto?.venta ?? livePricesRef.current.crypto,
             };
             livePricesRef.current = updated;
-        };
-
-        socket.on('arbitrage-update', handleArbitrageUpdate);
-        return () => { socket.off('arbitrage-update', handleArbitrageUpdate); };
-    }, [socket]);
+    });
 
     // Load alerts from local storage
     useEffect(() => {
@@ -157,7 +150,7 @@ export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
                     {/* Indicador WebSocket */}
                     <Tooltip content={isConnected ? 'WebSocket conectado — alertas en tiempo real' : 'WebSocket desconectado — usando polling'}>
                         <span
-                            className="flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
+                            className="source-connected flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
                             style={isConnected
                                 ? { background: 'rgba(16,185,129,0.1)', borderColor: 'rgba(16,185,129,0.3)', color: '#34d399' }
                                 : { background: 'rgba(100,116,139,0.1)', borderColor: 'rgba(100,116,139,0.2)', color: '#64748b' }
@@ -181,7 +174,7 @@ export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
                             href="https://t.me/RulosLocosBot?start=true"
                             target="_blank"
                             rel="noreferrer"
-                            className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-all bg-[#0088cc]/10 hover:bg-[#0088cc]/20 text-[#0088cc] border border-[#0088cc]/20 font-bold"
+                            className="telegram-link flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-all bg-[#0088cc]/10 hover:bg-[#0088cc]/20 text-[#0088cc] border border-[#0088cc]/20 font-bold"
                         >
                             <Send size={12} /> Bot Push
                         </a>
@@ -193,6 +186,7 @@ export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
             <div className="flex flex-col gap-3 mb-6 bg-white/5 p-4 rounded-xl border border-white/5">
                 <div className="flex gap-2">
                     <select
+                        aria-label="Activo de la alerta"
                         value={newToken}
                         onChange={(e) => setNewToken(e.target.value as any)}
                         className="bg-black/40 text-sm text-white border border-white/10 rounded-lg px-2 py-2 outline-none focus:border-accent-secondary/50"
@@ -203,6 +197,7 @@ export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
                         <option value="crypto">Crypto</option>
                     </select>
                     <select
+                        aria-label="Condición de la alerta"
                         value={newCondition}
                         onChange={(e) => setNewCondition(e.target.value as any)}
                         className="bg-black/40 text-sm text-white border border-white/10 rounded-lg px-2 py-2 outline-none focus:border-accent-secondary/50"
@@ -232,6 +227,7 @@ export const PriceAlerts: React.FC<PriceAlertsProps> = ({ prices }) => {
                 </div>
             </div>
 
+            {auth && <RuloAlerts />}
             {/* Alerts List */}
             <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
                 {alerts.length === 0 ? (

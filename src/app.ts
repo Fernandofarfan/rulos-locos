@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import helmet from 'helmet';
+import seoRoutes from './routes/seo.routes';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import compression from 'compression';
@@ -12,9 +13,12 @@ import logger from './utils/logger';
 import swaggerUi from 'swagger-ui-express';
 import { errorHandler, asyncHandler } from './middleware/errorHandler';
 import { requestTracking } from './middleware/requestTracking';
+import { createRateLimitStore } from './middleware/rateLimiters';
+import { provenanceReplacer } from './utils/provenance';
 
 
 const app = express();
+app.set('json replacer', provenanceReplacer);
 
 // Compresión gzip — reduce payload ~70% en respuestas JSON grandes
 app.use(compression());
@@ -52,25 +56,25 @@ app.use(helmet({
     },
 }));
 
+app.use('/widget.html', (_req, res, next) => {
+    const csp = String(res.getHeader('Content-Security-Policy') ?? '').replace(/(?:^|;)\s*frame-ancestors[^;]*/i, '');
+    res.setHeader('Content-Security-Policy', `${csp}; frame-ancestors *`);
+    res.setHeader('X-Frame-Options', 'ALLOWALL');
+    next();
+});
+
 const corsOptions: cors.CorsOptions = {
     origin: (origin, callback) => {
-        if (!origin || config.NODE_ENV !== 'production') return callback(null, true);
-        const allowedPatterns = [
-            /^https:\/\/rulos-locos.*\.vercel\.app$/,
-            /^https:\/\/rulos-locos\.com\.ar$/,
-            /localhost:5173$/,
-        ];
-        // Orígenes extra configurables via env (separados por coma)
-        const extraOrigins = (process.env.CORS_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
-        if (allowedPatterns.some(p => p.test(origin)) || origin === config.CLIENT_URL || extraOrigins.includes(origin)) {
+        if (!origin || config.CORS_ORIGINS.includes(origin)) {
             callback(null, true);
         } else {
             logger.warn('CORS bloqueado para origen: %s', origin);
             callback(null, false);
         }
     },
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    credentials: true,
 };
 app.use(cors(corsOptions));
 
@@ -88,13 +92,13 @@ const generalLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests' },
+    skip: req => req.path === '/health' || req.path === '/v1/health',
+    store: createRateLimitStore('general'),
 });
-const aiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'AI rate limit exceeded — max 30 req/15min' } });
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false, message: { error: 'Auth rate limit exceeded — max 20 req/15min' } });
+const aiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'AI rate limit exceeded — max 30 req/15min' }, store: createRateLimitStore('ai') });
 
 // Apply differentiated rate limits
 app.use('/api/ai', aiLimiter);
-app.use('/api/auth', authLimiter);
 app.use('/api', generalLimiter);
 
 // Solo servir archivos estáticos en desarrollo local.
@@ -105,6 +109,8 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Health checks (siempre disponibles sin rate limit)
 app.use('/', healthRoutes);
+app.use('/api/seo', seoRoutes);
+app.use('/', seoRoutes);
 
 // API routes (both v1 and unversioned legacy)
 app.use('/api/v1', apiRoutes);

@@ -10,11 +10,11 @@ import logger from '../utils/logger';
 /**
  * Genera un resumen de mercado formateado para Telegram.
  */
-async function buildSummary(): Promise<string> {
+async function buildSummary(): Promise<{ summary: string; source: string; isEstimated: boolean; sources: Record<string, { source: string; isEstimated: boolean }> }> {
     const [dolares, crypto, reservas] = await Promise.allSettled([
         dolarApiService.getAllDollars(),
         cryptoYaService.getBinanceP2P(),
-        bcraService.getReserves(),
+        bcraService.getReservesWithSource(),
     ]);
 
     const lines: string[] = [
@@ -47,15 +47,30 @@ async function buildSummary(): Promise<string> {
 
     if (reservas.status === 'fulfilled' && reservas.value) {
         const r = reservas.value;
-        lines.push(`🏦 <b>BCRA</b>`);
-        lines.push(`  • Reservas: USD ${r.toLocaleString('es-AR')} M`);
+        lines.push(`🏦 <b>Reservas</b>`);
+        lines.push(`  • Reservas: USD ${r.value.toLocaleString('es-AR')} M`);
         lines.push('');
     }
 
     lines.push('🔗 <a href="https://rulos-locos.vercel.app">Ver Dashboard</a>');
     lines.push('<i>Generado automáticamente por Rulos Locos</i>');
 
-    return lines.join('\n');
+    const sources = {
+        dolares: {
+            source: dolares.status === 'fulfilled' && !dolares.value.some(item => item.isEstimated) ? 'DolarAPI' : 'estimado',
+            isEstimated: dolares.status !== 'fulfilled' || dolares.value.some(item => item.isEstimated === true),
+        },
+        crypto: {
+            source: crypto.status === 'fulfilled' && !crypto.value.isFallback ? 'CriptoYa' : 'estimado',
+            isEstimated: crypto.status !== 'fulfilled' || !!crypto.value.isFallback,
+        },
+        reservas: {
+            source: reservas.status === 'fulfilled' && reservas.value ? reservas.value.source : 'estimado',
+            isEstimated: reservas.status !== 'fulfilled' || !reservas.value,
+        },
+    };
+    const isEstimated = Object.values(sources).some(item => item.isEstimated);
+    return { summary: lines.join('\n'), sources, isEstimated, source: isEstimated ? 'estimado' : Object.values(sources).map(item => item.source).join(', ') };
 }
 
 /**
@@ -63,8 +78,8 @@ async function buildSummary(): Promise<string> {
  */
 export async function getDailySummary(_req: Request, res: Response) {
     try {
-        const summary = await buildSummary();
-        res.json({ summary, timestamp: new Date().toISOString() });
+        const result = await buildSummary();
+        res.json({ ...result, timestamp: new Date().toISOString() });
     } catch (error: any) {
         logger.error('Error generando resumen diario: %s', error.message);
         res.status(500).json({ error: 'Error generando resumen' });
@@ -76,13 +91,12 @@ export async function getDailySummary(_req: Request, res: Response) {
  */
 export async function sendDailySummary(_req: Request, res: Response) {
     try {
-        const summary = await buildSummary();
+        const { summary } = await buildSummary();
         await notificationService.sendTelegramMessage(summary);
         logger.info('Resumen diario enviado por Telegram');
 
         if (prisma) {
             const users = await prisma.user.findMany({
-                where: { email: { not: null } },
                 select: { email: true, name: true },
                 take: 100,
             });

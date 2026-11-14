@@ -2,15 +2,18 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Calculator, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import { apiService } from '../services/api';
 import CandlestickChart from './CandlestickChart';
+import { DataFreshness } from './ui/DataFreshness';
+import { adjustByUva } from '../utils/financial';
 
 interface UVAEntry { fecha: string; valor: number; }
-interface UVAResponse { data: UVAEntry[]; latest?: UVAEntry; source: string; }
+interface UVAResponse { data: UVAEntry[]; latest?: UVAEntry; source: string; timestamp?: string; estimated?: boolean; isEstimated?: boolean }
 
-const fmt = (n: number) => n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: number) => Number.isFinite(n) ? n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
 
 export const CERCalculator: React.FC = () => {
     const [uvaData, setUVAData] = useState<UVAEntry[]>([]);
     const [loading, setLoading] = useState(true);
+    const [freshness, setFreshness] = useState<{ source: string; timestamp?: string; estimated?: boolean; isEstimated?: boolean }>({ source: 'ArgentinaDatos' });
     const [amount, setAmount] = useState('100000');
     const [startDate, setStartDate] = useState('2021-01-01');
     const [result, setResult] = useState<any>(null);
@@ -19,6 +22,7 @@ export const CERCalculator: React.FC = () => {
         const fetchUVA = async () => {
             try {
                 const resp: UVAResponse = await apiService.getUVA();
+                setFreshness(resp);
                 if (resp.data?.length) setUVAData(resp.data);
             } catch (e) {
                 console.error('CERCalculator fetch error:', e);
@@ -42,10 +46,9 @@ export const CERCalculator: React.FC = () => {
 
         if (!startEntry || !latestEntry) return;
 
-        const ratio = latestEntry.valor / startEntry.valor;
-        const adjustedAmount = originalAmount * ratio;
-        const nominalGain = adjustedAmount - originalAmount;
-        const nominalGainPct = (ratio - 1) * 100;
+        const adjustment = adjustByUva(originalAmount, startEntry.valor, latestEntry.valor);
+        if (!adjustment) return;
+        const { ratio, adjustedAmount, nominalGain, nominalGainPct } = adjustment;
 
         // Chart: UVA evolution from start date
         const chartData = sortedByDate.filter(e => e.fecha >= startDate);
@@ -73,6 +76,7 @@ export const CERCalculator: React.FC = () => {
 
     return (
         <div className="glass-panel p-6 space-y-5">
+            <DataFreshness source={freshness.source} updatedAt={freshness.timestamp} isEstimated={freshness.isEstimated || freshness.estimated} />
             {/* Header */}
             <div className="flex items-center gap-3">
                 <div className="p-2 bg-purple-500/10 rounded-xl border border-purple-500/20">
@@ -91,6 +95,7 @@ export const CERCalculator: React.FC = () => {
                 <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Monto Original (ARS)</label>
                     <input
+                        aria-label="Monto Original (ARS)"
                         type="text"
                         value={amount}
                         onChange={e => setAmount(e.target.value.replace(/[^0-9.,]/g, ''))}
@@ -101,6 +106,7 @@ export const CERCalculator: React.FC = () => {
                 <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fecha de Inicio</label>
                     <input
+                        aria-label="Fecha de Inicio"
                         type="date"
                         value={startDate}
                         min={minDate}

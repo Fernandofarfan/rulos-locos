@@ -60,3 +60,37 @@
 - [ ] Caché distribuido con Redis (Upstash) interconectado.
 - [ ] Reducción masiva de payloads: Implementar compresión avanzada y Serialización JSON super optimizada para endpoints voluminosos (Gráficos Anuales).
 - [ ] Monorepo tooling: Turborepo o Nx para builds paralelos y caché de tareas.
+
+---
+
+## Resumen histórico v3.0.0
+
+**Estado histórico**: Producción Estable (Vercel + Supabase). **Release**: Marzo 2026.
+
+Rulos Locos v3.0.0 culminó un ciclo intensivo de QA, depuración y migración de infraestructura para convertirse en una plataforma verdaderamente "Enterprise-Ready".
+
+### Migración a Cloud Database (Supabase)
+- Se erradicó el uso de SQLite (`better-sqlite3`) en producción, que causaba fallos nativos de C++ en Vercel.
+- Se migró `prisma/schema.prisma` a PostgreSQL en Supabase con pgbouncer (`?pgbouncer=true`).
+- Se degradó temporalmente Prisma a la versión estable 6.4.1 para compatibilidad serverless.
+
+### Zero TypeScript Errors (Frontend & Backend)
+- La auditoría estricta (`tsc --noEmit`) resolvió más de 60 errores heredados.
+- Se limpiaron imports e iconos `lucide-react` no utilizados en 35+ componentes, se aplicó `verbatimModuleSyntax` separando `import type`, y se resolvieron `any` implícitos y firmas de hooks mutables (`useDashboardData`).
+
+### Google OAuth Sincronizado
+- Se reconstruyó Google Login, añadiendo `VITE_GOOGLE_CLIENT_ID` al bundle e inyectándolo en compilación.
+- Los usuarios pueden registrarse con Google o hacer cross-login cuando su cuenta tradicional comparte email.
+
+### Interceptor Axios (Paper Trading Fix)
+- Los endpoints `paperTradingApi` y `portfolioApi` retornaban saldo $0 silenciosamente por ausencia del token JWT.
+- Un interceptor en `src/services/api.ts` extrae dinámicamente `rl_token`; el bono de $1M ARS quedó rehabilitado.
+
+### Features previas consolidadas
+- **Import/Export de Portafolio**: backups JSON/CSV y Merge vs Replace para evitar duplicación.
+- **Alertas persistentes**: guardadas en Supabase, auditadas por cron y despachadas por Email (Nodemailer) y Telegram vinculado.
+- **Analista IA con Gemini**: insight diario con proyecciones sobre CCL y riesgo país con datos frescos del dashboard.
+- **Rate Limiting Escalonado**: FAST (100 req/min) para divisas, NORMAL (20 req/min) para alertas y portafolio, STRICT (1 req/10s) para IA.
+
+### Impacto
+El sistema no crashea bajo builds, compila en 60 segundos netos y sirve clientes estáticos con Vite, respaldando la dinámica de backend en Node Serverless Functions de Vercel.

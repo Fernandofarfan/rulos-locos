@@ -3,7 +3,6 @@ initSentry();
 
 import config from './config'; // Cargar env antes que nada
 import http from 'http';
-import { Server } from 'socket.io';
 import app from './app';
 import logger from './utils/logger';
 import cache from './utils/cache';
@@ -22,25 +21,10 @@ httpServer.timeout = 60000;
 httpServer.keepAliveTimeout = 61000;
 httpServer.headersTimeout = 62000;
 
-// Inicializar Socket.io
-export const io = new Server(httpServer, {
-    cors: {
-        origin: ['http://localhost:5173', 'https://rulos-locos.vercel.app'],
-        methods: ['GET', 'POST']
-    }
-});
-
-io.on('connection', (socket) => {
-    logger.info('🔗 Cliente conectado a WebSockets: %s', socket.id);
-    socket.on('disconnect', () => {
-        logger.info('❌ Cliente desconectado: %s', socket.id);
-    });
-});
-
 const PORT = Number(config.PORT) || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
 const server = httpServer.listen(PORT, HOST, () => {
-    logger.info(`🚀 Servidor y WebSockets corriendo en http://${HOST}:${PORT}`);
+    logger.info(`🚀 Servidor corriendo en http://${HOST}:${PORT}`);
     logger.info(`📝 Ambiente: ${config.NODE_ENV}`);
     logger.info(`🔑 Google Client ID cargado: ${process.env.GOOGLE_CLIENT_ID ? 'SÍ' : 'NO'}`);
 
@@ -49,9 +33,9 @@ const server = httpServer.listen(PORT, HOST, () => {
     cache.warmUp('arbitrage_data').catch(() => {});
     cache.warmUp('market_data').catch(() => {});
 
-    arbitrageWorker.start(io);
+    arbitrageWorker.start();
     alertWorker.start();
-    marketWorker.start(io);
+    marketWorker.start();
 });
 
 // Graceful shutdown
@@ -64,12 +48,8 @@ const gracefulShutdown = async (signal: string) => {
             logger.info('✓ Servidor HTTP cerrado');
             
             // Desconectar BD
-            await prisma.$disconnect();
+            await prisma?.$disconnect();
             logger.info('✓ Conexión a BD cerrada');
-            
-            // Desconectar Socket.io
-            io.disconnectSockets();
-            logger.info('✓ WebSockets desconectados');
             
             process.exit(0);
         });

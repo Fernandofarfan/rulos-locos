@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { VitePWA } from 'vite-plugin-pwa'
+import vercelConfig from '../vercel.json'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -60,11 +61,37 @@ export default defineConfig(({ mode }) => ({
       template: 'treemap',
     }),
   ].filter(Boolean),
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (/node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'react';
+          if (/node_modules[\\/](chart\.js|react-chartjs-2)[\\/]/.test(id)) return 'chartjs';
+          if (/node_modules[\\/]lightweight-charts[\\/]/.test(id)) return 'lightweight-charts';
+          if (/node_modules[\\/]@sentry[\\/]/.test(id)) return 'sentry';
+          if (/node_modules[\\/]html2canvas[\\/]/.test(id)) return 'html2canvas';
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/setupTests.ts'],
     exclude: ['node_modules', 'e2e'],
+  },
+  preview: {
+    headers: {
+      'Content-Security-Policy': vercelConfig.headers[0].headers.find(header => header.key === 'Content-Security-Policy')!.value,
+    },
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        timeout: 20000,
+      },
+    },
   },
   server: {
     port: 5173,
@@ -73,11 +100,6 @@ export default defineConfig(({ mode }) => ({
       '/api': {
         target: 'http://127.0.0.1:3001',
         changeOrigin: true,
-        timeout: 20000,
-      },
-      '/socket.io': {
-        target: 'http://127.0.0.1:3001',
-        ws: true,
         timeout: 20000,
       },
     },

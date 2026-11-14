@@ -1,5 +1,6 @@
 import alertService from '../services/alertService';
 import logger from '../utils/logger';
+import prisma from '../utils/db';
 
 /**
  * Alert Worker - Ejecuta verificación de alertas periódicamente
@@ -22,10 +23,10 @@ class AlertWorker {
         logger.info('🚀 Iniciando AlertWorker (intervalo: %dms)...', checkIntervalMs);
 
         // Ejecutar inmediatamente
-        void this.runTask();
+        void this.runTask().catch(() => {});
 
         // Luego cada X milisegundos
-        this.interval = setInterval(() => { void this.runTask(); }, checkIntervalMs);
+        this.interval = setInterval(() => { void this.runTask().catch(() => {}); }, checkIntervalMs);
     }
 
     stop(): void {
@@ -37,13 +38,15 @@ class AlertWorker {
         logger.info('AlertWorker detenido');
     }
 
-    async runTask(): Promise<void> {
+    async runTask(): Promise<void | 'skipped'> {
+        if (!prisma) return 'skipped';
         try {
             logger.debug('🔔 AlertWorker: Verificando alertas...');
             await alertService.checkAndTriggerAlerts();
             logger.debug('✅ AlertWorker: Verificación completada');
         } catch (error) {
             logger.error('❌ AlertWorker error: %s', (error as Error).message);
+            throw error;
         }
     }
 

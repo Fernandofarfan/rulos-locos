@@ -1,45 +1,30 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PiggyBank, Landmark, AlertTriangle, TrendingUp, Info } from 'lucide-react';
-import { useDashboardData } from '../hooks/useDashboardData';
+import { apiService } from '../services/api';
+import { loanVsDeposit, plazoFijoRate } from '../utils/financial';
 import { formatInt } from '../utils/formatARS';
+import { DataFreshness } from './ui/DataFreshness';
 
 export const LoanSimulator: React.FC = () => {
-    const { economics } = useDashboardData();
+    const [pfTNA, setPfTNA] = useState(35);
+    useEffect(() => {
+        let mounted = true;
+        void apiService.getRates().then(rates => { if (mounted) setPfTNA(plazoFijoRate(rates)); });
+        return () => { mounted = false; };
+    }, []);
     const [amount, setAmount] = useState<number | ''>(1000000); // 1 Millón
     const [months, setMonths] = useState<number>(12);
     const [loanTNA, setLoanTNA] = useState<number | ''>(85); // 85% TNA préstamo
 
-    // Tasa Badlar actual (Plazo Fijo aproximado)
-    const pfTNA = (economics?.macro as any)?.badlar || 35; // Default 35% si falla la API
-
     const numAmount = Number(amount) || 0;
     const numLoanTNA = Number(loanTNA) || 0;
 
-    // TEA Plazo Fijo (reinversión mensual)
-    const monthlyPFRate = pfTNA / 12 / 100;
-
-    // Costo del préstamo (Aproximación simple sistema francés sin considerar seguros)
-    // Cuota mensual = P * (r * (1 + r)^n) / ((1 + r)^n - 1)
-    const monthlyLoanRate = numLoanTNA / 12 / 100;
-
-    let monthlyInstallment = 0;
-    if (monthlyLoanRate > 0 && months > 0) {
-        monthlyInstallment = numAmount * (monthlyLoanRate * Math.pow(1 + monthlyLoanRate, months)) / (Math.pow(1 + monthlyLoanRate, months) - 1);
-    } else if (months > 0) {
-        monthlyInstallment = numAmount / months;
-    }
-
-    const totalPaid = monthlyInstallment * months;
-    const totalInterestsPaid = totalPaid - numAmount;
-
-    // Rendimiento Plazo Fijo acumulado en ese tiempo
-    const pfReturnAtMaturity = numAmount * Math.pow(1 + monthlyPFRate, months);
-    const totalInterestsEarned = pfReturnAtMaturity - numAmount;
-
-    const isLicuating = totalInterestsEarned > totalInterestsPaid;
+    const { monthlyInstallment, totalPaid, totalInterestsPaid, pfReturnAtMaturity, totalInterestsEarned, isLicuating } =
+        loanVsDeposit(numAmount, months, numLoanTNA, pfTNA);
 
     return (
         <div className="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50 flex flex-col h-full relative overflow-hidden">
+            <DataFreshness source="tasa de plazo fijo de referencia" isEstimated />
             {/* Background Accent */}
             <div className={`absolute -right-20 -top-20 w-40 h-40 blur-3xl opacity-10 rounded-full pointer-events-none transition-colors ${isLicuating ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
 
@@ -57,6 +42,7 @@ export const LoanSimulator: React.FC = () => {
                 <div>
                     <label className="text-xs text-slate-400 font-medium mb-1.5 block">Monto a Pedir ($)</label>
                     <input
+                        aria-label="Monto a Pedir ($)"
                         type="number"
                         value={amount}
                         onChange={e => setAmount(e.target.value === '' ? '' : Number(e.target.value))}
@@ -66,6 +52,7 @@ export const LoanSimulator: React.FC = () => {
                 <div>
                     <label className="text-xs text-slate-400 font-medium mb-1.5 block">Plazo (Meses)</label>
                     <select
+                        aria-label="Plazo (Meses)"
                         value={months}
                         onChange={e => setMonths(Number(e.target.value))}
                         className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-3 text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm"
@@ -79,6 +66,7 @@ export const LoanSimulator: React.FC = () => {
                 <div>
                     <label className="text-xs text-slate-400 font-medium mb-1.5 block">TNA del Préstamo (%)</label>
                     <input
+                        aria-label="TNA del Préstamo (%)"
                         type="number"
                         value={loanTNA}
                         onChange={e => setLoanTNA(e.target.value === '' ? '' : Number(e.target.value))}

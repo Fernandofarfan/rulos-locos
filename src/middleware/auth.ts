@@ -1,15 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'node:crypto';
 import logger from '../utils/logger';
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = '24h';
-const JWT_REFRESH_EXPIRES_IN = '7d';
+const JWT_REFRESH_EXPIRES_IN = '30d';
 
 declare global {
+    // eslint-disable-next-line @typescript-eslint/no-namespace
     namespace Express {
         interface Request {
-            user?: jwt.JwtPayload | string;
+            user?: { id: string; email: string };
         }
     }
 }
@@ -29,13 +30,13 @@ export function getJwtSecret(): string {
 export function signToken(payload: object, expiresIn?: string): string {
     const secret = getJwtSecret();
     const options: jwt.SignOptions = { algorithm: 'HS256' };
-    if (expiresIn) options.expiresIn = expiresIn as any;
+    if (expiresIn) options.expiresIn = expiresIn as jwt.SignOptions['expiresIn'];
     return jwt.sign(payload, secret, options);
 }
 
 export function signRefreshToken(payload: object): string {
     const secret = getJwtSecret();
-    return jwt.sign({ ...payload, type: 'refresh' }, secret, { algorithm: 'HS256', expiresIn: JWT_REFRESH_EXPIRES_IN } as any);
+    return jwt.sign({ ...payload, type: 'refresh' }, secret, { algorithm: 'HS256', expiresIn: JWT_REFRESH_EXPIRES_IN, jwtid: randomUUID() });
 }
 
 export function verifyRefreshToken(token: string): jwt.JwtPayload | string {
@@ -61,20 +62,24 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
             res.status(401).json({ error: 'Refresh tokens cannot be used for API access' });
             return;
         }
-        req.user = decoded;
+        if (typeof decoded.id !== 'string' || typeof decoded.email !== 'string') {
+            res.sendStatus(401);
+            return;
+        }
+        req.user = { id: decoded.id, email: decoded.email };
         next();
     } catch {
-        res.sendStatus(403);
+        res.sendStatus(401);
     }
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-    if (!req.user || typeof req.user === 'string') {
+    if (!req.user) {
         res.status(401).json({ error: 'Authentication required' });
         return;
     }
     const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean);
-    const userEmail = (req.user as jwt.JwtPayload).email;
+    const userEmail = req.user.email;
     if (!adminEmails.includes(userEmail)) {
         res.status(403).json({ error: 'Admin access required' });
         return;
@@ -92,6 +97,14 @@ export function requireAdminOrCron(req: Request, res: Response, next: NextFuncti
     if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
         next();
         return;
+    }
+    if (authHeader?.startsWith('Bearer ')) {
+        try {
+            jwt.verify(authHeader.slice(7), getJwtSecret(), { algorithms: ['HS256'] });
+        } catch {
+            res.sendStatus(401);
+            return;
+        }
     }
     authenticateToken(req, res, () => {
         requireAdmin(req, res, next);

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../utils/db';
+import { toPlain } from '../utils/serialize';
 import logger from '../utils/logger';
 import notificationService from '../services/notificationService';
 import { sendPriceAlertEmail } from '../services/emailService';
@@ -30,7 +31,7 @@ class AlertController {
                 orderBy: { createdAt: 'desc' },
             });
 
-            res.json(alerts);
+            res.json(toPlain(alerts));
         } catch (error) {
             logger.error('Error listando alertas: %s', (error as Error).message);
             res.status(500).json({ error: 'Error al listar alertas' });
@@ -53,28 +54,29 @@ class AlertController {
                 return;
             }
 
-            const { asset, condition, threshold } = req.body as {
-                asset?: string;
-                condition?: string;
-                threshold?: number;
+            const { asset, condition, threshold, kind, routeId, capital } = req.body as {
+                asset?: string; condition?: string; threshold?: number; kind?: 'PRICE' | 'RULO'; routeId?: string; capital?: number;
             };
 
-            if (!asset || !condition || threshold === undefined) {
+            if (threshold === undefined || (kind !== 'RULO' && (!asset || !condition))) {
                 res.status(400).json({
                     error: 'asset, condition (above|below) y threshold requeridos',
                 });
                 return;
             }
 
-            if (!['above', 'below'].includes(condition)) {
+            if (kind !== 'RULO' && condition !== 'above' && condition !== 'below') {
                 res.status(400).json({ error: 'condition debe ser "above" o "below"' });
                 return;
             }
 
             const alert = await prisma.alert.create({
                 data: {
-                    asset: asset.toLowerCase(),
-                    condition,
+                    asset: kind === 'RULO' ? 'rulo' : asset!.toLowerCase(),
+                    kind: kind ?? 'PRICE',
+                    routeId: kind === 'RULO' ? routeId : null,
+                    capital: kind === 'RULO' ? capital : null,
+                    condition: kind === 'RULO' ? 'above' : condition as 'above' | 'below',
                     threshold: Number(threshold),
                     userId,
                     active: true,
@@ -82,7 +84,7 @@ class AlertController {
             });
 
             logger.info('Alerta creada para usuario %s: %s %s %d', userId, asset, condition, threshold);
-            res.status(201).json(alert);
+            res.status(201).json(toPlain(alert));
         } catch (error) {
             logger.error('Error creando alerta: %s', (error as Error).message);
             res.status(500).json({ error: 'Error al crear alerta' });
@@ -118,6 +120,18 @@ class AlertController {
                 return;
             }
 
+            if (existing.kind === 'RULO' && (asset !== undefined || (condition !== undefined && condition !== 'above'))) {
+                res.status(400).json({ error: 'La condición de una alerta de rulo debe ser mayor o igual al umbral' });
+                return;
+            }
+            if (threshold !== undefined) {
+                const value = Number(threshold);
+                if (!Number.isFinite(value) || (existing.kind === 'RULO' ? value < -50 || value > 50 : value <= 0)) {
+                    res.status(400).json({ error: 'Umbral inválido' });
+                    return;
+                }
+            }
+
             const updateData: Record<string, any> = {};
             if (asset !== undefined) updateData.asset = asset.toLowerCase();
             if (condition !== undefined) {
@@ -136,7 +150,7 @@ class AlertController {
             });
 
             logger.info('Alerta actualizada: %s', id);
-            res.json(updated);
+            res.json(toPlain(updated));
         } catch (error) {
             logger.error('Error actualizando alerta: %s', (error as Error).message);
             res.status(500).json({ error: 'Error al actualizar alerta' });

@@ -1,19 +1,26 @@
-import fetch from 'node-fetch';
 import config from '../config';
 import dolarApiService, { DolarCasa } from './dolarApiService';
 import logger from '../utils/logger';
+import { referenceFees } from '../config/fees';
+import { calculateNet, type NetCalculation, type NetLeg } from './netArbitrage';
+import { recordSourceSuccess } from './sourceHealth';
 
 interface ExchangeData {
     crypto: string;
     exchange: string;
     ask: number | null;
     bid: number | null;
+    totalAsk?: number;
+    totalBid?: number;
+    timestamp?: string;
     available: boolean;
 }
 
 type CryptoMap = Record<string, Record<string, ExchangeData>>;
 
 export interface ArbitrageOpportunity {
+    id: string;
+    net: NetCalculation;
     type: string;
     description: string;
     steps: string[];
@@ -25,6 +32,8 @@ export interface ArbitrageOpportunity {
     comisiones: string;
     buyPrice?: number;
     sellPrice?: number;
+    source?: string;
+    isEstimated?: boolean;
 }
 
 export interface ArbitrageResult {
@@ -61,23 +70,23 @@ class ArbitrageService {
                 for (const exchange of exchanges) {
                     const promise = (async (): Promise<ExchangeData> => {
                         try {
-                            const controller = new AbortController();
-                            const timeoutId = setTimeout(() => controller.abort(), 4000);
                             const response = await fetch(
                                 `${config.API_URLS.CRIPTOYA}/${exchange}/${crypto}/ARS/1`,
                                 {
                                     headers: config.DEFAULT_HEADERS,
-                                    signal: controller.signal as unknown as AbortSignal,
+                                    signal: AbortSignal.timeout(4000),
                                 } as Parameters<typeof fetch>[1],
                             );
-                            clearTimeout(timeoutId);
                             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                            const data = await response.json() as { ask?: number | string; bid?: number | string };
+                            const data = await response.json() as { ask?: number | string; bid?: number | string; totalAsk?: number | string; totalBid?: number | string; time?: number };
                             return {
                                 crypto,
                                 exchange,
                                 ask: parseFloat(String(data.ask)) || null,
                                 bid: parseFloat(String(data.bid)) || null,
+                                totalAsk: parseFloat(String(data.totalAsk)) || undefined,
+                                totalBid: parseFloat(String(data.totalBid)) || undefined,
+                                timestamp: data.time ? new Date(data.time * 1000).toISOString() : undefined,
                                 available: !!(data.ask && data.bid),
                             };
                         } catch {
@@ -89,6 +98,7 @@ class ArbitrageService {
             }
 
             const allResults = await Promise.all(allPromises);
+            if (allResults.some(result => result.available)) await recordSourceSuccess('criptoya');
             allResults.forEach((result) => {
                 if (cryptosData[result.crypto]) {
                     cryptosData[result.crypto][result.exchange] = result;
@@ -105,12 +115,18 @@ class ArbitrageService {
 
     analyze(dolares: ArbitrageResult['dolares'], cryptos: CryptoMap): ArbitrageOpportunity[] {
         const opportunities: ArbitrageOpportunity[] = [];
-        const COMISIONES = {
-            transferenciaBancaria: 0.01,
-            cryptoExchange: 0.01,
-            cryptoWithdrawal: 0.005,
-            p2p: 0.005,
-            mepCcl: 0.015,
+        const dollarLeg = (kind: string, side: 'buy' | 'sell', price: number): NetLeg => ({
+            price, fees: kind === 'mep' || kind === 'ccl' ? [
+                { label: 'Comisión bróker', pct: side === 'buy' ? referenceFees.brokerBuyPct : referenceFees.brokerSellPct },
+                { label: 'Derechos de mercado', pct: referenceFees.marketRightsPct },
+            ] : [{ label: 'Transferencia bancaria', pct: referenceFees.bankTransferPct }],
+        });
+        const cryptoLeg = (data: ExchangeData, side: 'buy' | 'sell'): NetLeg => {
+            const total = side === 'buy' ? data.totalAsk : data.totalBid;
+            const included = !!total && total > 0;
+            return { price: included ? total : (side === 'buy' ? data.ask! : data.bid!),
+                fees: [{ label: included ? 'Comisión incluida en cotización' : 'Comisión cripto',
+                    pct: included ? 0 : data.exchange === 'binancep2p' ? referenceFees.p2pPct : referenceFees.exchangeTradePct }] };
         };
 
         const stablecoins = ['USDT', 'DAI'];
@@ -127,15 +143,14 @@ class ArbitrageService {
                     if (!data.available || !data.bid || !data.ask) continue;
                     const capital = 100000;
 
-                    const usdComprados = capital / dolar.venta;
-                    const arsObtenidos = usdComprados * data.bid;
-                    const comision1 = capital * (tipoDolar === 'blue' ? COMISIONES.transferenciaBancaria : COMISIONES.mepCcl);
-                    const comision2 = capital * COMISIONES.p2p;
-                    const ganancia1 = arsObtenidos - capital - comision1 - comision2;
-                    const rentabilidad1 = (ganancia1 / capital) * 100;
+                    const net1 = calculateNet(capital, dollarLeg(tipoDolar, 'buy', dolar.venta), cryptoLeg(data, 'sell'), referenceFees.withdrawalUsdt, referenceFees.taxPct, 'T+0 a T+1 y horas de red');
+                    const comision1 = net1.fees.reduce((sum, fee) => sum + fee.amountArs, 0);
+                    const rentabilidad1 = (data.bid / dolar.venta - 1) * 100;
+                    const ganancia1 = capital * rentabilidad1 / 100;
 
                     if (rentabilidad1 > 0.5) {
                         opportunities.push({
+                            id: `${tipoDolar}-${crypto.toLowerCase()}-${exchange}`, net: net1,
                             type: `${tipoDolar}_to_stable`,
                             description: `Comprar USD ${tipoDolar.toUpperCase()} → ${crypto} → Vender en ${exchange}`,
                             steps: [
@@ -146,19 +161,18 @@ class ArbitrageService {
                             capital, ganancia: ganancia1.toFixed(2), rentabilidad: rentabilidad1.toFixed(2),
                             riesgo: tipoDolar === 'blue' ? 'medio' : tipoDolar === 'oficial' ? 'alto' : 'bajo',
                             tiempo: tipoDolar === 'blue' ? '24-48hs' : tipoDolar === 'oficial' ? '72-96hs' : '48-72hs',
-                            comisiones: (comision1 + comision2).toFixed(2),
+                            comisiones: comision1.toFixed(2),
                         });
                     }
 
-                    const stableComprados = capital / data.ask;
-                    const arsObtenidos2 = stableComprados * dolar.compra;
-                    const comision3 = capital * COMISIONES.p2p;
-                    const comision4 = capital * (tipoDolar === 'blue' ? COMISIONES.transferenciaBancaria : COMISIONES.mepCcl);
-                    const ganancia2 = arsObtenidos2 - capital - comision3 - comision4;
-                    const rentabilidad2 = (ganancia2 / capital) * 100;
+                    const net2 = calculateNet(capital, cryptoLeg(data, 'buy'), dollarLeg(tipoDolar, 'sell', dolar.compra), referenceFees.withdrawalUsdt, referenceFees.taxPct, 'T+0 a T+1 y horas de red');
+                    const comision2 = net2.fees.reduce((sum, fee) => sum + fee.amountArs, 0);
+                    const rentabilidad2 = (dolar.compra / data.ask - 1) * 100;
+                    const ganancia2 = capital * rentabilidad2 / 100;
 
                     if (rentabilidad2 > 0.5) {
                         opportunities.push({
+                            id: `${crypto.toLowerCase()}-${tipoDolar}-${exchange}`, net: net2,
                             type: `stable_to_${tipoDolar}`,
                             description: `Comprar ${crypto} en ${exchange} → USD ${tipoDolar.toUpperCase()} → Vender`,
                             steps: [
@@ -169,7 +183,7 @@ class ArbitrageService {
                             capital, ganancia: ganancia2.toFixed(2), rentabilidad: rentabilidad2.toFixed(2),
                             riesgo: tipoDolar === 'blue' ? 'medio' : tipoDolar === 'oficial' ? 'alto' : 'bajo',
                             tiempo: tipoDolar === 'blue' ? '24-48hs' : tipoDolar === 'oficial' ? '72-96hs' : '48-72hs',
-                            comisiones: (comision3 + comision4).toFixed(2),
+                            comisiones: comision2.toFixed(2),
                         });
                     }
                 }
@@ -187,13 +201,16 @@ class ArbitrageService {
                     const capital = 100000;
 
                     if (data2.bid > data1.ask) {
-                        const cryptoComprado = capital / data1.ask;
-                        const arsVendido = cryptoComprado * data2.bid;
-                        const comisionTotal = capital * (COMISIONES.cryptoExchange * 2 + COMISIONES.cryptoWithdrawal);
-                        const gananciaFinal = arsVendido - capital - comisionTotal;
-                        const rentabilidad = (gananciaFinal / capital) * 100;
+                        const usdtArs = Object.values(cryptos.USDT ?? {}).find(value => value.bid && value.bid > 0)?.bid ?? dolares.mep?.venta ?? dolares.ccl?.venta;
+                        if (!usdtArs) continue;
+                        const net = calculateNet(capital, cryptoLeg(data1, 'buy'), cryptoLeg(data2, 'sell'),
+                            referenceFees.withdrawalUsdt * usdtArs / data2.bid, referenceFees.taxPct, 'horas de red');
+                        const comisionTotal = net.fees.reduce((sum, fee) => sum + fee.amountArs, 0);
+                        const rentabilidad = (data2.bid / data1.ask - 1) * 100;
+                        const gananciaFinal = capital * rentabilidad / 100;
                         if (rentabilidad > 0.5) {
                             opportunities.push({
+                                id: `${crypto.toLowerCase()}-${exchange1}-a-${exchange2}`, net,
                                 type: 'crypto_arbitrage',
                                 description: `Comprar ${crypto} en ${exchange1} → Vender en ${exchange2}`,
                                 steps: [
@@ -207,13 +224,16 @@ class ArbitrageService {
                         }
                     }
                     if (data1.bid && data2.ask && data1.bid > data2.ask) {
-                        const cryptoComprado = capital / data2.ask;
-                        const arsVendido = cryptoComprado * data1.bid;
-                        const comisionTotal = capital * (COMISIONES.cryptoExchange * 2 + COMISIONES.cryptoWithdrawal);
-                        const gananciaFinal = arsVendido - capital - comisionTotal;
-                        const rentabilidad = (gananciaFinal / capital) * 100;
+                        const usdtArs = Object.values(cryptos.USDT ?? {}).find(value => value.bid && value.bid > 0)?.bid ?? dolares.mep?.venta ?? dolares.ccl?.venta;
+                        if (!usdtArs) continue;
+                        const net = calculateNet(capital, cryptoLeg(data2, 'buy'), cryptoLeg(data1, 'sell'),
+                            referenceFees.withdrawalUsdt * usdtArs / data1.bid, referenceFees.taxPct, 'horas de red');
+                        const comisionTotal = net.fees.reduce((sum, fee) => sum + fee.amountArs, 0);
+                        const rentabilidad = (data1.bid / data2.ask - 1) * 100;
+                        const gananciaFinal = capital * rentabilidad / 100;
                         if (rentabilidad > 0.5) {
                             opportunities.push({
+                                id: `${crypto.toLowerCase()}-${exchange2}-a-${exchange1}`, net,
                                 type: 'crypto_arbitrage',
                                 description: `Comprar ${crypto} en ${exchange2} → Vender en ${exchange1}`,
                                 steps: [
@@ -231,7 +251,7 @@ class ArbitrageService {
         }
 
         opportunities.sort((a, b) => parseFloat(b.rentabilidad) - parseFloat(a.rentabilidad));
-        return opportunities;
+        return opportunities.map(opportunity => ({ ...opportunity, source: 'estimado', isEstimated: true }));
     }
 }
 

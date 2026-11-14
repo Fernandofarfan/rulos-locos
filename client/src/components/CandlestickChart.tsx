@@ -272,6 +272,8 @@ const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
     return (
         <div className="w-full">
+            <span className="sr-only" role="img"
+                aria-label={`Gráfico ${indicator || 'de valores'}: ${labels[0] ?? 'sin fecha'} a ${labels[labels.length - 1] ?? 'sin fecha'}, último valor ${Number.isFinite(values[values.length - 1]) ? values[values.length - 1].toLocaleString('es-AR') : 'no disponible'}`} />
             <div ref={containerRef} className="w-full" style={{ height }} />
             {showRSI && values.length >= 15 && (
                 <div className="mt-1 border-t border-white/5 pt-1">

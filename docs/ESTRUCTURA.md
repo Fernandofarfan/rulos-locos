@@ -123,7 +123,7 @@ RulosLocos/
 ├── 📂 docs/                         # Documentación del proyecto
 │   ├── ESTRUCTURA.md                # Este archivo
 │   ├── FUENTES_DE_DATOS.md          # APIs y fuentes de todos los datos
-│   └── MEJORAS_FUTURAS.md           # Roadmap y pendientes
+│   └── ROADMAP.md                    # Roadmap y pendientes
 │
 ├── 📂 tests/
 │   └── api.test.js                  # Tests básicos de API

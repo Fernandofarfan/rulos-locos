@@ -7,13 +7,13 @@ Plataforma profesional en tiempo real para analisis de arbitrajes, cotizaciones 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![React](https://img.shields.io/badge/react-19-blue.svg)
 ![TypeScript](https://img.shields.io/badge/typescript-100%25_Clean-blue.svg)
-![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg)
+![Node.js](https://img.shields.io/badge/node-%3E%3D20-green.svg)
 ![Vercel](https://img.shields.io/badge/deployed-vercel-black.svg)
 ![Supabase](https://img.shields.io/badge/database-supabase-teal.svg)
 
 ---
 
-## Estado de Produccion (v3.1.0)
+## Estado de Produccion (v3.2.0)
 
 - **TypeScript estricto**: 0 errores de compilacion en Frontend y Backend.
 - **Base de Datos Nube**: PostgreSQL en **Supabase** via Prisma ORM.
@@ -21,6 +21,8 @@ Plataforma profesional en tiempo real para analisis de arbitrajes, cotizaciones 
 - **Autenticacion Robusta**: Login tradicional, 2FA (TOTP), **Google OAuth** y refresh tokens JWT.
 - **Seguridad**: Headers CSP, XSS protection, rate limiting escalonado, CORS restrictivo.
 - **73 tests**: API integration + unit tests backend pasando.
+
+Para despliegue, configurar `ENCRYPTION_KEY` (64 caracteres hex, generar con `openssl rand -hex 32`) y `CRON_SECRET` en Vercel; conservar la clave de cifrado. En GitHub configurar los secrets `CRON_SECRET` y `APP_URL` para el workflow `cron-tick`, que ejecuta los workers cada cinco minutos. Tras respaldar la base y apuntar `DATABASE_URL` a la base correcta, ejecutar `npx prisma migrate deploy`, `npm run secrets:migrate -- --dry-run` y luego `npm run secrets:migrate`. Ver [deployment](docs/DEPLOYMENT.md) y [roadmap](docs/ROADMAP.md).
 
 ---
 

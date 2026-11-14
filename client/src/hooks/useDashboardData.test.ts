@@ -53,10 +53,10 @@ vi.mock('../services/api', () => ({
     },
 }));
 
-// ── Mock: useSocket (socket.io no disponible en jsdom) ───────────────────────
-vi.mock('./useSocket', () => ({
-    useSocket: () => ({ socket: null }),
-    getSharedSocket: () => ({ on: () => {}, off: () => {}, connected: false }),
+// ── Mock: polling ─────────────────────────────────────────────────────────────
+vi.mock('./useRealtime', () => ({
+    pollArbitrage: vi.fn().mockResolvedValue(mockArbitrage),
+    useArbitrageStream: () => ({ connected: false }),
 }));
 
 // ── Importar DESPUÉS de los mocks ─────────────────────────────────────────────

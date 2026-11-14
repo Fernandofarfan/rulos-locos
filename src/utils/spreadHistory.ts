@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import logger from './logger';
+import prisma from './db';
+import type { ArbitrageResult } from '../services/arbitrageService';
 
 export interface SpreadPoint {
     time: string;
@@ -14,6 +16,8 @@ const MAX_POINTS = 200;
 
 let _history: SpreadPoint[] = [];
 let _saveScheduled = false;
+let loadPromise: Promise<void> | undefined;
+let lastPrune = 0;
 
 function ensureDataDir(): void {
     if (process.env.NODE_ENV === 'production') return; // Filesystem read-only en Vercel
@@ -30,10 +34,11 @@ function ensureDataDir(): void {
 function scheduleSave(): void {
     if (_saveScheduled) return;
     _saveScheduled = true;
-    setTimeout(() => {
+    const timer = setTimeout(() => {
         _saveScheduled = false;
         persistToDisk();
     }, 2000);
+    timer.unref();
 }
 
 function persistToDisk(): void {
@@ -78,7 +83,26 @@ export function getAll(): SpreadPoint[] {
     return _history;
 }
 
-export function append(point: SpreadPoint): void {
+export function ensureLoaded(): Promise<void> {
+    if (!loadPromise) {
+        loadPromise = (async () => {
+            if (!prisma) { load(); return; }
+            try {
+                const points = await prisma.spreadPoint.findMany({ orderBy: { timestamp: 'desc' }, take: MAX_POINTS });
+                _history = points.reverse().map((point: { timestamp: Date; value: number }) => ({
+                    timestamp: point.timestamp.getTime(), value: point.value,
+                    time: point.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                }));
+            } catch (error) {
+                logger.warn('spreadHistory: error cargando historial: %s', (error as Error).message);
+                loadPromise = undefined;
+            }
+        })();
+    }
+    return loadPromise;
+}
+
+export async function append(point: SpreadPoint): Promise<void> {
     if (!point || typeof point.timestamp !== 'number') return;
 
     const last = _history[_history.length - 1];
@@ -88,5 +112,30 @@ export function append(point: SpreadPoint): void {
 
     _history.push(point);
     if (_history.length > MAX_POINTS) _history.shift();
-    scheduleSave();
+    if (!prisma) { scheduleSave(); return; }
+    try {
+        await prisma.spreadPoint.createMany({
+            data: [{ timestamp: new Date(point.timestamp), value: point.value }],
+            skipDuplicates: true,
+        });
+        if (Date.now() - lastPrune > 24 * 60 * 60 * 1000) {
+            lastPrune = Date.now();
+            await prisma.spreadPoint.deleteMany({ where: { timestamp: { lt: new Date(Date.now() - 30 * 86400_000) } } });
+        }
+    } catch (error) {
+        logger.warn('spreadHistory: error guardando historial: %s', (error as Error).message);
+    }
+}
+
+export async function appendResult(result: ArbitrageResult): Promise<void> {
+    const blueBid = Number(result.dolares?.blue?.compra);
+    const mepAsk = Number(result.dolares?.mep?.venta);
+    if (blueBid > 0 && mepAsk > 0) {
+        const now = new Date();
+        await append({
+            time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            value: Number((((blueBid / mepAsk) - 1) * 100).toFixed(2)),
+            timestamp: now.getTime(),
+        });
+    }
 }

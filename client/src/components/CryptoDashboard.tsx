@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { RefreshCw, TrendingUp, TrendingDown, Coins } from 'lucide-react';
+import { DataFreshness } from './ui/DataFreshness';
 
 
 interface CoinData {
@@ -25,6 +26,7 @@ const STABLECOINS = new Set(['tether', 'usd-coin', 'dai']);
 export const CryptoDashboard: React.FC<{ cclRate?: number }> = ({ cclRate = 1200 }) => {
     const [coins, setCoins] = useState<CoinData[]>([]);
     const [loading, setLoading] = useState(true);
+    const [estimated, setEstimated] = useState(false);
     const [view, setView] = useState<'grid' | 'table'>('grid');
 
     const fetch = useCallback(async () => {
@@ -37,7 +39,9 @@ export const CryptoDashboard: React.FC<{ cclRate?: number }> = ({ cclRate = 1200
             if (!res.ok) throw new Error('CoinGecko no disponible');
             const data: CoinData[] = await res.json();
             setCoins(data.map(c => ({ ...c, price_ars: parseFloat((c.current_price * cclRate).toFixed(0)) })));
+            setEstimated(false);
         } catch {
+            setEstimated(true);
             setCoins([
                 { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', image: '', current_price: 62000, price_change_percentage_24h: 1.2, market_cap: 1.2e12, total_volume: 3.2e10, price_ars: 62000 * cclRate },
                 { id: 'ethereum', symbol: 'ETH', name: 'Ethereum', image: '', current_price: 3100, price_change_percentage_24h: -0.8, market_cap: 3.7e11, total_volume: 1.5e10, price_ars: 3100 * cclRate },
@@ -58,14 +62,15 @@ export const CryptoDashboard: React.FC<{ cclRate?: number }> = ({ cclRate = 1200
         return () => clearInterval(iv);
     }, [fetch]);
 
-    const formatUSD = (n: number) => n >= 1
+    const formatUSD = (n: number) => !Number.isFinite(n) ? '—' : n >= 1
         ? `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
         : `$${n.toFixed(4)}`;
 
     const formatARS = (n: number) =>
-        `$${(n).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+        Number.isFinite(n) ? `$${(n).toLocaleString('es-AR', { maximumFractionDigits: 0 })}` : '—';
 
     const formatMCap = (n: number) => {
+        if (!Number.isFinite(n)) return '—';
         if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
         if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
         return `$${(n / 1e6).toFixed(0)}M`;
@@ -73,6 +78,7 @@ export const CryptoDashboard: React.FC<{ cclRate?: number }> = ({ cclRate = 1200
 
     return (
         <div className="glass-panel no-lift p-6">
+            <DataFreshness source={estimated ? 'estimado' : 'CoinGecko'} updatedAt={undefined} estimated={estimated} />
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <Coins size={14} className="text-amber-400" />
@@ -91,7 +97,7 @@ export const CryptoDashboard: React.FC<{ cclRate?: number }> = ({ cclRate = 1200
                             </button>
                         ))}
                     </div>
-                    <button onClick={fetch} className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                    <button onClick={fetch} aria-label="Actualizar criptomonedas" className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
                         <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>

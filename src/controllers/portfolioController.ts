@@ -2,10 +2,12 @@ import { Request, Response } from 'express';
 import prisma from '../utils/db';
 import logger from '../utils/logger';
 import portfolioImportExportService from '../services/portfolioImportExportService';
+import type { PortfolioExportData } from '../services/portfolioImportExportService';
+import { toPlain } from '../utils/serialize';
 
 /** Extiende Request para incluir el usuario inyectado por authenticateToken */
 interface AuthRequest extends Request {
-    user?: { id: string; email: string } | any;
+    user?: { id: string; email: string };
 }
 
 class PortfolioController {
@@ -20,7 +22,7 @@ class PortfolioController {
                 where: { userId },
                 orderBy: { createdAt: 'desc' },
             });
-            res.json({ positions });
+            res.json(toPlain({ positions }));
         } catch (err) {
             logger.error('portfolioController.list: %s', (err as Error).message);
             res.status(500).json({ error: 'Error interno' });
@@ -48,12 +50,12 @@ class PortfolioController {
                     asset,
                     buyPrice: Number(buyPrice),
                     amount: Number(amount),
-                    date: date || new Date().toLocaleDateString('es-AR'),
+                    date: date ? new Date(`${date}T00:00:00.000Z`) : new Date(),
                     note,
                     userId,
                 },
             });
-            res.status(201).json({ position });
+            res.status(201).json(toPlain({ position }));
         } catch (err) {
             logger.error('portfolioController.create: %s', (err as Error).message);
             res.status(500).json({ error: 'Error interno' });
@@ -118,7 +120,7 @@ class PortfolioController {
             const userId = req.user?.id;
             if (!userId) { res.sendStatus(401); return; }
 
-            const { data, merge } = req.body as { data?: any; merge?: boolean };
+            const { data, merge } = req.body as { data?: PortfolioExportData; merge?: boolean };
             if (!data) {
                 res.status(400).json({ error: 'Campo "data" requerido' });
                 return;

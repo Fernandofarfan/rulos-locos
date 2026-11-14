@@ -39,7 +39,7 @@ if (bot) {
  * Función para mandar broadcast a todos los usuarios
  */
 export async function broadcastAlert(message: string) {
-    if (!bot) return;
+    if (!bot || !prisma) return;
 
     try {
         // Buscar todos usuarios con telegramId seteado

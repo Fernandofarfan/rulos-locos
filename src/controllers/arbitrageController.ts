@@ -5,9 +5,6 @@ import cache from '../utils/cache';
 import * as spreadHistory from '../utils/spreadHistory';
 import type { ArbitrageResult } from '../services/arbitrageService';
 
-// Cargar historial persistido al arrancar
-spreadHistory.load();
-
 class ArbitrageController {
     async getArbitrage(_req: Request, res: Response): Promise<void> {
         try {
@@ -20,36 +17,25 @@ class ArbitrageController {
                 cache.set('arbitrage_data', result, 60000);
             }
 
-            // Calcular spread Blue vs MEP para historial
-            if (result.dolares?.blue && result.dolares?.mep) {
-                const blueBid = parseFloat(String(result.dolares.blue.compra));
-                const mepAsk = parseFloat(String(result.dolares.mep.venta));
-                if (blueBid > 0 && mepAsk > 0) {
-                    const spread = ((blueBid / mepAsk) - 1) * 100;
-                    const now = new Date();
-                    spreadHistory.append({
-                        time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        value: parseFloat(spread.toFixed(2)),
-                        timestamp: now.getTime(),
-                    });
-                }
-            }
+            await spreadHistory.ensureLoaded();
+            await spreadHistory.appendResult(result);
 
-            res.json({ ...result, history: spreadHistory.getAll(), cached: !!cachedData });
+            res.json({ ...result, updatedAt: result.timestamp, history: spreadHistory.getAll(), cached: !!cachedData });
         } catch (error) {
             logger.error('Error en ArbitrageController.getArbitrage: %s', (error as Error).stack);
             res.json({
                 dolares: {
-                    blue: { compra: 1150, venta: 1180, casa: 'blue', nombre: 'Blue' },
-                    oficial: { compra: 1040, venta: 1090, casa: 'oficial', nombre: 'Oficial' },
-                    mep: { compra: 1110, venta: 1135, casa: 'bolsa', nombre: 'MEP' },
-                    ccl: { compra: 1190, venta: 1210, casa: 'contadoconliqui', nombre: 'CCL' },
+                    blue: { compra: 1150, venta: 1180, casa: 'blue', nombre: 'Blue', source: 'estimado', isEstimated: true },
+                    oficial: { compra: 1040, venta: 1090, casa: 'oficial', nombre: 'Oficial', source: 'estimado', isEstimated: true },
+                    mep: { compra: 1110, venta: 1135, casa: 'bolsa', nombre: 'MEP', source: 'estimado', isEstimated: true },
+                    ccl: { compra: 1190, venta: 1210, casa: 'contadoconliqui', nombre: 'CCL', source: 'estimado', isEstimated: true },
                 },
                 cryptos: {},
                 opportunities: [],
                 history: spreadHistory.getAll(),
                 timestamp: new Date().toISOString(),
                 error: true,
+                source: 'estimado', isEstimated: true,
             });
         }
     }

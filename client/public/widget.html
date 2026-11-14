@@ -44,6 +44,9 @@
         .loading { color: #475569; text-align: center; padding: 20px; font-size: 12px; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .card { animation: fadeIn 0.5s ease-out; }
+        body.light { background: #f8fafc; color: #0f172a; }
+        body.light .card { background: #fff; border-color: #cbd5e1; }
+        body.light .footer, body.light .label { color: #334155; }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
@@ -55,38 +58,6 @@
     <div class="footer">
         ⚡ <a href="https://rulos-locos.vercel.app" target="_blank">Rulos Locos</a> — Actualización en tiempo real
     </div>
-    <script>
-        const API = location.origin + '/api';
-        async function load() {
-            try {
-                const res = await fetch(API + '/arbitrage');
-                const data = await res.json();
-                const d = data.dolares || {};
-                const widget = document.getElementById('widget');
-                widget.innerHTML = '';
-
-                const items = [
-                    { name: 'Blue', cls: 'blue', price: d.blue?.venta },
-                    { name: 'MEP', cls: 'mep', price: d.mep?.venta },
-                    { name: 'CCL', cls: 'ccl', price: d.ccl?.venta },
-                ];
-
-                items.forEach(item => {
-                    if (!item.price) return;
-                    const card = document.createElement('div');
-                    card.className = `card ${item.cls}`;
-                    card.innerHTML = `
-                        <div class="label">Dólar ${item.name}</div>
-                        <div class="price">$${Math.round(item.price).toLocaleString('es-AR')}</div>
-                    `;
-                    widget.appendChild(card);
-                });
-            } catch {
-                document.getElementById('loading').textContent = 'Error cargando datos';
-            }
-        }
-        load();
-        setInterval(load, 60000);
-    </script>
+    <script src="/widget.js"></script>
 </body>
 </html>

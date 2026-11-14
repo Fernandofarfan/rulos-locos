@@ -6,49 +6,55 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api';
 const client = axios.create({
     baseURL: API_BASE,
     timeout: 15000,
+    withCredentials: true,
 });
 
+let accessToken: string | null = null;
+let tokenEpoch = 0;
+export function setAccessToken(token: string | null): void { accessToken = token; tokenEpoch++; }
+export function getAccessToken(): string | null { return accessToken; }
+
 client.interceptors.request.use((config) => {
-    const token = localStorage.getItem('rl_token');
-    if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
+    if (accessToken && config.headers) {
+        config.headers.Authorization = `Bearer ${accessToken}`;
     }
     return config;
 });
 
-const REFRESH_KEY = 'rl_refresh';
 let refreshPromise: Promise<string | null> | null = null;
 
-async function refreshAccessToken(): Promise<string | null> {
-    const refreshToken = localStorage.getItem(REFRESH_KEY);
-    if (!refreshToken) return null;
+async function performRefresh(): Promise<string | null> {
+    const epoch = tokenEpoch;
     try {
-        // Usar axios directo (no `client`) para no re-disparar el interceptor
-        const { data } = await axios.post(`${API_BASE}/auth/refresh`, { refreshToken });
+        const { data } = await axios.post(`${API_BASE}/auth/refresh`, {}, {
+            withCredentials: true,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (epoch !== tokenEpoch) return accessToken;
         if (data?.token) {
-            localStorage.setItem('rl_token', data.token);
-            if (data.refreshToken) localStorage.setItem(REFRESH_KEY, data.refreshToken);
+            setAccessToken(data.token);
             return data.token as string;
         }
         return null;
     } catch {
-        localStorage.removeItem('rl_token');
-        localStorage.removeItem(REFRESH_KEY);
+        if (epoch === tokenEpoch) setAccessToken(null);
         return null;
     }
+}
+
+export function refreshAccessToken(): Promise<string | null> {
+    if (!refreshPromise) refreshPromise = performRefresh().finally(() => { refreshPromise = null; });
+    return refreshPromise;
 }
 
 client.interceptors.response.use(
     (res) => res,
     async (error) => {
         const original = error.config;
-        if (error.response?.status === 401 && original && !original._retry) {
+        const authRequest = ['/auth/login', '/auth/register', '/auth/google', '/auth/refresh', '/auth/logout'].includes(original?.url);
+        if (error.response?.status === 401 && original && !original._retry && !authRequest) {
             original._retry = true;
-            // Deduplicar refreshes concurrentes
-            if (!refreshPromise) {
-                refreshPromise = refreshAccessToken().finally(() => { refreshPromise = null; });
-            }
-            const newToken = await refreshPromise;
+            const newToken = await refreshAccessToken();
             if (newToken) {
                 original.headers = original.headers || {};
                 original.headers.Authorization = `Bearer ${newToken}`;

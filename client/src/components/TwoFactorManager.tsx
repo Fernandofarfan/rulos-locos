@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Shield, ShieldAlert, ShieldCheck, Copy, Check } from 'lucide-react';
-import { apiService as api } from '../services/api';
+import api from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from 'sonner';
 
@@ -17,9 +17,9 @@ export const TwoFactorManager = () => {
     const handleEnable = async () => {
         setLoading(true);
         try {
-            const res = await api.post('/2fa/generate') as any;
-            setQrCode(res.data?.qrCode || res.qrCode);
-            setSecret(res.data?.secret || res.secret);
+            const res = await api.post('/auth/2fa/generate');
+            setQrCode(res.data.qrCode);
+            setSecret(res.data.secret);
             toast.info('2FA Generado', { description: 'Escaneá el código QR.' });
         } catch (error) {
             toast.error('Error', { description: 'Fallo generando 2FA.' });
@@ -32,7 +32,7 @@ export const TwoFactorManager = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            await api.post('/2fa/verify', { token });
+            await api.post('/auth/2fa/verify', { token });
             toast.success('2FA Activado', { description: 'Tu cuenta ahora está protegida.' });
             setQrCode(null);
             setSecret(null);
@@ -46,10 +46,11 @@ export const TwoFactorManager = () => {
     };
 
     const handleDisable = async () => {
-        if (!confirm('¿Seguro que querés desactivar 2FA? Tu cuenta será vulnerable.')) return;
+        if (token.length !== 6 || !confirm('¿Seguro que querés desactivar 2FA? Tu cuenta será vulnerable.')) return;
         setLoading(true);
         try {
-            await api.post('/2fa/disable');
+            await api.post('/auth/2fa/disable', { token });
+            setToken('');
             toast.info('2FA Desactivado', { description: 'Capa de seguridad removida.' });
             await refreshUser();
         } catch (error) {
@@ -89,9 +90,13 @@ export const TwoFactorManager = () => {
             {isEnabled ? (
                 <div className="text-center">
                     <p className="text-sm text-slate-400 mb-4">Tu cuenta actualmente se encuentra blindada vía TOTP.</p>
+                    <label className="block text-sm text-slate-400 mb-2" htmlFor="disable-2fa-token">Código actual de 6 dígitos</label>
+                    <input id="disable-2fa-token" value={token} inputMode="numeric" maxLength={6}
+                        onChange={e => setToken(e.target.value.replace(/\D/g, ''))}
+                        className="block mx-auto mb-4 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-center text-white" />
                     <button
                         onClick={handleDisable}
-                        disabled={loading}
+                        disabled={loading || token.length !== 6}
                         className="py-2.5 px-4 bg-rose-600/20 text-rose-400 hover:bg-rose-600/30 hover:text-rose-300 rounded-lg font-bold text-sm transition-colors disabled:opacity-50"
                     >
                         {loading ? 'Procesando...' : 'Deshabilitar Seguridad 2FA'}

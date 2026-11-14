@@ -1,5 +1,4 @@
-// Test: does node-fetch follow the 301 redirects from argentinadatos?
-const fetch = require('node-fetch');
+// Test: does fetch follow the 301 redirects from argentinadatos?
 
 const endpoints = [
   ['inflacion (sin slash)', 'https://api.argentinadatos.com/v1/finanzas/indices/inflacion'],
@@ -11,13 +10,13 @@ const endpoints = [
 ];
 
 (async () => {
-  console.log('\n=== TEST node-fetch con redirect:follow ===\n');
+  console.log('\n=== TEST fetch con redirect:follow ===\n');
   for (const [name, url] of endpoints) {
     try {
       const r = await fetch(url, {
         headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
         redirect: 'follow',
-        timeout: 8000,
+        signal: AbortSignal.timeout(8000),
       });
       const txt = await r.text();
       let parsed;
