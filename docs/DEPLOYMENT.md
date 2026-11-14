@@ -58,6 +58,10 @@ Para limitar solicitudes de forma compartida entre instancias serverless, crear 
 
 Creá una base de staging separada en Neon o Supabase y aplicá las migraciones ahí antes de producción. En Vercel configurá las variables del entorno **Preview** con credenciales propias: `DATABASE_URL`, `JWT_SECRET`, `ENCRYPTION_KEY` o el par `ENCRYPTION_KEYS`/`ENCRYPTION_KEY_ID`, `CLIENT_URL`, `CORS_ORIGINS`, `CRON_SECRET`, `REDIS_URL` y, si se usan, las integraciones opcionales de `.env.example`. Nunca apuntes Preview a la base de producción.
 
+### Modo degradado
+
+Sin `DATABASE_URL` PostgreSQL, las cotizaciones y páginas públicas siguen disponibles; las funciones con base de datos responden 503, la analítica se descarta y el cron informa las tareas dependientes como omitidas. Sin claves de cifrado válidas, no están disponibles las funciones que cifran o descifran secretos, incluido el ingreso a cuentas con 2FA; nunca se omite la verificación. `/api/health` responde 200 con `status: degraded` y el estado de cada dependencia; `/readyz` responde 503 si la base no está disponible. `JWT_SECRET` válido sigue siendo obligatorio en producción.
+
 ## Redis (Upstash)
 
 Creá una base Upstash y cargá su URL TLS en `REDIS_URL` como variable sensible en Vercel para cada entorno. Es recomendable en serverless para compartir caché y límites entre instancias.

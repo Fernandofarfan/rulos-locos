@@ -5,7 +5,7 @@
 import ccxt from 'ccxt';
 import prisma from '../utils/db';
 import logger from '../utils/logger';
-import { decryptSecret } from '../utils/crypto';
+import { decryptSecret, EncryptionUnavailableError } from '../utils/crypto';
 import type { Exchange } from 'ccxt';
 
 function numberBalances(value: object | undefined): Record<string, number> {
@@ -82,6 +82,7 @@ class RealExchangeService {
                 total: numberBalances(balance.total),
             };
         } catch (err) {
+            if (err instanceof EncryptionUnavailableError) throw err;
             logger.warn('Exchange balance error [%s]: %s', exchangeName, (err as Error).message);
             return { exchange: exchangeName.toUpperCase(), free: {}, used: {}, total: {}, error: (err as Error).message };
         }
@@ -144,7 +145,8 @@ class RealExchangeService {
         try {
             const balance = await this.getBalance(userId, exchangeName);
             return balance !== null && !balance.error;
-        } catch {
+        } catch (error) {
+            if (error instanceof EncryptionUnavailableError) throw error;
             return false;
         }
     }
@@ -173,7 +175,8 @@ class RealExchangeService {
                 return new ExchangeClass({ apiKey, secret: apiSecret, password: passthrough || undefined, enableRateLimit: true });
             }
             return null;
-        } catch {
+        } catch (error) {
+            if (error instanceof EncryptionUnavailableError) throw error;
             return null;
         }
     }

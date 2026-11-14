@@ -18,7 +18,7 @@ const EnvSchema = z.object({
   ENCRYPTION_KEY: z.string().optional(),
   ENCRYPTION_KEYS: z.string().optional(),
   ENCRYPTION_KEY_ID: z.string().optional(),
-  DATABASE_URL: z.string().default('file:./dev.db'),
+  DATABASE_URL: z.string().optional(),
   EMAIL_USER: z.string().email().optional(),
   EMAIL_PASS: z.string().optional(),
   EMAIL_HOST: z.string().default('smtp.gmail.com'),
@@ -44,18 +44,25 @@ if (!_env.success) {
   }
 }
 const env = _env.success ? _env.data : ({ ...process.env, PORT: 3001, NODE_ENV: 'development' } as any);
-const encryptionKeys = parseEncryptionKeys(process.env.ENCRYPTION_KEYS, process.env.ENCRYPTION_KEY_ID);
-const hasLegacyKey = /^[0-9a-fA-F]{64}$/.test(process.env.ENCRYPTION_KEY || '');
-if (!hasLegacyKey && !Object.keys(encryptionKeys).length && (process.env.NODE_ENV === 'production' || process.env.VERCEL)) {
-  process.stderr.write('\n❌ Configurá ENCRYPTION_KEY o ENCRYPTION_KEYS y ENCRYPTION_KEY_ID válidos. Abortando.\n');
-  process.exit(1);
+let encryptionKeys: Record<string, string> = {};
+let invalidKeyring = false;
+try {
+  encryptionKeys = parseEncryptionKeys(process.env.ENCRYPTION_KEYS, process.env.ENCRYPTION_KEY_ID);
+} catch {
+  invalidKeyring = true;
 }
-const encryptionKey = hasLegacyKey
-  ? process.env.ENCRYPTION_KEY!
-  : Object.keys(encryptionKeys).length ? '' : '0'.repeat(64);
-if (!hasLegacyKey && !Object.keys(encryptionKeys).length) {
+const hasLegacyKey = /^[0-9a-fA-F]{64}$/.test(process.env.ENCRYPTION_KEY || '');
+const production = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
+const configuredEncryption = !invalidKeyring && (hasLegacyKey || Object.keys(encryptionKeys).length > 0);
+const encryptionAvailable = configuredEncryption || !production;
+if (!configuredEncryption && production) {
+  logger.error('Cifrado no disponible: configurá ENCRYPTION_KEY o ENCRYPTION_KEYS y ENCRYPTION_KEY_ID válidos.');
+} else if (!configuredEncryption) {
   logger.warn('ENCRYPTION_KEY no configurado o inválido; usando clave de desarrollo. No usar en producción.');
 }
+const encryptionKey = configuredEncryption && hasLegacyKey
+  ? process.env.ENCRYPTION_KEY!
+  : configuredEncryption || production ? '' : '0'.repeat(64);
 
 interface Config {
   PORT: number | string;
@@ -76,6 +83,7 @@ interface Config {
   ENCRYPTION_KEY: string;
   ENCRYPTION_KEYS: Record<string, string>;
   ENCRYPTION_KEY_ID: string;
+  ENCRYPTION_AVAILABLE: boolean;
   CORS_ORIGINS: string[];
   DEFAULT_HEADERS: Record<string, string>;
   EMAIL: {
@@ -106,7 +114,8 @@ const config: Config = {
   JWT_SECRET: env.JWT_SECRET,
   ENCRYPTION_KEY: encryptionKey,
   ENCRYPTION_KEYS: encryptionKeys,
-  ENCRYPTION_KEY_ID: process.env.ENCRYPTION_KEY_ID || '',
+  ENCRYPTION_KEY_ID: configuredEncryption && Object.keys(encryptionKeys).length ? process.env.ENCRYPTION_KEY_ID || '' : '',
+  ENCRYPTION_AVAILABLE: encryptionAvailable,
   CORS_ORIGINS: [...new Set([
     'http://localhost:5173', 'https://rulos-locos.vercel.app',
     process.env.CLIENT_URL, ...(process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim()),

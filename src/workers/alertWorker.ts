@@ -1,5 +1,6 @@
 import alertService from '../services/alertService';
 import logger from '../utils/logger';
+import prisma from '../utils/db';
 
 /**
  * Alert Worker - Ejecuta verificación de alertas periódicamente
@@ -37,7 +38,8 @@ class AlertWorker {
         logger.info('AlertWorker detenido');
     }
 
-    async runTask(): Promise<void> {
+    async runTask(): Promise<void | 'skipped'> {
+        if (!prisma) return 'skipped';
         try {
             logger.debug('🔔 AlertWorker: Verificando alertas...');
             await alertService.checkAndTriggerAlerts();

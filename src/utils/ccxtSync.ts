@@ -1,7 +1,7 @@
 import ccxt from 'ccxt';
 import prisma from './db';
 import logger from './logger';
-import { decryptSecret } from './crypto';
+import { decryptSecret, EncryptionUnavailableError } from './crypto';
 import type { ExchangeKey } from '@prisma/client';
 import type { Exchange } from 'ccxt';
 
@@ -28,10 +28,12 @@ export class PortfolioSyncService {
                 try {
                     await this.syncExchange(userId, key);
                 } catch (e) {
+                    if (e instanceof EncryptionUnavailableError) throw e;
                     logger.error(`Error syncing ${key.exchange} for user ${userId}: ${(e as Error).message}`);
                 }
             }
         } catch (error) {
+            if (error instanceof EncryptionUnavailableError) throw error;
             logger.error('Global CCXT sync error:', error);
         }
     }

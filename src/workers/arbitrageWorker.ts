@@ -4,6 +4,7 @@ import cache from '../utils/cache';
 import * as spreadHistory from '../utils/spreadHistory';
 import { recordRuloSnapshots } from '../services/ruloHistory';
 import { pruneAnalytics } from '../controllers/analyticsController';
+import prisma from '../utils/db';
 
 class ArbitrageWorker {
     private interval: ReturnType<typeof setInterval> | null = null;
@@ -13,7 +14,7 @@ class ArbitrageWorker {
         this.interval = setInterval(() => { void this.runTask().catch(() => {}); }, 60000);
     }
 
-    async runTask(): Promise<void> {
+    async runTask(): Promise<void | 'skipped'> {
         try {
             logger.info('🔍 Ejecutando análisis de arbitraje en segundo plano...');
             const result = await arbitrageService.calculateArbitrage();
@@ -35,6 +36,7 @@ class ArbitrageWorker {
                 timestamp: result.timestamp }, 360000);
             await spreadHistory.ensureLoaded();
             await spreadHistory.appendResult(result);
+            if (!prisma) return 'skipped';
             await recordRuloSnapshots(result);
             await pruneAnalytics();
         } catch (error) {

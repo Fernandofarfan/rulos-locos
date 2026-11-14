@@ -92,6 +92,7 @@ const generalLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests' },
+    skip: req => req.path === '/health' || req.path === '/v1/health',
     store: createRateLimitStore('general'),
 });
 const aiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'AI rate limit exceeded — max 30 req/15min' }, store: createRateLimitStore('ai') });

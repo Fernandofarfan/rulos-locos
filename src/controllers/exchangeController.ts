@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../utils/db';
 import logger from '../utils/logger';
 import { encryptSecret } from '../utils/crypto';
+import { respondEncryptionUnavailable } from '../utils/encryptionResponse';
 
 export function maskApiKey(key: string): string {
     return `${key.slice(0, 4)}…${key.slice(-4)}`;
@@ -59,6 +60,7 @@ class ExchangeController {
             res.status(201).json({ id: newKey.id, exchange: newKey.exchange, apiKey: newKey.apiKey });
 
         } catch (error) {
+            if (respondEncryptionUnavailable(error, res)) return;
             logger.warn('AddKey err: %s', (error as Error).message);
             if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
                 res.status(400).json({ error: 'Ya tienes una llave configurada para este Exchange.' });

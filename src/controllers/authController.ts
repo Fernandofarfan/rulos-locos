@@ -4,7 +4,8 @@ import prisma from '../utils/db';
 import { signToken, signRefreshToken, verifyRefreshToken } from '../middleware/auth';
 import logger from '../utils/logger';
 import { OAuth2Client } from 'google-auth-library';
-import { decryptSecret, encryptSecret } from '../utils/crypto';
+import { decryptSecret, encryptSecret, ensureEncryptionAvailable } from '../utils/crypto';
+import { respondEncryptionUnavailable } from '../utils/encryptionResponse';
 import { toPlain } from '../utils/serialize';
 import { z } from 'zod';
 import { getTotp } from '../utils/totp';
@@ -108,6 +109,7 @@ class AuthController {
 
             // 2FA Flow
             if (user.twoFactorEnabled) {
+                ensureEncryptionAvailable();
                 if (!twoFactorCode) {
                     res.status(200).json({ require2fa: true, userId: user.id });
                     return;
@@ -130,6 +132,7 @@ class AuthController {
             setRefreshCookie(res, user);
             res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
         } catch (error) {
+            if (respondEncryptionUnavailable(error, res)) return;
             logger.error('Error en login: %s', (error as Error).message);
             res.status(500).json({ error: 'Error interno del servidor' });
         }
@@ -246,6 +249,7 @@ class AuthController {
 
             res.json({ secret, qrCode: qrCodeDataUrl });
         } catch (error) {
+            if (respondEncryptionUnavailable(error, res)) return;
             logger.error('Error generando 2FA: %s', (error as Error).message);
             res.status(500).json({ error: 'Error interno generando 2FA' });
         }
@@ -279,6 +283,7 @@ class AuthController {
             setRefreshCookie(res, updated);
             res.json({ success: true, message: '2FA activado correctamente.' });
         } catch (error) {
+            if (respondEncryptionUnavailable(error, res)) return;
             logger.error('Error verificando 2FA: %s', (error as Error).message);
             res.status(500).json({ error: 'Error interno verificando 2FA' });
         }
@@ -305,6 +310,7 @@ class AuthController {
             setRefreshCookie(res, updated);
             res.json({ success: true, message: '2FA ha sido desactivado.' });
         } catch (error) {
+            if (respondEncryptionUnavailable(error, res)) return;
             res.status(500).json({ error: 'Server err' });
         }
     }
@@ -356,6 +362,7 @@ class AuthController {
             }
 
             if (user.twoFactorEnabled) {
+                ensureEncryptionAvailable();
                 const code = totpSchema.safeParse({ token: req.body.twoFactorCode });
                 if (!code.success) { res.json({ require2fa: true, userId: user.id }); return; }
                 if (!user.twoFactorSecret) { res.status(500).json({ error: 'Falta el secreto 2FA' }); return; }
@@ -375,6 +382,7 @@ class AuthController {
             setRefreshCookie(res, user);
             res.json({ token, user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl } });
         } catch (error) {
+            if (respondEncryptionUnavailable(error, res)) return;
             logger.error('Error en googleLogin: %s', (error as Error).message);
             res.status(401).json({ error: 'Fallo al autenticar con Google' });
         }

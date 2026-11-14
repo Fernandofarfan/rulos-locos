@@ -6,7 +6,7 @@ const HALF_HOUR = 30 * 60 * 1000;
 const DAY = 24 * 60 * 60 * 1000;
 
 export async function recordRuloSnapshots(result: ArbitrageResult, now = new Date()): Promise<void> {
-    if (!prisma) throw new Error('Base de datos no disponible');
+    if (!prisma) return;
     const routes = calculateRoutes(result, 1_000_000);
     await prisma.$transaction(async tx => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('rulo_snapshots'))`;

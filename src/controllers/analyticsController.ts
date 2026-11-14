@@ -21,7 +21,7 @@ export const TrackSchema = z.object({
 export async function track(req: Request, res: Response): Promise<void> {
     const parsed = TrackSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Evento inválido' }); return; }
-    if (!prisma) { res.status(503).json({ error: 'Analítica no disponible' }); return; }
+    if (!prisma) { res.sendStatus(204); return; }
     try {
         await prisma.analyticsEvent.create({ data: {
             name: parsed.data.name, path: parsed.data.path, sessionHash: parsed.data.sessionHash,
@@ -38,7 +38,7 @@ export async function trackEvent(req: Request, res: Response): Promise<void> {
 }
 
 export async function pruneAnalytics(): Promise<void> {
-    if (!prisma) throw new Error('Base de datos no disponible');
+    if (!prisma) return;
     await prisma.analyticsEvent.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 180 * 86400_000) } } });
 }
 

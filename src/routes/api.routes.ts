@@ -36,7 +36,7 @@ import marketWorker from '../workers/marketWorker';
 import alertWorker from '../workers/alertWorker';
 import cache from '../utils/cache';
 import { checkSourceHealth } from '../services/sourceHealth';
-const { version } = require('../../package.json') as { version: string };
+import { getApiHealth } from '../controllers/healthController';
 
 // SWR presets
 const swr30s = swrCache({ staleTTL: 30_000, maxTTL: 5 * 60_000 });
@@ -70,8 +70,10 @@ router.all('/cron/tick', requireAdminOrCron, async (_req, res) => {
     const settled = await Promise.allSettled([
         arbitrageWorker.runTask(), marketWorker.runTask(), alertWorker.runTask(),
     ]);
-    const results = { arbitrage: settled[0].status, market: settled[1].status, alerts: settled[2].status };
-    const ok = settled.every(result => result.status === 'fulfilled');
+    const taskStatus = (result: PromiseSettledResult<void | 'skipped'>) =>
+        result.status === 'fulfilled' && result.value === 'skipped' ? 'skipped' : result.status;
+    const results = { arbitrage: taskStatus(settled[0]), market: taskStatus(settled[1]), alerts: taskStatus(settled[2]) };
+    const ok = settled.every(result => result.status !== 'rejected');
     const errors: Record<string, string> = {};
     (['arbitrage', 'market', 'alerts'] as const).forEach((name, index) => {
         const result = settled[index];
@@ -150,7 +152,7 @@ router.get('/push/vapid-public-key', (req, res) => pushController.getVapidPublic
 router.post('/push/subscribe', authenticateToken, rateLimiters.strict, validate.validateBody(validate.PushSubscribeSchema), (req, res) => pushController.subscribe(req, res));
 router.delete('/push/unsubscribe', authenticateToken, rateLimiters.strict, (req, res) => pushController.unsubscribe(req, res));
 
-router.get('/health', (_req, res) => res.json({ status: 'ok', version }));
+router.get('/health', getApiHealth);
 
 // Resumen diario (Telegram)
 router.get('/daily-summary', (req, res) => getDailySummary(req, res));

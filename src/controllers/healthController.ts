@@ -1,7 +1,54 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import logger from '../utils/logger';
-import prisma from '../utils/db';
+import prisma, { databaseConfigured } from '../utils/db';
+import config from '../config';
+import { getRedisClient } from '../utils/cache';
+
+const { version } = require('../../package.json') as { version: string };
+
+async function within<T>(promise: Promise<T>, ms = 2000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Timeout')), ms); }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+export async function getDependencyChecks() {
+  const database = async (): Promise<{ status: 'ok' | 'unconfigured' | 'error'; latency: number }> => {
+    if (!prisma) return { status: databaseConfigured ? 'error' : 'unconfigured', latency: -1 };
+    const start = Date.now();
+    try { await within(prisma.$queryRaw`SELECT 1`); return { status: 'ok', latency: Date.now() - start }; }
+    catch { return { status: 'error', latency: -1 }; }
+  };
+  const redis = async (): Promise<'ok' | 'unconfigured' | 'error'> => {
+    if (!process.env.REDIS_URL) return 'unconfigured';
+    try {
+      const client = await within(getRedisClient());
+      return client && await within(client.ping()) === 'PONG' ? 'ok' : 'error';
+    } catch { return 'error'; }
+  };
+  const [databaseResult, redisStatus] = await Promise.all([database(), redis()]);
+  return {
+    checks: {
+      database: databaseResult.status,
+      encryption: config.ENCRYPTION_AVAILABLE ? 'ok' as const : 'unavailable' as const,
+      redis: redisStatus,
+    },
+    databaseLatency: databaseResult.latency,
+  };
+}
+
+export const getApiHealth = asyncHandler(async (_req: Request, res: Response) => {
+  const { checks } = await getDependencyChecks();
+  const status = checks.database === 'ok' && checks.encryption === 'ok' && checks.redis !== 'error' ? 'ok' : 'degraded';
+  res.status(200).json({ status, version, checks });
+});
 
 /**
  * Health check del servidor
@@ -12,35 +59,17 @@ import prisma from '../utils/db';
 export const getHealth = asyncHandler(async (_req: Request, res: Response) => {
   const uptime = process.uptime();
   const memoryUsage = process.memoryUsage();
-
-  // Validar BD
-  let dbStatus = 'disconnected';
-  let dbLatency = -1;
-  if (!prisma) {
-    dbStatus = 'unavailable';
-  } else {
-    try {
-      const start = Date.now();
-      await prisma.$queryRaw`SELECT 1`;
-      dbLatency = Date.now() - start;
-      dbStatus = 'connected';
-    } catch (error) {
-      logger.error('Health check: DB connection failed', error);
-      dbStatus = 'error';
-    }
-  }
-
-  const status = dbStatus === 'connected' ? 'healthy' : 'degraded';
-  const statusCode = status === 'healthy' ? 200 : 503;
-
-  res.status(statusCode).json({
+  const { checks, databaseLatency } = await getDependencyChecks();
+  const status = checks.database === 'ok' && checks.encryption === 'ok' && checks.redis !== 'error' ? 'healthy' : 'degraded';
+  res.status(200).json({
     status,
+    checks,
     timestamp: new Date().toISOString(),
     uptime: Math.round(uptime),
     uptimeReadable: formatUptime(uptime),
     database: {
-      status: dbStatus,
-      latency: dbLatency,
+      status: checks.database === 'ok' ? 'connected' : checks.database === 'unconfigured' ? 'unavailable' : 'error',
+      latency: databaseLatency,
     },
     memory: {
       heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024),
@@ -64,7 +93,7 @@ export const getReady = asyncHandler(async (_req: Request, res: Response) => {
     return;
   }
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    await within(prisma.$queryRaw`SELECT 1`);
     res.json({ ready: true });
   } catch (error) {
     logger.error('Ready check failed: DB not accessible', error);

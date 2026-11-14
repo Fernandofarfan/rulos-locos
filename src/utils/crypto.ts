@@ -1,7 +1,19 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import config from '../config';
 
+export class EncryptionUnavailableError extends Error {
+    constructor() {
+        super('Función temporalmente no disponible: falta configurar el cifrado.');
+        this.name = 'EncryptionUnavailableError';
+    }
+}
+
+export function ensureEncryptionAvailable(): void {
+    if (!config.ENCRYPTION_AVAILABLE) throw new EncryptionUnavailableError();
+}
+
 export function encryptSecret(plain: string): string {
+    ensureEncryptionAvailable();
     const iv = randomBytes(12);
     const currentId = config.ENCRYPTION_KEY_ID;
     const key = currentId ? config.ENCRYPTION_KEYS[currentId] : config.ENCRYPTION_KEY;
@@ -13,6 +25,7 @@ export function encryptSecret(plain: string): string {
 }
 
 export function decryptSecret(stored: string, legacy: 'base64' | 'plain'): string {
+    ensureEncryptionAvailable();
     if (!stored.startsWith('v1:') && !stored.startsWith('v2:')) {
         return legacy === 'base64' ? Buffer.from(stored, 'base64').toString('utf8') : stored;
     }
@@ -20,7 +33,10 @@ export function decryptSecret(stored: string, legacy: 'base64' | 'plain'): strin
     const v2 = parts[0] === 'v2';
     if (parts.length !== (v2 ? 5 : 4)) throw new Error('Invalid encrypted secret');
     const key = v2 ? config.ENCRYPTION_KEYS[parts[1]] : config.ENCRYPTION_KEY;
-    if (!key) throw new Error(v2 ? 'Unknown encryption key ID' : 'Legacy encryption key unavailable');
+    if (!key) {
+        if (v2) throw new Error('Unknown encryption key ID');
+        throw new EncryptionUnavailableError();
+    }
     const fields = parts.slice(v2 ? 2 : 1);
     if (fields.some(part => Buffer.from(part, 'base64').toString('base64') !== part)) {
         throw new Error('Invalid encrypted secret encoding');
