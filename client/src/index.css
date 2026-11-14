@@ -359,6 +359,14 @@ body.light-theme .glass-panel::before {
   animation: shimmer 1.5s infinite;
 }
 
+body:not(.light-theme) .text-accent-primary { color: color-mix(in srgb, var(--accent-primary) 55%, white); }
+body:not(.light-theme) .text-accent-secondary { color: color-mix(in srgb, var(--accent-secondary) 55%, white); }
+body:not(.light-theme) .bg-accent-primary.text-white { background-color: color-mix(in srgb, var(--accent-primary) 80%, black); }
+body:not(.light-theme) .bg-accent-secondary.text-black { color: #fff; }
+body:not(.light-theme) .text-slate-700 { color: #a1a1aa; }
+body:not(.light-theme) .text-red-400\/70 { color: #f87171; }
+body:not(.light-theme) .telegram-link { color: #38bdf8; }
+
 /* Legibilidad en tema claro */
 body.light-theme .text-slate-300 { color: #3f3f46; }
 body.light-theme .text-slate-100, body.light-theme .text-slate-200 { color: #27272a; }

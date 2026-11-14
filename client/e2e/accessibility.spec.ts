@@ -4,10 +4,12 @@ import { mockData } from './mockData';
 
 test.use({ serviceWorkers: 'block' });
 
-test('secciones y herramientas sin violaciones serias o críticas', async ({ page }) => {
+for (const colorScheme of ['light', 'dark'] as const) test(`secciones y herramientas sin violaciones serias o críticas (${colorScheme})`, async ({ page }) => {
     test.setTimeout(120_000);
+    await page.emulateMedia({ colorScheme });
     await mockData(page);
     await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', colorScheme);
     const violations: string[] = [];
     for (const [main, sub] of [
         ['Dashboard', ''], ['Tasas', 'Acciones & Mercados'], ['Arbitraje', ''],

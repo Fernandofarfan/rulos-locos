@@ -5,7 +5,7 @@ import { filterSeries } from '../utils/dateWindow';
 
 const ASSETS = [
     { key: 'blue',     label: 'Blue',    color: '#3b82f6' },
-    { key: 'mep',      label: 'MEP',     color: '#8b5cf6' },
+    { key: 'mep',      label: 'MEP',     color: '#a78bfa' },
     { key: 'ccl',      label: 'CCL',     color: '#06b6d4' },
     { key: 'oficial',  label: 'Oficial', color: '#10b981' },
     { key: 'risk',     label: 'Riesgo País', color: '#ef4444' },

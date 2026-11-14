@@ -1,88 +1,92 @@
 import { test, expect } from '@playwright/test';
+import { mockData } from './mockData';
+
+test.use({ serviceWorkers: 'block' });
 
 test.describe('Rulos Locos Dashboard', () => {
-    test('debe cargar la página principal y mostrar el título del dashboard', async ({ page }) => {
+    test.beforeEach(async ({ page }) => { await mockData(page); });
+
+    test('carga el dashboard y muestra la cotización blue', async ({ page }) => {
         await page.goto('/');
         await expect(page).toHaveTitle(/Rulos Locos/);
-
-        const dashboardTitle = page.locator('text=Panorama en tiempo real del mercado cambiario argentino');
-        await expect(dashboardTitle).toBeVisible();
-
-        // Comprobar que carga al menos una tarjeta de Dólar Blue
-        const blueCard = page.locator('text=Dólar Blue');
+        await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
+        const blueCard = page.locator('.glass-panel').filter({
+            has: page.getByRole('heading', { name: 'Dólar Blue', exact: true }),
+        });
         await expect(blueCard).toBeVisible();
+        await expect(blueCard).toContainText('1.010');
+        await expect(blueCard).toContainText('Fuente: test');
     });
 
-    test('debe navegar a la sección de calculadoras', async ({ page }) => {
+    test('navega a las calculadoras', async ({ page }) => {
         await page.goto('/');
+        await page.getByRole('button', { name: 'Herramientas', exact: true }).first().click();
+        await expect(page.getByRole('heading', { name: 'Herramientas & Calculadoras' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Consumo & Ahorro' })).toBeVisible();
+    });
 
-        const navItem = page.locator('a[href="#herramientas"]');
-        if (await navItem.isVisible()) {
-            await navItem.click();
-        } else {
-            await page.goto('/#herramientas');
+    test('el selector de tema cambia entre claro y oscuro', async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await page.goto('/');
+        const theme = page.locator('html');
+        await expect(theme).toHaveAttribute('data-theme', /^(dark|light)$/);
+        const initial = await theme.getAttribute('data-theme');
+        await page.getByRole('button', { name: /Cambiar a modo (claro|oscuro)/ }).click();
+        await expect(theme).toHaveAttribute('data-theme', initial === 'dark' ? 'light' : 'dark');
+    });
+
+    test('el menú mobile permite navegar', async ({ page }) => {
+        await page.setViewportSize({ width: 375, height: 812 });
+        await page.goto('/');
+        await page.getByRole('button', { name: 'Abrir menú' }).click();
+        const mobileNav = page.getByRole('navigation').filter({ hasText: 'Herramientas' });
+        await expect(mobileNav).toBeVisible();
+        await mobileNav.getByRole('button', { name: 'Herramientas', exact: true }).click();
+        await expect(page.getByRole('heading', { name: 'Herramientas & Calculadoras' })).toBeVisible();
+    });
+
+    test('los controles de navegación desktop son visibles', async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await page.goto('/');
+        const header = page.locator('header');
+        for (const name of ['Dashboard', 'Tasas', 'Arbitraje']) {
+            await expect(header.getByRole('button', { name, exact: true })).toBeVisible();
         }
-
-        const toolsTitle = page.locator('text=Calculadoras financieras');
-        await expect(toolsTitle).toBeVisible();
     });
 });
 
-// ── Nuevos tests de regresión ────────────────────────────────────────────────
-
 test.describe('API health checks', () => {
-    test('el endpoint /api/health responde 200 con status ok', async ({ request }) => {
+    test('health responde con el estado de las dependencias', async ({ request }) => {
         const res = await request.get('/api/health');
         expect(res.status()).toBe(200);
-        const body = await res.json() as { status: string };
-        expect(body.status).toBe('ok');
+        const body = await res.json() as { status: string; checks: { database: string; encryption: string; redis: string } };
+        expect(['ok', 'degraded']).toContain(body.status);
+        expect(['ok', 'unconfigured', 'error']).toContain(body.checks.database);
+        expect(['ok', 'unavailable']).toContain(body.checks.encryption);
+        expect(['ok', 'unconfigured', 'error']).toContain(body.checks.redis);
     });
 
-    test('el endpoint /api/rate retorna datos de dólar blue', async ({ request }) => {
+    test('rate retorna cotizaciones de compra y venta', async ({ request }) => {
         const res = await request.get('/api/rate');
         expect(res.status()).toBe(200);
-        const body = await res.json() as { blue?: { compra?: number; venta?: number } };
-        expect(body).toHaveProperty('blue');
-        expect(typeof body.blue?.compra).toBe('number');
-        expect(typeof body.blue?.venta).toBe('number');
+        const body = await res.json() as { bid: number; ask: number };
+        expect(body.bid).toBeGreaterThan(0);
+        expect(body.ask).toBeGreaterThan(0);
     });
 
-    test('el endpoint /api/economics/dashboard retorna campos requeridos', async ({ request }) => {
+    test('arbitrage retorna la cotización blue', async ({ request }) => {
+        const res = await request.get('/api/arbitrage');
+        expect(res.status()).toBe(200);
+        const body = await res.json() as { dolares: { blue: { compra: number; venta: number } } };
+        expect(body.dolares.blue.compra).toBeGreaterThan(0);
+        expect(body.dolares.blue.venta).toBeGreaterThan(0);
+    });
+
+    test('economics/dashboard retorna campos requeridos', async ({ request }) => {
         const res = await request.get('/api/economics/dashboard');
         expect(res.status()).toBe(200);
         const body = await res.json() as { macro?: unknown; market?: unknown };
         expect(body).toHaveProperty('macro');
         expect(body).toHaveProperty('market');
-    });
-});
-
-test.describe('Acessibilidad y UX básica', () => {
-    test('el toggle de modo oscuro/claro existe y es clickeable', async ({ page }) => {
-        await page.goto('/');
-        // El botón de tema tiene aria-label
-        const themeBtn = page.locator('[aria-label="Cambiar a modo claro"], [aria-label="Cambiar a modo oscuro"]');
-        await expect(themeBtn).toBeVisible();
-        await themeBtn.click();
-        // Verificar que la clase cambia
-        const hasLightTheme = await page.locator('body.light-theme').count() > 0;
-        expect(typeof hasLightTheme).toBe('boolean'); // Solo verifica que la operación no falla
-    });
-
-    test('el menú mobile es accesible en viewport pequeño', async ({ page }) => {
-        await page.setViewportSize({ width: 375, height: 812 });
-        await page.goto('/');
-        const menuBtn = page.locator('[aria-label="Abrir menú"]');
-        await expect(menuBtn).toBeVisible();
-        await menuBtn.click();
-        const mobileNav = page.locator('nav').filter({ hasText: 'Dashboard' });
-        await expect(mobileNav).toBeVisible();
-    });
-
-    test('los links de navegación desktop son visibles en viewport grande', async ({ page }) => {
-        await page.setViewportSize({ width: 1280, height: 800 });
-        await page.goto('/');
-        await expect(page.locator('a[href="#dashboard"]')).toBeVisible();
-        await expect(page.locator('a[href="#mercado"]')).toBeVisible();
-        await expect(page.locator('a[href="#arbitrage"]')).toBeVisible();
     });
 });
