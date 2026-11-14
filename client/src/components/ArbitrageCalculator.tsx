@@ -45,10 +45,12 @@ export const ArbitrageCalculator: React.FC<ArbitrageCalculatorProps> = ({ blueBi
     };
 
     function formatCurrency(value: number) {
+        if (!Number.isFinite(value)) return '—';
         return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(value);
     }
 
     function formatUSD(value: number) {
+        if (!Number.isFinite(value)) return '—';
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(value);
     }
 

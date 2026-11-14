@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'node:crypto';
 import logger from '../utils/logger';
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = '24h';
-const JWT_REFRESH_EXPIRES_IN = '7d';
+const JWT_REFRESH_EXPIRES_IN = '30d';
 
 declare global {
     // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -36,7 +36,7 @@ export function signToken(payload: object, expiresIn?: string): string {
 
 export function signRefreshToken(payload: object): string {
     const secret = getJwtSecret();
-    return jwt.sign({ ...payload, type: 'refresh' }, secret, { algorithm: 'HS256', expiresIn: JWT_REFRESH_EXPIRES_IN });
+    return jwt.sign({ ...payload, type: 'refresh' }, secret, { algorithm: 'HS256', expiresIn: JWT_REFRESH_EXPIRES_IN, jwtid: randomUUID() });
 }
 
 export function verifyRefreshToken(token: string): jwt.JwtPayload | string {
@@ -69,7 +69,7 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
         req.user = { id: decoded.id, email: decoded.email };
         next();
     } catch {
-        res.sendStatus(403);
+        res.sendStatus(401);
     }
 }
 

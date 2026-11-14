@@ -61,6 +61,20 @@ export default defineConfig(({ mode }) => ({
       template: 'treemap',
     }),
   ].filter(Boolean),
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (/node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'react';
+          if (/node_modules[\\/](chart\.js|react-chartjs-2)[\\/]/.test(id)) return 'chartjs';
+          if (/node_modules[\\/]lightweight-charts[\\/]/.test(id)) return 'lightweight-charts';
+          if (/node_modules[\\/]@sentry[\\/]/.test(id)) return 'sentry';
+          if (/node_modules[\\/]html2canvas[\\/]/.test(id)) return 'html2canvas';
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',
@@ -70,6 +84,13 @@ export default defineConfig(({ mode }) => ({
   preview: {
     headers: {
       'Content-Security-Policy': vercelConfig.headers[0].headers.find(header => header.key === 'Content-Security-Policy')!.value,
+    },
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        timeout: 20000,
+      },
     },
   },
   server: {

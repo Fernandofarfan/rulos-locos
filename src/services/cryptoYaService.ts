@@ -8,6 +8,8 @@ export interface P2PRate {
     totalBid: number;
     time: number;
     isFallback?: boolean;
+    source?: string;
+    isEstimated?: boolean;
 }
 
 class CryptoYaService {
@@ -18,7 +20,7 @@ class CryptoYaService {
                 { signal: AbortSignal.timeout(10000) },
             );
             if (!response.ok) throw new Error('Error al consultar CriptoYa Binance P2P');
-            return await response.json() as P2PRate;
+            return { ...await response.json() as P2PRate, source: 'CriptoYa', isEstimated: false };
         } catch {
             return {
                 ask: 1205.50,
@@ -27,6 +29,8 @@ class CryptoYaService {
                 totalBid: 1195.20,
                 time: Math.floor(Date.now() / 1000),
                 isFallback: true,
+                source: 'estimado',
+                isEstimated: true,
             };
         }
     }

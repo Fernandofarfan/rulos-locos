@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PiggyBank, Landmark, AlertTriangle, TrendingUp, Info } from 'lucide-react';
-import { useDashboardData } from '../hooks/useDashboardData';
+import { apiService } from '../services/api';
+import { plazoFijoRate } from '../utils/financial';
 import { formatInt } from '../utils/formatARS';
 
 export const LoanSimulator: React.FC = () => {
-    const { economics } = useDashboardData();
+    const [pfTNA, setPfTNA] = useState(35);
+    useEffect(() => {
+        let mounted = true;
+        void apiService.getRates().then(rates => { if (mounted) setPfTNA(plazoFijoRate(rates)); });
+        return () => { mounted = false; };
+    }, []);
     const [amount, setAmount] = useState<number | ''>(1000000); // 1 Millón
     const [months, setMonths] = useState<number>(12);
     const [loanTNA, setLoanTNA] = useState<number | ''>(85); // 85% TNA préstamo
-
-    // Tasa Badlar actual (Plazo Fijo aproximado)
-    const pfTNA = (economics?.macro as any)?.badlar || 35; // Default 35% si falla la API
 
     const numAmount = Number(amount) || 0;
     const numLoanTNA = Number(loanTNA) || 0;

@@ -9,7 +9,8 @@
 
 /** Formatea como moneda ARS con separadores locales */
 export function formatARS(value: number | null | undefined, noDecimals = true): string {
-  if (value == null || isNaN(value)) return '--';
+  if (value == null) return '--';
+  if (!Number.isFinite(value)) return '—';
   return '$ ' + value.toLocaleString('es-AR', {
     minimumFractionDigits: noDecimals ? 0 : 2,
     maximumFractionDigits: noDecimals ? 0 : 2,
@@ -18,7 +19,8 @@ export function formatARS(value: number | null | undefined, noDecimals = true): 
 
 /** Formatea como porcentaje */
 export function formatPct(value: number | null | undefined, decimals = 1): string {
-  if (value == null || isNaN(value)) return '--';
+  if (value == null) return '--';
+  if (!Number.isFinite(value)) return '—';
   return value.toLocaleString('es-AR', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -27,7 +29,8 @@ export function formatPct(value: number | null | undefined, decimals = 1): strin
 
 /** Formatea números grandes en forma compacta (K, M, B) */
 export function formatCompact(value: number | null | undefined, prefix = '$ '): string {
-  if (value == null || isNaN(value)) return '--';
+  if (value == null) return '--';
+  if (!Number.isFinite(value)) return '—';
   const abs = Math.abs(value);
   if (abs >= 1e12) return `${prefix}${(value / 1e12).toLocaleString('es-AR', { maximumFractionDigits: 1 })} B`;
   if (abs >= 1e9)  return `${prefix}${(value / 1e9).toLocaleString('es-AR',  { maximumFractionDigits: 1 })} M`;
@@ -38,13 +41,15 @@ export function formatCompact(value: number | null | undefined, prefix = '$ '): 
 
 /** Formatea puntos basicos / enteros sin simbolo */
 export function formatInt(value: number | null | undefined): string {
-  if (value == null || isNaN(value)) return '--';
+  if (value == null) return '--';
+  if (!Number.isFinite(value)) return '—';
   return value.toLocaleString('es-AR', { maximumFractionDigits: 0 });
 }
 
 /** Formatea como USD */
 export function formatUSD(value: number | null | undefined, decimals = 2): string {
-  if (value == null || isNaN(value)) return '--';
+  if (value == null) return '--';
+  if (!Number.isFinite(value)) return '—';
   return '$' + value.toLocaleString('en-US', {
     minimumFractionDigits: value >= 1 ? decimals : 4,
     maximumFractionDigits: value >= 1 ? decimals : 4,
@@ -53,7 +58,8 @@ export function formatUSD(value: number | null | undefined, decimals = 2): strin
 
 /** Formatea cambio porcentual con signo */
 export function formatChange(value: number | null | undefined, decimals = 2): string {
-  if (value == null || isNaN(value)) return '--';
+  if (value == null) return '--';
+  if (!Number.isFinite(value)) return '—';
   const prefix = value > 0 ? '+' : '';
   return `${prefix}${value.toFixed(decimals)}%`;
 }
@@ -62,6 +68,7 @@ export function formatChange(value: number | null | undefined, decimals = 2): st
 export function formatRelativeTime(date: Date | string | null | undefined): string {
   if (!date) return '--';
   const d = typeof date === 'string' ? new Date(date) : date;
+  if (!Number.isFinite(d.getTime())) return '—';
   const diffMs = Date.now() - d.getTime();
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return 'Ahora';

@@ -14,4 +14,8 @@ describe('DataFreshness', () => {
         rerender(<DataFreshness source="DolarAPI" updatedAt={undefined} />);
         expect(screen.getByText(/sin fecha de actualización/)).toBeInTheDocument();
     });
+    it('warns for estimated data even when freshly generated', () => {
+        render(<DataFreshness source="estimado" updatedAt={Date.now()} isEstimated />);
+        expect(screen.getByText(/Estimado — fuente no disponible/)).toHaveClass('text-amber-400');
+    });
 });

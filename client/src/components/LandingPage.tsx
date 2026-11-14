@@ -66,7 +66,7 @@ const LandingPageContent: React.FC<LandingPageProps> = ({ onEnter }) => {
         onEnter?.();
     };
 
-    const formatPrice = (v: number) => v ? `$${Math.round(v).toLocaleString('es-AR')}` : '---';
+    const formatPrice = (v: number) => !Number.isFinite(v) ? '—' : v ? `$${Math.round(v).toLocaleString('es-AR')}` : '---';
 
     return (
         <div className="min-h-screen bg-bg-app text-text-primary font-sans">

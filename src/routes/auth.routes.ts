@@ -1,20 +1,16 @@
 import express from 'express';
-import rateLimit from 'express-rate-limit';
 import authController from '../controllers/authController';
 import { authenticateToken } from '../middleware/auth';
+import { authLimiter, sessionLimiter } from '../middleware/rateLimiters';
+import { validateBody, RegisterSchema, LoginSchema } from '../middleware/validate';
 
 const router = express.Router();
 
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 20,
-    message: { error: 'Demasiados intentos de inicio de sesión, intente más tarde.' },
-});
-
-router.post('/register', authLimiter, (req, res) => authController.register(req, res));
-router.post('/login', authLimiter, (req, res) => authController.login(req, res));
+router.post('/register', authLimiter, validateBody(RegisterSchema), (req, res) => authController.register(req, res));
+router.post('/login', authLimiter, validateBody(LoginSchema), (req, res) => authController.login(req, res));
 router.post('/google', authLimiter, (req, res) => authController.googleLogin(req, res));
-router.post('/refresh', authLimiter, (req, res) => authController.refresh(req, res));
+router.post('/refresh', sessionLimiter, (req, res) => authController.refresh(req, res));
+router.post('/logout', sessionLimiter, (req, res) => authController.logout(req, res));
 router.get('/me', authenticateToken, (req, res) => authController.me(req, res));
 
 router.post('/2fa/generate', authenticateToken, (req, res) => authController.generate2FA(req, res));

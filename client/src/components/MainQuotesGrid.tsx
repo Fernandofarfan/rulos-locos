@@ -15,14 +15,15 @@ interface QuoteCardData {
 }
 
 interface MainQuotesGridProps {
-    blue?: { compra?: number; venta?: number; fechaActualizacion?: string };
-    mep?: { compra?: number; venta?: number; fechaActualizacion?: string };
-    ccl?: { compra?: number; venta?: number; fechaActualizacion?: string };
+    blue?: { compra?: number; venta?: number; fechaActualizacion?: string; source?: string; isEstimated?: boolean };
+    mep?: { compra?: number; venta?: number; fechaActualizacion?: string; source?: string; isEstimated?: boolean };
+    ccl?: { compra?: number; venta?: number; fechaActualizacion?: string; source?: string; isEstimated?: boolean };
     crypto?: { bid?: number; ask?: number };
     rateChange?: number;
     loading?: boolean;
     cryptoUpdatedAt?: string;
     cryptoSource?: string;
+    cryptoEstimated?: boolean;
 }
 
 export const MainQuotesGrid: React.FC<MainQuotesGridProps> = ({
@@ -34,10 +35,12 @@ export const MainQuotesGrid: React.FC<MainQuotesGridProps> = ({
     loading = false,
     cryptoUpdatedAt,
     cryptoSource,
+    cryptoEstimated,
 }) => {
     const { copy, copied } = useCopyToClipboard();
 
     const formatCurrency = (val?: number) => {
+        if (val !== undefined && !Number.isFinite(val)) return '—';
         if (!val || val <= 0) return '--';
         return new Intl.NumberFormat('es-AR', {
             style: 'currency',
@@ -103,7 +106,11 @@ export const MainQuotesGrid: React.FC<MainQuotesGridProps> = ({
                         key={q.id}
                         className="glass-panel p-4 flex flex-col justify-between hover-lift relative group transition-all"
                     >
-                        <DataFreshness source={q.id === 'crypto' ? (cryptoSource || 'Binance P2P') : 'DolarAPI'} updatedAt={q.id === 'crypto' ? cryptoUpdatedAt : ({ blue, mep, ccl }[q.id as 'blue' | 'mep' | 'ccl']?.fechaActualizacion)} />
+                        <DataFreshness
+                            source={q.id === 'crypto' ? (cryptoSource || 'CriptoYa') : ({ blue, mep, ccl }[q.id as 'blue' | 'mep' | 'ccl']?.source ?? 'DolarAPI')}
+                            updatedAt={q.id === 'crypto' ? cryptoUpdatedAt : ({ blue, mep, ccl }[q.id as 'blue' | 'mep' | 'ccl']?.fechaActualizacion)}
+                            isEstimated={q.id === 'crypto' ? cryptoEstimated : ({ blue, mep, ccl }[q.id as 'blue' | 'mep' | 'ccl']?.isEstimated)}
+                        />
                         {/* Header card */}
                         <div className="flex items-center justify-between gap-2 mb-3">
                             <div className="flex items-center gap-2">

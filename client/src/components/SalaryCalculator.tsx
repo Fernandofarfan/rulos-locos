@@ -46,7 +46,7 @@ export const SalaryCalculator: React.FC = () => {
     }, [initial, pctInc, months, hasSalaryIncrease]);
 
     const fmt = (n: number) =>
-        new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+        Number.isFinite(n) ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n) : '—';
 
     const isGaining = purchasingPower >= 100;
     const lost = 100 - purchasingPower;

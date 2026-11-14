@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Calculator, Info } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
+import { purchasingPowerLoss, realRate } from '../utils/financial';
 
 interface ResultBlock {
     label: string;
@@ -28,11 +29,11 @@ export const RealRateCalculator: React.FC = () => {
     // Inflación estimada para el período (proporcional al plazo)
     const inflacionPeriodo = (1 + inflacionMensual / 100) ** (plazoNum / 30) - 1;
     // Tasa real Fisher: (1+nominal)/(1+inflacion) - 1
-    const tasaReal = tasaEfectivaPeriodo / (1 + inflacionPeriodo) - 1; // simplificado
+    const tasaReal = realRate(tasaEfectivaPeriodo, inflacionPeriodo);
     const tasaRealAnualizada = (1 + tasaReal) ** (365 / plazoNum) - 1;
 
     const gananciasBruta = capitalNum * tasaEfectivaPeriodo;
-    const poderAdquisitivoPerdido = capitalNum * inflacionPeriodo;
+    const poderAdquisitivoPerdido = purchasingPowerLoss(capitalNum, inflacionPeriodo);
     const gananciaReal = capitalNum * tasaReal;
     const capitalFinal = capitalNum + gananciasBruta;
 

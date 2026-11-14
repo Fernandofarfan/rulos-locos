@@ -34,6 +34,12 @@ GOOGLE_CLIENT_SECRET="tu_google_client_secret"
 
 # URLs
 CLIENT_URL="https://rulos-locos.vercel.app"
+
+# Opcional: Redis TLS de Upstash para caché y rate limiting distribuido
+REDIS_URL="rediss://default:<password>@<upstash-host>:6379"
+
+# Opcional: token de api.estadisticasbcra.com, utilizado como respaldo del BCRA oficial
+BCRA_TOKEN="<token-opcional>"
 ```
 
 ### Migraciones, secretos y cron
@@ -41,6 +47,8 @@ CLIENT_URL="https://rulos-locos.vercel.app"
 Con un respaldo y `DATABASE_URL` apuntando a la base de destino, aplicar las migraciones con `npx prisma migrate deploy`. No usar `prisma db push` como sustituto. Antes de migrar secretos existentes, configurar y respaldar `ENCRYPTION_KEY`: cambiarla luego impide descifrarlos. Ejecutar `npm run secrets:migrate -- --dry-run` para revisar los conteos y `npm run secrets:migrate` para cifrarlos; el comando es idempotente.
 
 En GitHub, configurar los dos secrets del repositorio `CRON_SECRET` (mismo valor configurado en Vercel) y `APP_URL` (URL pública de la aplicación, sin `/api`). El workflow `.github/workflows/cron-tick.yml` invoca `/api/cron/tick` cada cinco minutos y también permite ejecución manual; GitHub puede retrasar los horarios. No se añade un cron frecuente a Vercel Hobby.
+
+Para limitar solicitudes de forma compartida entre instancias serverless, crear un Redis en Upstash y configurar su URL TLS `REDIS_URL` en Vercel. Sin Redis, los límites se almacenan por proceso y no son globales. Si Redis está configurado pero falla, el limitador rechaza solicitudes en vez de aplicar límites locales inconsistentes. `BCRA_TOKEN` es opcional y solo se usa para el respaldo de EstadísticasBCRA; la API oficial BCRA v4 no requiere token.
 
 Los comandos `npm run smoke:health`, `smoke:apis`, `smoke:bcra`, `smoke:endpoints` y `smoke:redirect` realizan consultas reales a APIs externas; requieren acceso a red y pueden depender de disponibilidad externa.
 

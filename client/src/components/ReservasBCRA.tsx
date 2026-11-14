@@ -2,27 +2,33 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Shield, TrendingDown, TrendingUp, RefreshCw, AlertTriangle } from 'lucide-react';
 import { createChart } from 'lightweight-charts';
 import { apiService } from '../services/api';
+import { cutoffMonths } from '../utils/dateWindow';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface ReservaEntry { fecha: string; valor: number; }
 
-const fmt = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })} M`;
+const fmt = (n: number) => Number.isFinite(n) ? `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })} M` : '—';
 
 // Simple linear regression for trend projection
-function linearTrend(values: number[], daysAhead: number): number[] {
-    const n = values.length;
-    const xs = Array.from({ length: n }, (_, i) => i);
+function linearTrend(points: ReservaEntry[], daysAhead: number): number[] {
+    const n = points.length;
+    if (!n) return [];
+    const start = Date.parse(points[0].fecha);
+    const xs = points.map(p => (Date.parse(p.fecha) - start) / 86400000);
+    const values = points.map(p => p.valor);
     const meanX = xs.reduce((a, b) => a + b, 0) / n;
     const meanY = values.reduce((a, b) => a + b, 0) / n;
     let num = 0, den = 0;
     for (let i = 0; i < n; i++) { num += (xs[i] - meanX) * (values[i] - meanY); den += (xs[i] - meanX) ** 2; }
     const slope = den !== 0 ? num / den : 0;
     const intercept = meanY - slope * meanX;
-    return Array.from({ length: daysAhead }, (_, i) => intercept + slope * (n + i));
+    return Array.from({ length: daysAhead }, (_, i) => intercept + slope * (xs[n - 1] + i + 1));
 }
 
 export const ReservasBCRA: React.FC = () => {
     const [data, setData] = useState<ReservaEntry[]>([]);
     const [loading, setLoading] = useState(true);
+    const [freshness, setFreshness] = useState<{ source: string; timestamp?: string; estimated?: boolean; isEstimated?: boolean }>({ source: 'BCRA' });
     const chartRef = useRef<HTMLDivElement>(null);
     const chartInstanceRef = useRef<any>(null);
 
@@ -30,6 +36,7 @@ export const ReservasBCRA: React.FC = () => {
         setLoading(true);
         try {
             const resp = await apiService.getReservas();
+            setFreshness(resp);
             if (resp.data?.length) setData(resp.data);
         } catch (e) { console.error('ReservasBCRA error:', e); }
         finally { setLoading(false); }
@@ -54,7 +61,8 @@ export const ReservasBCRA: React.FC = () => {
         chartInstanceRef.current = chart;
 
         // Last 2 years
-        const slice = data.slice(-730);
+        const slice = data.filter(d => d.fecha >= cutoffMonths(24));
+        if (!slice.length) return;
         const values = slice.map(d => d.valor);
 
         // Brutas (blue line)
@@ -71,7 +79,8 @@ export const ReservasBCRA: React.FC = () => {
         netasSeries.setData(slice.map(d => ({ time: d.fecha as any, value: d.valor * 0.5 })));
 
         // 30-day trend projection
-        const projected = linearTrend(values.slice(-60), 30);
+        const recent = slice.filter(d => Date.parse(d.fecha) >= Date.parse(slice[slice.length - 1].fecha) - 60 * 86400000);
+        const projected = linearTrend(recent, 30);
         const lastDate = new Date(slice[slice.length - 1].fecha);
         const projSeries = chart.addLineSeries({
             color: 'rgba(59,130,246,0.4)', lineWidth: 1, lineStyle: 2, title: 'Proyección',
@@ -101,10 +110,14 @@ export const ReservasBCRA: React.FC = () => {
     }, [data]);
 
     const latest = data[data.length - 1];
-    const ago30 = data[Math.max(0, data.length - 31)];
+    const ago30 = latest && data.reduce((best, entry) =>
+        Math.abs(Date.parse(entry.fecha) - (Date.parse(latest.fecha) - 30 * 86400000)) <
+        Math.abs(Date.parse(best.fecha) - (Date.parse(latest.fecha) - 30 * 86400000)) ? entry : best
+    );
     const change30 = latest && ago30 ? latest.valor - ago30.valor : 0;
-    const projected30 = data.length > 60
-        ? linearTrend(data.slice(-60).map(d => d.valor), 30)[29]
+    const recent = latest ? data.filter(d => Date.parse(d.fecha) >= Date.parse(latest.fecha) - 60 * 86400000) : [];
+    const projected30 = recent.length > 1
+        ? linearTrend(recent, 30)[29]
         : latest?.valor ?? 0;
 
     if (loading) {
@@ -118,6 +131,7 @@ export const ReservasBCRA: React.FC = () => {
 
     return (
         <div className="glass-panel p-6 space-y-5">
+            <DataFreshness source={freshness.source} updatedAt={freshness.timestamp} isEstimated={freshness.isEstimated || freshness.estimated} />
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">

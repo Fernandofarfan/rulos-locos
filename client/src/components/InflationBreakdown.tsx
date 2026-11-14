@@ -1,6 +1,7 @@
 import React from 'react';
 import { Apple, Heart, Home, Zap, Car, BookOpen, Utensils, Info, TrendingUp } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
+import { DataFreshness } from './ui/DataFreshness';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pesos relativos por rubro basados en la canasta IPC INDEC (base 2015=100).
@@ -43,6 +44,7 @@ export const InflationBreakdown: React.FC = () => {
 
     return (
         <div className="glass-panel p-6">
+            <DataFreshness source={apiCategorias ? 'ArgentinaDatos' : 'estimado'} updatedAt={fecha || undefined} isEstimated={!apiCategorias} />
             <div className="flex items-center justify-between gap-3 mb-5">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-rose-500/10 rounded-xl border border-rose-500/20">

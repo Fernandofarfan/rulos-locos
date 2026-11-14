@@ -15,6 +15,8 @@ export interface RofexContract {
     impliedRate: number;  // tasa implícita anualizada en %
     change: number;       // variación en % vs. cierre anterior
     openInterest?: number;
+    source: string;
+    estimated: boolean;
 }
 
 const ROFEX_API = 'https://api.remarkets.primary.ventures/rest/marketdata/get';
@@ -49,6 +51,8 @@ function buildContracts(ccl: number): RofexContract[] {
             settlement,
             impliedRate,
             change: parseFloat(((Math.random() - 0.3) * 0.8).toFixed(2)), // pequeña variación
+            source: 'estimado',
+            estimated: true,
         });
     }
 

@@ -11,9 +11,10 @@ interface ServiceCheck {
 const SERVICES: ServiceCheck[] = [
     { name: 'DolarApi.com', url: 'https://dolarapi.com/v1/dolares' },
     { name: 'ArgentinaDatos', url: 'https://api.argentinadatos.com/v1/finanzas/indices/inflacion' },
-    { name: 'BCRA Oficial', url: 'https://api.bcra.gob.ar/estadisticas/v3.0/monetarias/1' },
+    { name: 'BCRA Oficial', url: 'https://api.bcra.gob.ar/estadisticas/v4.0/monetarias/1?limit=10' },
     { name: 'CriptoYa', url: 'https://criptoya.com/api/binancep2p/USDT/ARS/1' },
-    { name: 'Stooq (Bonos)', url: 'https://stooq.com/q/d/l/?s=al30.ba&i=d&l=1' },
+    { name: 'Yahoo Finance', url: 'https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=1d&interval=1d' },
+    { name: 'Data912 (Bonos)', url: 'https://data912.com/live/arg_bonds' },
     { name: 'CoinGecko (Crypto)', url: 'https://api.coingecko.com/api/v3/ping' },
     { name: 'EstadísticasBCRA', url: 'https://api.estadisticasbcra.com/usd_of' },
 ];
@@ -26,14 +27,14 @@ async function checkService(svc: ServiceCheck): Promise<{
     errorMsg?: string;
 }> {
     const start = Date.now();
-    const timeout = svc.timeout ?? 5000;
+    const timeout = svc.timeout ?? 2000;
     let t: ReturnType<typeof setTimeout> | undefined;
     try {
         const controller = new AbortController();
         t = setTimeout(() => controller.abort(), timeout);
         const res = await fetch(svc.url, {
             signal: controller.signal as unknown as AbortSignal,
-            headers: { 'User-Agent': 'RulosLocos-StatusCheck/1.0' },
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
         });
         const latencyMs = Date.now() - start;
         if (!res.ok) {
@@ -70,7 +71,7 @@ export async function getApiStatus(_req: Request, res: Response): Promise<void> 
         const overall: 'ok' | 'degraded' | 'down' = hasDown ? 'down' : hasDegraded ? 'degraded' : 'ok';
 
         const response = { overall, services: results, checkedAt: new Date().toISOString() };
-        cache.set(CACHE_KEY, response, 25_000); // cache 25s para auto-refresh de 30s
+        cache.set(CACHE_KEY, response, 30_000);
         res.json(response);
     } catch (err) {
         logger.error('StatusController error:', err);

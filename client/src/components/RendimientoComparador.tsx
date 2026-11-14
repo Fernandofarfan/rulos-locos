@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { LineChart } from 'lucide-react';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface DataSeries {
     id: string;
@@ -121,6 +122,7 @@ export const RendimientoComparador: React.FC = () => {
 
     return (
         <div className="glass-panel no-lift p-6">
+            <DataFreshness source="estimado" updatedAt={undefined} estimated />
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <LineChart size={14} className="text-cyan-400" />

@@ -45,27 +45,37 @@ class MemoryCache {
 // ─── Redis backend (lazy-loaded to avoid crash when not configured) ───────────
 let redisClient: import('ioredis').Redis | null = null;
 let redisAvailable = false;
+let redisConnecting: Promise<import('ioredis').Redis | null> | null = null;
 
-async function getRedisClient(): Promise<import('ioredis').Redis | null> {
-    if (!process.env['REDIS_URL']) return null;
-    if (redisClient) return redisClient;
-    try {
+export async function getRedisClient(): Promise<import('ioredis').Redis | null> {
+    const redisUrl = process.env['REDIS_URL'];
+    if (!redisUrl) return null;
+    if (redisClient && redisAvailable) return redisClient;
+    if (redisConnecting) return redisConnecting;
+    redisConnecting = (async () => {
+      try {
         // Dynamic import so the module resolves at runtime — if ioredis is not
         // installed (dev without Redis) the import will throw and we fall back.
         const { default: Redis } = await import('ioredis') as { default: typeof import('ioredis').Redis };
         redisClient = new (Redis as unknown as new (url: string, opts: object) => import('ioredis').Redis)(
-            process.env['REDIS_URL'],
+            redisUrl,
             { maxRetriesPerRequest: 1, enableOfflineQueue: false, lazyConnect: true },
         );
+        const client = redisClient;
+        client.on('error', error => logger.warn('Redis error: %s', error.message));
+        client.on('end', () => { if (redisClient === client) { redisAvailable = false; redisClient = null; } });
         await (redisClient as unknown as { connect(): Promise<void> }).connect();
         redisAvailable = true;
-        logger.info('✅ Redis conectado: %s', process.env['REDIS_URL'].replace(/:\/\/.*@/, '://***@'));
+        logger.info('✅ Redis conectado: %s', redisUrl.replace(/:\/\/.*@/, '://***@'));
         return redisClient;
-    } catch (e) {
+      } catch (e) {
         logger.warn('⚠️  Redis no disponible, usando caché en memoria: %s', (e as Error).message);
+        redisClient?.disconnect();
         redisClient = null;
         return null;
-    }
+      }
+    })();
+    try { return await redisConnecting; } finally { redisConnecting = null; }
 }
 
 // ─── Unified cache class ──────────────────────────────────────────────────────

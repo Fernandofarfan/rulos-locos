@@ -29,6 +29,9 @@ class MarketWorker {
                 bonds,
                 global,
                 timestamp: new Date().toISOString(),
+                estimated: [...merval, ...cedears, ...bonds, ...global].some(item => item.estimated),
+                source: [...merval, ...cedears, ...bonds, ...global].some(item => item.estimated)
+                    ? 'estimado' : [...new Set([...merval, ...cedears, ...bonds, ...global].map(item => item.source))].join(', '),
             };
 
             cache.set('market_data', payload, MARKET_CACHE_TTL_MS);

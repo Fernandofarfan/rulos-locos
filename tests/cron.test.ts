@@ -23,7 +23,7 @@ describe('/api/cron/tick', () => {
     });
     it('reports worker failures', async () => {
         jest.mocked(alertWorker.runTask).mockRejectedValueOnce(new Error('failure'));
-        const response = await request(app).post('/api/cron/tick').set('Authorization', 'Bearer test-cron-secret').expect(200);
-        expect(response.body).toMatchObject({ ok: false, results: { alerts: 'rejected' } });
+        const response = await request(app).post('/api/cron/tick').set('Authorization', 'Bearer test-cron-secret').expect(500);
+        expect(response.body).toMatchObject({ ok: false, results: { alerts: 'rejected' }, errors: { alerts: 'failure' } });
     });
 });

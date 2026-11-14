@@ -45,7 +45,7 @@ export const TaxCalculator: React.FC = () => {
     const pctGross = investedNum > 0 ? ((gain / investedNum) * 100).toFixed(1) : '0';
     const pctNet = investedNum > 0 ? ((netGain / investedNum) * 100).toFixed(1) : '0';
 
-    const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+    const fmt = (n: number) => Number.isFinite(n) ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n) : '—';
 
     const numInput = (value: string, setter: (v: string) => void) => (
         <input

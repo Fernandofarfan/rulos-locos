@@ -6,20 +6,30 @@ import bcraService from '../services/bcraService';
 import dolarApiService from '../services/dolarApiService';
 import cache from '../utils/cache';
 import logger from '../utils/logger';
+import { carryTradeHistory } from '../utils/dateWindow';
+import { filterByDateRange, type HistoricalRange } from '../utils/historicalRange';
+import { annualRealRate } from '../utils/financial';
 
 const parser = new Parser();
 
 interface FallbackDashboard {
-    macro: { inflation: { mensual: number; interanual: number; fecha: string }; risk: number; reserves: number; baseMonetaria: number; dolarEquilibrio: number };
+    macro: { inflation: { mensual: number; interanual: number; fecha: string; source?: string; isEstimated?: boolean }; risk: number; reserves: number; baseMonetaria: number; dolarEquilibrio: number; provenance?: Record<string, { source: string; isEstimated: boolean }> };
     market: { merval: unknown[]; cedears: unknown[]; bonds: unknown[] };
     global: unknown[];
     timestamp: string;
     isFallback: boolean;
+    source: string;
+    estimated: boolean;
+    isEstimated: boolean;
 }
 
 function getFallbackDashboard(): FallbackDashboard {
     return {
-        macro: { inflation: { mensual: 2.5, interanual: 115.0, fecha: new Date().toISOString().split('T')[0] }, risk: 640, reserves: 45305, baseMonetaria: 60500000000000, dolarEquilibrio: 1337 },
+        macro: {
+            inflation: { mensual: 2.5, interanual: 115.0, fecha: new Date().toISOString().split('T')[0], source: 'estimado', isEstimated: true },
+            risk: 640, reserves: 45305, baseMonetaria: 60500000000000, dolarEquilibrio: 1337,
+            provenance: Object.fromEntries(['risk', 'reserves', 'baseMonetaria', 'dolarEquilibrio'].map(key => [key, { source: 'estimado', isEstimated: true }])),
+        },
         market: {
             merval: [
                 { ticker: 'YPFD', name: 'YPF S.A.', price: 55950, change: 3.5, vol: '300K' },
@@ -27,24 +37,26 @@ function getFallbackDashboard(): FallbackDashboard {
                 { ticker: 'PAMP', name: 'Pampa Energía', price: 4230, change: 1.2, vol: '120K' },
                 { ticker: 'BMA', name: 'Banco Macro', price: 9100, change: -0.5, vol: '80K' },
                 { ticker: 'CEPU', name: 'Central Puerto', price: 1250, change: 0.8, vol: '200K' },
-            ],
+            ].map(item => ({ ...item, source: 'estimado', isEstimated: true })),
             cedears: [
                 { ticker: 'AAPL', name: 'Apple Inc.', price: 22500, change: 1.2, ccl: 1180 },
                 { ticker: 'MELI', name: 'MercadoLibre', price: 1850000, change: -0.5, ccl: 1190 },
                 { ticker: 'TSLA', name: 'Tesla Inc.', price: 45000, change: 2.5, ccl: 1185 },
                 { ticker: 'KO', name: 'Coca-Cola', price: 18000, change: 0.1, ccl: 1180 },
                 { ticker: 'SPY', name: 'SPDR S&P 500', price: 65000, change: 0.8, ccl: 1182 },
-            ],
+            ].map(item => ({ ...item, source: 'estimado', isEstimated: true })),
             bonds: [
                 { ticker: 'AL30', parity: 59.2, irr: 17.5, change: 1.2 },
                 { ticker: 'GD30', parity: 64.5, irr: 15.8, change: 0.8 },
                 { ticker: 'AL35', parity: 50.1, irr: 16.2, change: -0.5 },
                 { ticker: 'AE38', parity: 53.8, irr: 16.5, change: 0.2 },
-            ],
+            ].map(item => ({ ...item, source: 'estimado', isEstimated: true })),
         },
         global: [],
         timestamp: new Date().toISOString(),
         isFallback: true,
+        source: 'estimado',
+        estimated: true, isEstimated: true,
     };
 }
 
@@ -70,8 +82,8 @@ class EconomicsController {
             const [inflationResult, riskResult, reservesResult, baseMonetariaResult, stocksResult, cedearsResult, globalResult, bondsResult, inflacionCategoriasResult] = await Promise.allSettled([
                 argentinaDatosService.getInflation(),
                 argentinaDatosService.getRisk(),
-                bcraService.getReserves(),
-                bcraService.getBaseMonetaria(),
+                bcraService.getReservesWithSource(),
+                bcraService.getBaseMonetariaWithSource(),
                 marketService.getMervalStocks(),
                 marketService.getCedears(),
                 marketService.getGlobalIndices(),
@@ -86,8 +98,10 @@ class EconomicsController {
             const bonds = bondsResult.status === 'fulfilled' ? bondsResult.value : [];
             const inflation = inflationResult.status === 'fulfilled' ? inflationResult.value : null;
             const risk = riskResult.status === 'fulfilled' ? riskResult.value : null;
-            const reserves = reservesResult.status === 'fulfilled' ? reservesResult.value : null;
-            const baseMonetaria = baseMonetariaResult.status === 'fulfilled' ? baseMonetariaResult.value : null;
+            const reservesData = reservesResult.status === 'fulfilled' ? reservesResult.value : null;
+            const baseData = baseMonetariaResult.status === 'fulfilled' ? baseMonetariaResult.value : null;
+            const reserves = reservesData?.value ?? null;
+            const baseMonetaria = baseData?.value ?? null;
             const stocks = stocksResult.status === 'fulfilled' ? stocksResult.value : [];
             const cedears = cedearsResult.status === 'fulfilled' ? cedearsResult.value : [];
             const inflacionCategorias = inflacionCategoriasResult?.status === 'fulfilled' ? inflacionCategoriasResult.value : null;
@@ -95,14 +109,22 @@ class EconomicsController {
             const finalReserves = reserves || 45305;
             const finalBase = baseMonetaria || 60500000000000;
             const equilibrio = finalReserves > 0 ? finalBase / (finalReserves * 1000000) : 0;
+            const estimated = !inflation || inflation.estimated || risk === null || risk.estimated || !reserves || !baseMonetaria || !inflacionCategorias || !bonds.length ||
+                [...stocks, ...cedears, ...bonds, ...(globalResult.status === 'fulfilled' ? globalResult.value : [])].some(item => item.estimated);
 
             const dashboardData = {
                 macro: {
-                    inflation: { ...(inflation || { mensual: 2.5, interanual: 115.0, fecha: new Date().toISOString().split('T')[0] }), categorias: inflacionCategorias ?? null },
-                    risk: risk !== null ? risk : 640,
+                    inflation: { ...(inflation || { mensual: 2.5, interanual: 115.0, fecha: new Date().toISOString().split('T')[0], source: 'estimado', isEstimated: true }), categorias: inflacionCategorias ?? null, categoriasIsEstimated: !inflacionCategorias, categoriasSource: inflacionCategorias ? 'argentinadatos' : 'estimado' },
+                    risk: risk !== null ? risk.valor : 640,
                     reserves: finalReserves,
                     baseMonetaria: finalBase,
                     dolarEquilibrio: Math.round(equilibrio),
+                    provenance: {
+                        risk: { source: risk && !risk.estimated ? 'argentinadatos' : 'estimado', isEstimated: !risk || risk.estimated },
+                        reserves: { source: reserves ? reservesData!.source : 'estimado', isEstimated: !reserves },
+                        baseMonetaria: { source: baseMonetaria ? baseData!.source : 'estimado', isEstimated: !baseMonetaria },
+                        dolarEquilibrio: { source: reserves && baseMonetaria ? [...new Set([reservesData!.source, baseData!.source])].join(', ') : 'estimado', isEstimated: !reserves || !baseMonetaria },
+                    },
                 },
                 market: {
                     merval: stocks.slice(0, 5),
@@ -112,10 +134,16 @@ class EconomicsController {
                         { ticker: 'GD30', parity: 64.5, irr: 15.8, change: 0.8 },
                         { ticker: 'AL35', parity: 50.1, irr: 16.2, change: -0.5 },
                         { ticker: 'AE38', parity: 53.8, irr: 16.5, change: 0.2 },
-                    ],
+                    ].map(bond => ({ ...bond, source: 'estimado', isEstimated: true })),
                 },
                 global: globalResult?.status === 'fulfilled' ? globalResult.value : [],
                 timestamp: new Date().toISOString(),
+                estimated,
+                source: estimated ? 'estimado' : [...new Set([
+                    inflation!.source, 'argentinadatos', reservesData!.source, baseData!.source,
+                    ...stocks.map(item => item.source), ...cedears.map(item => item.source),
+                    ...bonds.map(item => item.source), ...(globalResult.status === 'fulfilled' ? globalResult.value.map(item => item.source) : []),
+                ])].join(', '),
             };
 
             if (stocks.length === 0) logger.warn('Dashboard: Merval stocks empty');
@@ -149,10 +177,19 @@ class EconomicsController {
                     current = current * (1 + change);
                     values.push(parseFloat(current.toFixed(2)));
                 }
-                return { labels, values };
+                return { labels, values, estimated: true, isEstimated: true, source: 'estimado' };
             };
 
-            const getDataForIndicator = async (ind: string): Promise<{ labels: string[]; values: number[] }> => {
+            const fromSeries = (series: { fecha: string; valor: number }[], multiplier = 1) => {
+                const estimated = multiplier !== 1 || argentinaDatosService.isEstimated(series);
+                return {
+                    labels: series.map(point => point.fecha.length === 7 ? `${point.fecha}-01` : point.fecha),
+                    values: series.map(point => point.valor * multiplier),
+                    estimated, isEstimated: estimated, source: estimated ? 'estimado' : 'argentinadatos',
+                };
+            };
+            type HistoricalData = { labels: string[]; values: number[]; estimated: boolean; isEstimated: boolean; source: string };
+            const getDataForIndicator = async (ind: string): Promise<HistoricalData> => {
                 try {
                     const timeout = (ms: number) => {
                         let id: ReturnType<typeof setTimeout> | undefined;
@@ -160,7 +197,7 @@ class EconomicsController {
                         return { prom, cancel: () => clearTimeout(id) };
                     };
                     const { prom: timeLimit, cancel } = timeout(7000);
-                    let dataPromise: Promise<{ labels: string[]; values: number[] }>;
+                    let dataPromise: Promise<HistoricalData>;
 
                     try {
                         switch (ind) {
@@ -168,7 +205,7 @@ class EconomicsController {
                             case 'dolar-blue':
                                 dataPromise = argentinaDatosService.getHistoricalDollars().then(d =>
                                     (d.blue && d.blue.length > 10)
-                                        ? { labels: d.blue.map((x: { fecha: string }) => x.fecha), values: d.blue.map((x: { valor: number }) => x.valor) }
+                                        ? fromSeries(d.blue)
                                         : Promise.reject(new Error('Empty Data'))
                                 );
                                 break;
@@ -176,9 +213,9 @@ class EconomicsController {
                             case 'dolar-mep':
                                 dataPromise = argentinaDatosService.getHistoricalDollars().then(d =>
                                     (d.mep && d.mep.length > 10)
-                                        ? { labels: d.mep.map((x: { fecha: string }) => x.fecha), values: d.mep.map((x: { valor: number }) => x.valor) }
+                                        ? fromSeries(d.mep)
                                         : (d.blue && d.blue.length > 10)
-                                            ? { labels: d.blue.map((x: { fecha: string }) => x.fecha), values: d.blue.map((x: { valor: number }) => x.valor.valueOf() * 0.99) }
+                                            ? fromSeries(d.blue, 0.99)
                                             : Promise.reject(new Error('Empty MEP Data'))
                                 );
                                 break;
@@ -186,9 +223,9 @@ class EconomicsController {
                             case 'dolar-ccl':
                                 dataPromise = argentinaDatosService.getHistoricalDollars().then(d =>
                                     (d.ccl && d.ccl.length > 10)
-                                        ? { labels: d.ccl.map((x: { fecha: string }) => x.fecha), values: d.ccl.map((x: { valor: number }) => x.valor) }
+                                        ? fromSeries(d.ccl)
                                         : (d.blue && d.blue.length > 10)
-                                            ? { labels: d.blue.map((x: { fecha: string }) => x.fecha), values: d.blue.map((x: { valor: number }) => x.valor * 1.015) }
+                                            ? fromSeries(d.blue, 1.015)
                                             : Promise.reject(new Error('Empty CCL Data'))
                                 );
                                 break;
@@ -196,25 +233,21 @@ class EconomicsController {
                             case 'dolar-oficial':
                                 dataPromise = argentinaDatosService.getHistoricalDollars().then(d =>
                                     (d.oficial && d.oficial.length > 10)
-                                        ? { labels: d.oficial.map((x: { fecha: string }) => x.fecha), values: d.oficial.map((x: { valor: number }) => x.valor) }
+                                        ? fromSeries(d.oficial)
                                         : Promise.reject(new Error('Empty Oficial Data'))
                                 );
                                 break;
                             case 'risk':
                             case 'riesgo':
                                 dataPromise = argentinaDatosService.getCountryRiskData().then((data: { fecha: string; valor: number }[]) => {
-                                    if (data && data.length > 0) return { labels: data.map(d => d.fecha), values: data.map(d => d.valor) };
+                                    if (data && data.length > 0) return fromSeries(data);
                                     throw new Error('Empty Risk Data');
                                 });
                                 break;
                             case 'inflation':
                             case 'inflacion':
                                 dataPromise = argentinaDatosService.getHistoricalInflation().then((data: { fecha: string; valor: number }[]) => {
-                                    if (data && data.length > 0) return {
-                                        // Normalize yyyy-MM to yyyy-MM-dd (inflation is monthly)
-                                        labels: data.map(d => d.fecha.length === 7 ? d.fecha + '-01' : d.fecha),
-                                        values: data.map(d => d.valor),
-                                    };
+                                    if (data && data.length > 0) return fromSeries(data);
                                     throw new Error('Empty Inflation Data');
                                 });
                                 break;
@@ -245,19 +278,9 @@ class EconomicsController {
 
             if (indicator) {
                 let data = await getDataForIndicator(Array.isArray(indicator) ? indicator[0] : indicator);
-                const { range } = req.query as { range?: string };
-                if (range && data.labels && data.values) {
-                    let days = 365;
-                    if (range === '1M') days = 30;
-                    else if (range === '3M') days = 90;
-                    else if (range === '6M') days = 180;
-                    else if (range === '1Y') days = 365;
-                    else if (range === 'ALL') days = 0;
-                    if (days > 0 && days < data.labels.length) {
-                        data = { labels: data.labels.slice(-days), values: data.values.slice(-days) };
-                    }
-                }
-                res.json(data);
+                const { range } = req.query as { range?: HistoricalRange };
+                if (range) data = { ...data, ...filterByDateRange(data.labels, data.values, range) };
+                res.json({ ...data, timestamp: new Date().toISOString() });
                 return;
             }
 
@@ -281,11 +304,29 @@ class EconomicsController {
                 withTimeout(argentinaDatosService.getCountryRiskData(), BULK_TIMEOUT_MS),
             ]);
 
-            const empty = { labels: [], values: [] };
-            const [inflation, poverty, dollars, indigence, unemployment, countryRisk] = results.map(r =>
-                r.status === 'fulfilled' ? r.value : empty
-            );
-            res.json({ inflation, poverty, dollars, indigence, unemployment, countryRisk, timestamp: new Date().toISOString() });
+            const range = (req.query as { range?: HistoricalRange }).range ?? 'ALL';
+            const filterItems = <T extends { fecha: string }>(items: T[], isEstimated: boolean, source: string) =>
+                filterByDateRange(items.map(item => item.fecha), items, range).values
+                    .map(item => ({ ...item, isEstimated, source: isEstimated ? 'estimado' : source }));
+            const [inflationResult, povertyResult, dollarsResult, indigenceResult, unemploymentResult, riskResult] = results;
+            const inflationRows = inflationResult.status === 'fulfilled' ? inflationResult.value : [];
+            const povertyRows = povertyResult.status === 'fulfilled' ? povertyResult.value : [];
+            const dollarRows = dollarsResult.status === 'fulfilled' ? dollarsResult.value : { blue: [], mep: [], ccl: [], oficial: [] };
+            const indigenceRows = indigenceResult.status === 'fulfilled' ? indigenceResult.value : [];
+            const unemploymentRows = unemploymentResult.status === 'fulfilled' ? unemploymentResult.value : [];
+            const riskRows = riskResult.status === 'fulfilled' ? riskResult.value : [];
+            const inflation = filterItems(inflationRows, argentinaDatosService.isEstimated(inflationRows), 'argentinadatos');
+            const poverty = filterItems(povertyRows, true, 'estimado');
+            const dollars = {
+                blue: filterItems(dollarRows.blue, argentinaDatosService.isEstimated(dollarRows.blue), 'argentinadatos'),
+                mep: filterItems(dollarRows.mep, argentinaDatosService.isEstimated(dollarRows.mep), 'argentinadatos'),
+                ccl: filterItems(dollarRows.ccl, argentinaDatosService.isEstimated(dollarRows.ccl), 'argentinadatos'),
+                oficial: filterItems(dollarRows.oficial, argentinaDatosService.isEstimated(dollarRows.oficial), 'argentinadatos'),
+            };
+            const indigence = filterItems(indigenceRows, true, 'estimado');
+            const unemployment = filterItems(unemploymentRows, true, 'estimado');
+            const countryRisk = filterItems(riskRows, argentinaDatosService.isEstimated(riskRows), 'argentinadatos');
+            res.json({ inflation, poverty, dollars, indigence, unemployment, countryRisk, timestamp: new Date().toISOString(), estimated: true, source: 'estimado' });
         } catch (error) {
             logger.error('Error in EconomicsController.getHistoricalData: %s', (error as Error).stack);
             res.status(500).json({ labels: [], values: [] });
@@ -304,7 +345,8 @@ class EconomicsController {
                 marketService.getBonds(),
                 marketService.getGlobalIndices(),
             ]);
-            const payload = { merval, cedears, bonds, global, timestamp: new Date() };
+            const estimated = [...merval, ...cedears, ...bonds, ...global].some(item => item.estimated);
+            const payload = { merval, cedears, bonds, global, timestamp: new Date(), estimated, source: estimated ? 'estimado' : [...new Set([...merval, ...cedears, ...bonds, ...global].map(item => item.source))].join(', ') };
             cache.set('market_data', payload, 6 * 60 * 1000);
             res.json(payload);
         } catch {
@@ -367,9 +409,9 @@ class EconomicsController {
         } catch (error) {
             logger.warn('Error fetching news (multi-RSS): %s. Using fallback.', (error as Error).message);
             res.json([
-                { id: 1, title: 'El mercado reacciona a los anuncios económicos', source: 'Ámbito', publishedAt: null, url: '#', category: 'Economy' },
-                { id: 2, title: 'Bitcoin mantiene su tendencia alcista', source: 'CoinDesk', publishedAt: null, url: '#', category: 'Crypto' },
-                { id: 3, title: 'Nuevas regulaciones para importaciones', source: 'Infobae', publishedAt: null, url: '#', category: 'Policy' },
+                { id: 1, title: 'El mercado reacciona a los anuncios económicos', source: 'estimado', estimated: true, publishedAt: null, url: '#', category: 'Economy' },
+                { id: 2, title: 'Bitcoin mantiene su tendencia alcista', source: 'estimado', estimated: true, publishedAt: null, url: '#', category: 'Crypto' },
+                { id: 3, title: 'Nuevas regulaciones para importaciones', source: 'estimado', estimated: true, publishedAt: null, url: '#', category: 'Policy' },
             ]);
         }
     }
@@ -392,7 +434,7 @@ class EconomicsController {
             const pfTNA = badlarTNA * 0.97;
             const pfTEM = pfTNA / 12;
             const pfTEA = (Math.pow(1 + pfTNA / 100 / 12, 12) - 1) * 100;
-            const realRate = badlarTNA - ((inflation as { interanual?: number }).interanual || 0);
+            const realRate = annualRealRate(badlarTNA, inflation.interanual || 0);
 
             const ratesData = {
                 badlar: { tna: parseFloat(badlarTNA.toFixed(2)), tem: parseFloat(badlarTEM.toFixed(2)), tea: parseFloat(badlarTEA.toFixed(2)), fecha: (deposit as { valor: number; fecha: string }).fecha },
@@ -400,12 +442,14 @@ class EconomicsController {
                 inflation: { mensual: (inflation as { mensual: number }).mensual, interanual: (inflation as { interanual: number }).interanual, fecha: (inflation as { fecha: string }).fecha },
                 realRate: parseFloat(realRate.toFixed(2)),
                 timestamp: new Date().toISOString(),
+                estimated: true,
+                source: 'estimado',
             };
             cache.set('economics_rates', ratesData, 600000);
             res.json(ratesData);
         } catch (error) {
             logger.error('Error in getRates: %s', (error as Error).stack);
-            res.json({ badlar: { tna: 34.0, tem: 2.83, tea: 40.5, fecha: '' }, plazoFijo: { tna: 33.0, tem: 2.75, tea: 39.1 }, inflation: { mensual: 2.5, interanual: 84.0, fecha: '' }, realRate: -50.0, timestamp: new Date().toISOString() });
+            res.json({ badlar: { tna: 34.0, tem: 2.83, tea: 40.5, fecha: '' }, plazoFijo: { tna: 33.0, tem: 2.75, tea: 39.1 }, inflation: { mensual: 2.5, interanual: 84.0, fecha: '' }, realRate: Number(annualRealRate(34, 84).toFixed(2)), timestamp: new Date().toISOString(), estimated: true, source: 'estimado' });
         }
     }
 
@@ -427,11 +471,13 @@ class EconomicsController {
             ];
 
             let cclRate = 1200;
+            let estimatedRate = true;
             try {
                 const dolarData = await dolarApiService.getAllDollars();
                 const ccl = dolarData.find(d => d.casa === 'contadoconliqui');
                 const mep = dolarData.find(d => d.casa === 'bolsa');
                 cclRate = ccl?.venta || mep?.venta || 1200;
+                estimatedRate = !(ccl?.venta || mep?.venta);
             } catch { /* use fallback */ }
 
             const fallbackPrices: Record<string, number> = { 'AL29.BA': 62.5, 'AL30.BA': 61.8, 'AL35.BA': 54.2, 'AL41.BA': 52.8, 'GD29.BA': 65.5, 'GD30.BA': 64.2, 'GD35.BA': 56.8, 'GD41.BA': 55.4 };
@@ -440,7 +486,8 @@ class EconomicsController {
 
             const points = BONDS.map(b => {
                 const quote = fetchedQuotes.find(q => q.symbol === b.ticker);
-                const priceARS = quote?.regularMarketPrice || fallbackPrices[b.ticker] || 50;
+                const estimated = !quote || estimatedRate;
+                const priceARS = quote?.regularMarketPrice || (fallbackPrices[b.ticker] || 50) * cclRate;
                 if (!priceARS || priceARS <= 0) return null;
                 const priceUSD = priceARS / cclRate;
                 const C = b.faceValue * (b.couponPct / 100);
@@ -448,15 +495,20 @@ class EconomicsController {
                 const P = Math.min(priceUSD, F * 1.5);
                 const n = b.durationYrs;
                 const ytm = ((C + (F - P) / n) / ((F + P) / 2)) * 100;
-                return { name: b.name, law: b.law, duration: b.durationYrs, ytm: parseFloat(ytm.toFixed(2)), priceUSD: parseFloat(priceUSD.toFixed(2)), priceARS: parseFloat(priceARS.toFixed(2)), coupon: b.couponPct, maturity: b.maturityYear };
+                if (!Number.isFinite(priceUSD) || !Number.isFinite(ytm) || priceUSD < 5 || priceUSD > 200 || ytm < -5 || ytm > 60) {
+                    logger.warn('Yield curve: descartando %s precio USD=%s TIR=%s', b.ticker, priceUSD, ytm);
+                    return null;
+                }
+                return { name: b.name, law: b.law, duration: b.durationYrs, ytm: parseFloat(ytm.toFixed(2)), priceUSD: parseFloat(priceUSD.toFixed(2)), priceARS: parseFloat(priceARS.toFixed(2)), coupon: b.couponPct, maturity: b.maturityYear, estimated: true, isEstimated: true, source: 'estimado', priceSource: estimated ? 'estimado' : 'Data912' };
             }).filter(Boolean).sort((a, b) => a!.duration - b!.duration);
 
-            const data = { points, cclUsed: cclRate, timestamp: new Date().toISOString() };
+            const estimated = points.length === 0 || points.some(point => point?.estimated);
+            const data = { points, cclUsed: cclRate, timestamp: new Date().toISOString(), estimated, isEstimated: estimated, source: estimated ? 'estimado' : 'Data912' };
             cache.set('economics_yield_curve', data, 300000);
             res.json(data);
         } catch (error) {
             logger.error('Error in getYieldCurve: %s', (error as Error).stack);
-            res.json({ points: [], cclUsed: 0, timestamp: new Date().toISOString() });
+            res.json({ points: [], cclUsed: 0, timestamp: new Date().toISOString(), estimated: true, source: 'estimado' });
         }
     }
 
@@ -464,14 +516,13 @@ class EconomicsController {
         try {
             const cached = await cache.get<unknown>('economics_uva');
             if (cached) { res.json(cached); return; }
-            const uvaData = await argentinaDatosService.getUVAData();
-            if (!uvaData || (uvaData as unknown[]).length === 0) { res.json({ data: argentinaDatosService.generateMockUVASeries(), source: 'fallback', timestamp: new Date().toISOString() }); return; }
-            const data = { data: uvaData, latest: (uvaData as unknown[])[(uvaData as unknown[]).length - 1], source: 'argentinadatos', timestamp: new Date().toISOString() };
+            const uva = await argentinaDatosService.getUVAData();
+            const data = { ...uva, latest: uva.data[uva.data.length - 1], timestamp: new Date().toISOString() };
             cache.set('economics_uva', data, 3600000);
             res.json(data);
         } catch (error) {
             logger.error('Error in getUVA: %s', (error as Error).stack);
-            res.json({ data: [], source: 'error', timestamp: new Date().toISOString() });
+            res.json({ data: [], source: 'estimado', estimated: true, timestamp: new Date().toISOString() });
         }
     }
 
@@ -479,19 +530,20 @@ class EconomicsController {
         try {
             const cached = await cache.get<unknown>('economics_reservas');
             if (cached) { res.json(cached); return; }
-            const raw = await argentinaDatosService.getReservasHistory();
-            if (!raw || (raw as unknown[]).length === 0) { res.json({ data: [], source: 'unavailable', timestamp: new Date().toISOString() }); return; }
+            const history = await argentinaDatosService.getReservasHistory();
+            const raw = history.data;
+            if (!raw.length) { res.json({ data: [], source: 'estimado', estimated: true, timestamp: new Date().toISOString() }); return; }
             type RawEntry = { fecha?: string; date?: string; d?: string; valor?: number; value?: number; v?: number };
             const data = (raw as RawEntry[]).map(entry => ({
                 fecha: entry.fecha ?? entry.date ?? entry.d,
                 valor: parseFloat(String(entry.valor ?? entry.value ?? entry.v ?? 0)),
             })).filter(e => e.fecha && !isNaN(e.valor) && e.valor > 0);
-            const result = { data, source: 'argentinadatos', timestamp: new Date().toISOString() };
+            const result = { data, source: history.source, estimated: history.estimated, isEstimated: history.estimated, timestamp: new Date().toISOString() };
             cache.set('economics_reservas', result, 3600000);
             res.json(result);
         } catch (error) {
             logger.error('Error in getReservas: %s', (error as Error).stack);
-            res.json({ data: [], source: 'error', timestamp: new Date().toISOString() });
+            res.json({ data: [], source: 'estimado', estimated: true, timestamp: new Date().toISOString() });
         }
     }
 
@@ -501,16 +553,11 @@ class EconomicsController {
             if (cached) { res.json(cached); return; }
             const [dollars, rates] = await Promise.all([argentinaDatosService.getHistoricalDollars(), argentinaDatosService.getDepositRates()]);
             type BlueSeries = { fecha: string; valor: number }[];
-            const blueSeries: BlueSeries = ((dollars as { blue?: BlueSeries }).blue ?? []).slice(-180);
+            const allBlue = (dollars as { blue?: BlueSeries }).blue ?? [];
+            const blueSeries = filterByDateRange(allBlue.map(point => point.fecha), allBlue, '6M').values;
             const currentTNA = ((rates as { valor?: number }).valor) || 34;
-            const monthlyRate = currentTNA / 12 / 100;
-            const history = blueSeries.map((d, i) => {
-                const price = d.valor;
-                const initialPrice = blueSeries[0].valor;
-                const currentARS = (1000 * initialPrice) * Math.pow(1 + monthlyRate, i / 30);
-                return { fecha: d.fecha, usdHold: 1000, arsTasaInUSD: parseFloat((currentARS / price).toFixed(2)), dolarPrice: price };
-            });
-            const result = { history, currentTNA, timestamp: new Date().toISOString() };
+            const history = carryTradeHistory(blueSeries, currentTNA);
+            const result = { history, currentTNA, timestamp: new Date().toISOString(), source: 'estimado', isEstimated: true, estimated: true };
             cache.set('economics_carry_trade', result, 3600000);
             res.json(result);
         } catch (error) {
@@ -523,16 +570,19 @@ class EconomicsController {
         try {
             const cached = await cache.get<unknown>('economics_equilibrium');
             if (cached) { res.json(cached); return; }
-            const [reserves, baseMonetaria] = await Promise.all([bcraService.getReserves(), bcraService.getBaseMonetaria()]);
+            const [reservesData, baseData] = await Promise.all([bcraService.getReservesWithSource(), bcraService.getBaseMonetariaWithSource()]);
+            const reserves = reservesData?.value ?? null;
+            const baseMonetaria = baseData?.value ?? null;
             const finalReserves = reserves || 45305;
             const finalBase = baseMonetaria || 60500000000000;
             const equilibrium = finalBase / (finalReserves * 1000000);
-            const result = { theoretical: parseFloat(equilibrium.toFixed(2)), reserves: finalReserves, baseMonetaria: finalBase, timestamp: new Date().toISOString() };
+            const estimated = !reserves || !baseMonetaria;
+            const result = { theoretical: parseFloat(equilibrium.toFixed(2)), reserves: finalReserves, baseMonetaria: finalBase, timestamp: new Date().toISOString(), estimated, source: estimated ? 'estimado' : [...new Set([reservesData!.source, baseData!.source])].join(', ') };
             cache.set('economics_equilibrium', result, 3600000);
             res.json(result);
         } catch (error) {
             logger.error('Error in getEquilibriumDollar: %s', (error as Error).message);
-            res.json({ theoretical: 1337, reserves: 45305, baseMonetaria: 60500000000000, timestamp: new Date().toISOString() });
+            res.json({ theoretical: 1337, reserves: 45305, baseMonetaria: 60500000000000, timestamp: new Date().toISOString(), estimated: true, source: 'estimado' });
         }
     }
 
@@ -636,9 +686,9 @@ class EconomicsController {
             } catch (e) { logger.warn('getCalendarEvents: no se pudieron obtener feriados: %s', (e as Error).message); }
 
             const allRaw = [
-                ...KNOWN_EVENTS.map((e, i) => ({ ...e, id: `known-${i}` })),
-                ...bcraEvents.map((e, i) => ({ ...e, id: `bcra-${i}` })),
-                ...holidayEvents,
+                ...KNOWN_EVENTS.map((e, i) => ({ ...e, id: `known-${i}`, source: 'referencia', isEstimated: true })),
+                ...bcraEvents.map((e, i) => ({ ...e, id: `bcra-${i}`, source: 'estimado', isEstimated: true })),
+                ...holidayEvents.map(e => ({ ...e, source: 'ArgentinaDatos', isEstimated: false })),
             ];
             const seen = new Set<string>();
             const events = allRaw
@@ -647,7 +697,7 @@ class EconomicsController {
                 .filter(e => { const key = `${e.fecha}|${e.title}`; if (seen.has(key)) return false; seen.add(key); return true; })
                 .slice(0, 20);
 
-            const result = { events, sources: ['INDEC (indec.gob.ar)', 'BCRA (bcra.gob.ar)', 'ArgentinaDatos'], timestamp: new Date().toISOString() };
+            const result = { events, sources: ['referencia', 'ArgentinaDatos'], source: 'estimado', isEstimated: true, timestamp: new Date().toISOString() };
             cache.set('economics_calendar', result, 6 * 3600 * 1000);
             res.json(result);
         } catch (error) {

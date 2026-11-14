@@ -19,11 +19,11 @@ export const HeroCard: React.FC<HeroCardProps> = ({ price, bid, source, loading,
     const trendColorClass = isPositive
         ? 'text-success bg-success/10 border-success/20'
         : 'text-rose-400 bg-rose-400/10 border-rose-400/20';
-    const formattedPrice = new Intl.NumberFormat('es-AR', {
+    const formattedPrice = !Number.isFinite(price) ? '—' : new Intl.NumberFormat('es-AR', {
         style: 'currency',
         currency: 'ARS',
     }).format(price);
-    const formattedBid = bid
+    const formattedBid = bid && !Number.isFinite(bid) ? '—' : bid
         ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(bid)
         : null;
     const spread = bid && price ? price - bid : null;

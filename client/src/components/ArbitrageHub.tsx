@@ -13,9 +13,10 @@ interface ArbitrageHubProps {
     history?: SpreadHistoryPoint[];
     loading?: boolean;
     updatedAt?: string;
+    isEstimated?: boolean;
 }
 
-export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, history = [], loading, updatedAt }) => {
+export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, history = [], loading, updatedAt, isEstimated }) => {
     // Guide State
     const [guideOpen, setGuideOpen] = useState(false);
 
@@ -172,7 +173,7 @@ export const ArbitrageHub: React.FC<ArbitrageHubProps> = ({ opportunities, histo
         <div className="glass-panel no-lift p-0 flex flex-col relative" aria-busy={loading}>
             {/* Header */}
             <div className="p-5 border-b border-white/5 bg-white/[0.02] relative">
-                <DataFreshness source="DolarAPI y CryptoYa" updatedAt={updatedAt} />
+                <DataFreshness source={isEstimated ? 'estimado' : 'DolarAPI y CryptoYa'} updatedAt={updatedAt} isEstimated={isEstimated} />
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                     <h3 className="text-base font-bold text-white flex items-center gap-2.5">
                         <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20 text-accent-primary">

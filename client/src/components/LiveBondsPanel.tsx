@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Activity, RefreshCw } from 'lucide-react';
 import { apiService } from '../services/api';
 import { logger } from '../utils/logger';
+import { DataFreshness } from './ui/DataFreshness';
 
 export const LiveBondsPanel: React.FC = () => {
     const [bonds, setBonds] = useState<any[]>([]);
@@ -38,9 +39,9 @@ export const LiveBondsPanel: React.FC = () => {
         <div className="bg-black/20 rounded-xl p-4 border border-white/5">
             <h4 className="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider flex items-center justify-between">
                 <span className="flex items-center gap-2">
-                    <Activity size={12} className="text-accent-primary" /> Bonos Soberanos (Tiempo Real)
+                    <Activity size={12} className="text-accent-primary" /> Bonos Soberanos
                 </span>
-                <span className="text-[9px] text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded border border-emerald-400/20">LIVE</span>
+                <DataFreshness source={bonds[0]?.source ?? 'estimado'} updatedAt={undefined} isEstimated={bonds.some(bond => bond.isEstimated || bond.estimated)} />
             </h4>
 
             <div className="space-y-2">

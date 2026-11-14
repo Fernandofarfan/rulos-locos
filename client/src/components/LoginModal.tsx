@@ -20,13 +20,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     const [form, setForm] = useState({ email: '', password: '', name: '' });
     const [require2fa, setRequire2fa] = useState(false);
     const [twoFactorCode, setTwoFactorCode] = useState('');
+    const [googleCredential, setGoogleCredential] = useState<string | null>(null);
 
     const handleGoogleSuccess = async (res: CredentialResponse) => {
         if (!res.credential) return;
         setSubmitting(true);
-        const ok = await loginWithGoogle(res.credential);
+        const result = await loginWithGoogle(res.credential);
         setSubmitting(false);
-        if (ok) onClose();
+        if (result.require2fa) { setGoogleCredential(res.credential); setRequire2fa(true); }
+        if (result.ok) onClose();
     };
 
     React.useEffect(() => {
@@ -43,7 +45,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
         setSubmitting(true);
         let ok = false;
 
-        if (tab === 'login') {
+        if (googleCredential) {
+            const res = await loginWithGoogle(googleCredential, twoFactorCode);
+            ok = res.ok;
+        } else if (tab === 'login') {
             const res = await login({ email: form.email, password: form.password, twoFactorCode });
             if (res && res.require2fa) {
                 setRequire2fa(true);
@@ -125,7 +130,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
 
                         <button
                             type="button"
-                            onClick={() => { setRequire2fa(false); setTwoFactorCode(''); }}
+                            onClick={() => { setRequire2fa(false); setTwoFactorCode(''); setGoogleCredential(null); }}
                             className="w-full text-xs text-slate-500 hover:text-white py-2"
                         >
                             Volver al login
@@ -182,7 +187,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                                     type={showPass ? 'text' : 'password'}
                                     placeholder="Contraseña"
                                     required
-                                    minLength={6}
+                                    minLength={tab === 'register' ? 8 : 1}
+                                    maxLength={128}
                                     value={form.password}
                                     onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                                     className={`${inputClass} pl-10 pr-10`}
@@ -195,6 +201,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                                     {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
+                            {tab === 'register' && <p className="text-xs text-slate-400">La contraseña debe tener al menos 8 caracteres.</p>}
 
                             {error && (
                                 <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">

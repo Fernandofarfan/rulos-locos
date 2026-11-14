@@ -6,6 +6,8 @@ export interface InflationData {
     mensual: number;
     interanual: number;
     fecha: string;
+    estimated?: boolean;
+    source?: string;
 }
 
 export interface DollarSeriesItem {
@@ -36,6 +38,8 @@ export interface InflacionCategoria {
 export interface DepositRate {
     fecha: string;
     valor: number;
+    estimated?: boolean;
+    source?: string;
 }
 
 export interface UVAItem {
@@ -62,6 +66,10 @@ export interface FCIItem {
 }
 
 class ArgentinaDatosService {
+    private readonly estimatedSeries = new WeakSet<object>();
+    private markEstimated<T extends object>(value: T): T { this.estimatedSeries.add(value); return value; }
+    isEstimated(value: object): boolean { return this.estimatedSeries.has(value); }
+
     async getInflation(): Promise<InflationData> {
         try {
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/indices/inflacion/`, {
@@ -79,12 +87,13 @@ class ArgentinaDatosService {
                 const interanualCalc = last12.length >= 12
                     ? (last12.reduce((acc, m) => acc * (1 + (m.valor ?? 0) / 100), 1) - 1) * 100
                     : null;
-                return { mensual: lastMonth.valor, interanual: interanualCalc ?? 18.5, fecha: lastMonth.fecha };
+                const estimated = interanualCalc === null;
+                return { mensual: lastMonth.valor, interanual: interanualCalc ?? 18.5, fecha: lastMonth.fecha, estimated, source: estimated ? 'estimado' : 'argentinadatos' };
             }
             throw new Error('Empty Data');
         } catch (err) {
             logger.warn('ArgentinaDatosService.getInflation fallback: %s', (err as Error).message);
-            return { mensual: 1.2, interanual: 18.5, fecha: new Date().toISOString().split('T')[0] };
+            return { mensual: 1.2, interanual: 18.5, fecha: new Date().toISOString().split('T')[0], estimated: true, source: 'estimado' };
         }
     }
 
@@ -109,7 +118,7 @@ class ArgentinaDatosService {
                 val = Math.max(1.0, val + (Math.random() - 0.5));
                 result.push({ fecha: date.toISOString().split('T')[0], valor: parseFloat(val.toFixed(1)) });
             }
-            return result;
+            return this.markEstimated(result);
         }
     }
 
@@ -166,18 +175,18 @@ class ArgentinaDatosService {
                 val += (Math.random() - 0.5) * 20;
                 mockData.push({ fecha: d.toISOString().split('T')[0], valor: parseFloat(val.toFixed(0)) });
             }
-            return mockData;
+            return this.markEstimated(mockData);
         }
     }
 
-    async getRisk(): Promise<number> {
+    async getRisk(): Promise<{ valor: number; estimated: boolean }> {
         try {
             const data = await this.getCountryRiskData();
-            if (data.length > 0) return data[data.length - 1].valor;
-            return 633;
+            if (data.length > 0) return { valor: data[data.length - 1].valor, estimated: this.isEstimated(data) };
+            return { valor: 633, estimated: true };
         } catch (e) {
             logger.warn('getRisk fallback: %s', (e as Error).message);
-            return 1450;
+            return { valor: 1450, estimated: true };
         }
     }
 
@@ -238,7 +247,7 @@ class ArgentinaDatosService {
             val -= (Math.random() - 0.48) * 8;
             data.push({ fecha: date.toISOString().split('T')[0], valor: Math.round(val) });
         }
-        return data.reverse();
+        return this.markEstimated(data.reverse());
     }
 
     getIndigenceData(): DateValueItem[] {
@@ -286,10 +295,10 @@ class ArgentinaDatosService {
             const mediana = rawMediana < 1 ? rawMediana * 100 : rawMediana;
             const fechaRef = data[0]?.fecha ?? new Date().toISOString().split('T')[0];
             logger.info('getDepositRates (plazoFijo mediana): %s%% (fecha: %s)', mediana.toFixed(2), fechaRef);
-            return { fecha: fechaRef, valor: mediana };
+            return { fecha: fechaRef, valor: mediana, estimated: true, source: 'estimado' };
         } catch (e) {
             logger.warn('getDepositRates fallback: %s', (e as Error).message);
-            return { fecha: new Date().toISOString().split('T')[0], valor: 36.5 };
+            return { fecha: new Date().toISOString().split('T')[0], valor: 36.5, estimated: true, source: 'estimado' };
         }
     }
 
@@ -326,7 +335,7 @@ class ArgentinaDatosService {
         return result;
     }
 
-    async getUVAData(): Promise<UVAItem[]> {
+    async getUVAData(): Promise<{ data: UVAItem[]; source: string; estimated: boolean }> {
         try {
             const response = await fetch(`${config.API_URLS.ARGENTINA_DATOS}/finanzas/indices/uva/`, {
                 headers: config.DEFAULT_HEADERS,
@@ -342,10 +351,10 @@ class ArgentinaDatosService {
                 const step = Math.floor(arr.length / max);
                 return arr.filter((_, i) => i % step === 0 || i === arr.length - 1);
             };
-            return sample(sorted) as UVAItem[];
+            return { data: sample(sorted) as UVAItem[], source: 'argentinadatos', estimated: false };
         } catch (e) {
             logger.warn('getUVAData fallback mock: %s', (e as Error).message);
-            return this.generateMockUVASeries();
+            return { data: this.generateMockUVASeries(), source: 'estimado', estimated: true };
         }
     }
 
@@ -405,25 +414,26 @@ class ArgentinaDatosService {
         }
     }
 
-    async getReservasHistory(): Promise<Array<{ fecha: string; valor: number }>> {
+    async getReservasHistory(): Promise<{ data: Array<{ fecha: string; valor: number }>; source: string; estimated: boolean }> {
         try {
             const r = await fetch(
-                'https://api.bcra.gob.ar/estadisticas/v3.0/monetarias/1?offset=0&limit=400&order=desc',
+                'https://api.bcra.gob.ar/estadisticas/v4.0/monetarias/1?offset=0&limit=400',
                 {
                     headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
                     signal: AbortSignal.timeout(15000),
                 } as Parameters<typeof fetch>[1],
             );
-            if (!r.ok) throw new Error(`BCRA v3 HTTP ${r.status}`);
-            const json = await r.json() as { results?: Array<{ valor: number; fecha: string }> };
-            if (json.results && json.results.length > 0) {
-                const data = json.results
+            if (!r.ok) throw new Error(`BCRA v4 HTTP ${r.status}`);
+            const json = await r.json() as { results?: Array<{ detalle?: Array<{ valor: number; fecha: string }> }> };
+            const details = json.results?.flatMap(result => result.detalle ?? []) ?? [];
+            if (details.length > 0) {
+                const data = details
                     .map(p => ({ fecha: p.fecha, valor: p.valor }))
                     .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-                logger.info('getReservasHistory BCRA v3: %d puntos', data.length);
-                return data;
+                logger.info('getReservasHistory BCRA v4: %d puntos', data.length);
+                return { data, source: 'BCRA', estimated: false };
             }
-            throw new Error('Sin resultados BCRA v3');
+            throw new Error('Sin resultados BCRA v4');
         } catch (e) {
             logger.warn('getReservasHistory fallback: %s', (e as Error).message);
             const mockData: Array<{ fecha: string; valor: number }> = [];
@@ -435,7 +445,7 @@ class ArgentinaDatosService {
                 val += (Math.random() - 0.47) * 200;
                 mockData.push({ fecha: date.toISOString().split('T')[0], valor: Math.round(val) });
             }
-            return mockData;
+            return { data: mockData, source: 'estimado', estimated: true };
         }
     }
 }

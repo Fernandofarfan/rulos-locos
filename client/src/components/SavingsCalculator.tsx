@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Calculator, TrendingUp, TrendingDown } from 'lucide-react';
+import { projectSavings } from '../utils/financial';
 
 interface Instrument {
     id: string;
@@ -21,15 +22,6 @@ const INSTRUMENTS: Instrument[] = [
 
 const MONTHS_OPTIONS = [3, 6, 12, 24, 36];
 
-function project(amount: number, annualRate: number, months: number, monthly: number): number {
-    const r = annualRate / 100 / 12;
-    let acc = amount;
-    for (let i = 0; i < months; i++) {
-        acc = acc * (1 + r) + monthly;
-    }
-    return acc;
-}
-
 export const SavingsCalculator: React.FC = () => {
     const [amount, setAmount] = useState('1000000');
     const [monthly, setMonthly] = useState('0');
@@ -44,17 +36,17 @@ export const SavingsCalculator: React.FC = () => {
             .filter(i => selected.includes(i.id))
             .map(i => ({
                 ...i,
-                final: project(initial, i.annualReturn, months, monthlyDeposit),
-                gain: project(initial, i.annualReturn, months, monthlyDeposit) - initial - monthlyDeposit * months,
+                final: projectSavings(initial, i.annualReturn, months, monthlyDeposit, i.id === 'pf'),
+                gain: projectSavings(initial, i.annualReturn, months, monthlyDeposit, i.id === 'pf') - initial - monthlyDeposit * months,
             }))
             .sort((a, b) => b.final - a.final),
         [initial, monthlyDeposit, months, selected]
     );
 
     const inflation = INSTRUMENTS.find(i => i.id === 'inflation')!;
-    const inflationFinal = project(initial, inflation.annualReturn, months, monthlyDeposit);
+    const inflationFinal = projectSavings(initial, inflation.annualReturn, months, monthlyDeposit, false);
 
-    const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+    const fmt = (n: number) => Number.isFinite(n) ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n) : '—';
 
     return (
         <div className="glass-panel no-lift p-6">

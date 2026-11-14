@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Grid, RefreshCw, Info } from 'lucide-react';
 import { apiService } from '../services/api';
+import { filterSeries } from '../utils/dateWindow';
 
 const ASSETS = [
     { key: 'blue',     label: 'Blue',    color: '#3b82f6' },
@@ -49,10 +50,10 @@ function rLabel(r: number): string {
 
 type Range = '3M' | '6M' | '1Y';
 
-const RANGE_POINTS: Record<Range, number> = { '3M': 90, '6M': 180, '1Y': 365 };
+const RANGE_MONTHS: Record<Range, number> = { '3M': 3, '6M': 6, '1Y': 12 };
 
 export const CorrelationHeatmap: React.FC = () => {
-    const [series, setSeries] = useState<Record<string, number[]>>({});
+    const [series, setSeries] = useState<Record<string, { labels: string[]; values: number[] }>>({});
     const [loading, setLoading] = useState(true);
     const [range, setRange] = useState<Range>('1Y');
     const [tooltip, setTooltip] = useState<{ i: number; j: number; r: number } | null>(null);
@@ -62,10 +63,10 @@ export const CorrelationHeatmap: React.FC = () => {
         const results = await Promise.allSettled(
             ASSETS.map(a => apiService.getHistorical(a.key, '1Y'))
         );
-        const newSeries: Record<string, number[]> = {};
+        const newSeries: Record<string, { labels: string[]; values: number[] }> = {};
         results.forEach((res, idx) => {
             if (res.status === 'fulfilled' && res.value?.values?.length) {
-                newSeries[ASSETS[idx].key] = res.value.values as number[];
+                newSeries[ASSETS[idx].key] = res.value;
             }
         });
         setSeries(newSeries);
@@ -74,19 +75,24 @@ export const CorrelationHeatmap: React.FC = () => {
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
-    // Slice each series to the range length then take last N
-    const N = RANGE_POINTS[range];
-    const sliced: Record<string, number[]> = {};
+    const sliced: Record<string, { labels: string[]; values: number[] }> = {};
     ASSETS.forEach(a => {
-        const s = series[a.key] ?? [];
-        sliced[a.key] = s.slice(-N);
+        const s = series[a.key] ?? { labels: [], values: [] };
+        sliced[a.key] = filterSeries(s, RANGE_MONTHS[range]);
     });
 
     // Build correlation matrix
     const matrix: number[][] = ASSETS.map((a, i) =>
         ASSETS.map((b, j) => {
             if (i === j) return 1;
-            return pearson(sliced[a.key] ?? [], sliced[b.key] ?? []);
+            const left = sliced[a.key];
+            const right = sliced[b.key];
+            const rightByDate = new Map(right.labels.map((date, index) => [date.slice(0, 10), right.values[index]]));
+            const pairs = left.labels.flatMap((date, index) => {
+                const value = rightByDate.get(date.slice(0, 10));
+                return value === undefined ? [] : [[left.values[index], value]];
+            });
+            return pearson(pairs.map(pair => pair[0]), pairs.map(pair => pair[1]));
         })
     );
 
@@ -212,7 +218,7 @@ export const CorrelationHeatmap: React.FC = () => {
 
                     <div className="flex items-start gap-1.5 text-[10px] text-slate-600 italic">
                         <Info size={10} className="mt-0.5 shrink-0" />
-                        Correlación de Pearson calculada sobre los últimos {N} puntos de datos históricos disponibles. No implica causalidad.
+                        Correlación de Pearson calculada sobre fechas coincidentes del período seleccionado. No implica causalidad.
                     </div>
                 </>
             )}

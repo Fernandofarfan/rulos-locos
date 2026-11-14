@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, TrendingDown, RefreshCw, BarChart2 } from 'lucide-react';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface Stock {
     ticker: string;
@@ -111,6 +112,7 @@ export const MervalTop20: React.FC = () => {
 
     return (
         <div className="glass-panel no-lift p-6">
+            <DataFreshness source="estimado" updatedAt={undefined} estimated />
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <BarChart2 size={14} className="text-emerald-400" />

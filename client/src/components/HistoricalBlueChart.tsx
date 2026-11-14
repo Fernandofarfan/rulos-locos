@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { RefreshCw, TrendingUp, TrendingDown, History, Download } from 'lucide-react';
 import { useExportCSV } from '../hooks/useExportCSV';
+import { cutoffMonths } from '../utils/dateWindow';
 import { createChart, ColorType } from 'lightweight-charts';
 import type { IChartApi, ISeriesApi } from 'lightweight-charts';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface PriceRecord {
     fecha: string;  // YYYY-MM-DD
@@ -39,6 +41,7 @@ export const HistoricalBlueChart: React.FC<HistoricalBlueChartProps> = ({ curren
     const { exportToCSV } = useExportCSV();
     const [data, setData] = useState<PriceRecord[]>([]);
     const [loading, setLoading] = useState(true);
+    const [estimated, setEstimated] = useState(false);
     const [range, setRange] = useState<30 | 90 | 180 | 365>(365);
     const rangeRef = useRef(range);
     rangeRef.current = range;
@@ -56,10 +59,12 @@ export const HistoricalBlueChart: React.FC<HistoricalBlueChartProps> = ({ curren
             );
             if (!res.ok) throw new Error('API unavailable');
             const json = await res.json() as PriceRecord[];
-            setData(json.slice(-rangeRef.current));
+            setData(json);
+            setEstimated(false);
         } catch {
             // Fallback: synthetic history
             if (currentBlue > 0) setData(generateSyntheticHistory(currentBlue, rangeRef.current));
+            setEstimated(true);
         } finally {
             setLoading(false);
         }
@@ -69,7 +74,10 @@ export const HistoricalBlueChart: React.FC<HistoricalBlueChartProps> = ({ curren
         load();
     }, [load, range]);
 
-    const visible = data.slice(-range);
+    const months = range === 365 ? 12 : range === 180 ? 6 : range === 90 ? 3 : 1;
+    const cutoff = cutoffMonths(months);
+    const end = cutoffMonths(0);
+    const visible = data.filter(d => d.fecha >= cutoff && d.fecha <= end);
     const first = visible[0]?.venta ?? 0;
     const last = visible.at(-1)?.venta ?? 0;
     const pct = first > 0 ? ((last - first) / first) * 100 : 0;
@@ -78,7 +86,7 @@ export const HistoricalBlueChart: React.FC<HistoricalBlueChartProps> = ({ curren
     const low = visible.length ? Math.min(...visible.map(d => d.venta)) : 0;
 
     const fmt = (n: number) =>
-        new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+        Number.isFinite(n) ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n) : '—';
 
     return (
         <div className="glass-panel no-lift p-6">
@@ -143,7 +151,7 @@ export const HistoricalBlueChart: React.FC<HistoricalBlueChartProps> = ({ curren
                 ))}
             </div>
 
-            <p className="text-[9px] text-slate-700 mt-2 text-right">via ArgentinaData API · datos históricos oficiales</p>
+            <DataFreshness source={estimated ? 'estimado' : 'ArgentinaDatos'} updatedAt={data.at(-1)?.fecha} estimated={estimated} />
         </div>
     );
 };

@@ -360,10 +360,9 @@ describe('Validación — GET /api/economics/historical/:indicator', () => {
         expect(res.status).toBe(200);
     });
 
-    it('"5Y" ya no está en los rangos válidos → 400', async () => {
+    it('"5Y" es un rango válido → 200', async () => {
         const res = await request(app).get('/api/economics/historical?range=5Y');
-        expect(res.status).toBe(400);
-        expect(res.body).toHaveProperty('field', 'range');
+        expect(res.status).toBe(200);
     });
 });
 

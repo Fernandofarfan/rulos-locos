@@ -3,6 +3,8 @@ import { Clock, TrendingUp, TrendingDown, Activity } from 'lucide-react';
 import { apiService } from '../services/api';
 import { createChart, ColorType } from 'lightweight-charts';
 import type { IChartApi, ISeriesApi } from 'lightweight-charts';
+import { filterLastHours } from '../utils/dateWindow';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface PricePoint {
     time: string;   // "HH:MM"
@@ -22,11 +24,13 @@ function generateIntradayHistory(currentBlue: number): PricePoint[] {
     for (let h = openHour; h <= now.getHours(); h++) {
         const maxMin = h === now.getHours() ? now.getMinutes() : 55;
         for (let m = 0; m <= maxMin; m += 15) {
-            if (h === openHour && m === 0) { points.push({ time: `${h.toString().padStart(2, '0')}:00`, price, timestamp: Date.now() }); continue; }
+            const timestamp = new Date(now);
+            timestamp.setHours(h, m, 0, 0);
+            if (h === openHour && m === 0) { points.push({ time: `${h.toString().padStart(2, '0')}:00`, price, timestamp: timestamp.getTime() }); continue; }
             price = price + (Math.random() - 0.47) * (currentBlue * 0.003);
             price = Math.max(currentBlue * 0.97, Math.min(currentBlue * 1.03, price));
             const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-            points.push({ time, price: parseFloat(price.toFixed(2)), timestamp: Date.now() });
+            points.push({ time, price: parseFloat(price.toFixed(2)), timestamp: timestamp.getTime() });
         }
     }
     return points;
@@ -51,7 +55,9 @@ export const IntradayBlueChart: React.FC = () => {
                 INTRADAY_STORE.push({ time, price: blue, timestamp: Date.now() });
             }
         }
-        setHistory([...INTRADAY_STORE].slice(-48)); // last 12 hours at 15 min intervals
+        const recent = filterLastHours(INTRADAY_STORE, 12);
+        INTRADAY_STORE.splice(0, INTRADAY_STORE.length, ...recent);
+        setHistory(recent);
         setLoading(false);
     }, []);
 
@@ -74,10 +80,11 @@ export const IntradayBlueChart: React.FC = () => {
     const high = Math.max(...history.map(h => h.price));
     const low = Math.min(...history.map(h => h.price));
 
-    const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+    const fmt = (n: number) => Number.isFinite(n) ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n) : '—';
 
     return (
         <div className="glass-panel no-lift p-6">
+            <DataFreshness source="estimado" updatedAt={history.at(-1)?.timestamp} isEstimated />
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                     <Clock size={14} className="text-blue-400" />

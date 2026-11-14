@@ -31,6 +31,7 @@ import arbitrageWorker from '../workers/arbitrageWorker';
 import marketWorker from '../workers/marketWorker';
 import alertWorker from '../workers/alertWorker';
 import cache from '../utils/cache';
+const { version } = require('../../package.json') as { version: string };
 
 // SWR presets
 const swr30s = swrCache({ staleTTL: 30_000, maxTTL: 5 * 60_000 });
@@ -62,7 +63,13 @@ router.all('/cron/tick', requireAdminOrCron, async (_req, res) => {
         arbitrageWorker.runTask(), marketWorker.runTask(), alertWorker.runTask(),
     ]);
     const results = { arbitrage: settled[0].status, market: settled[1].status, alerts: settled[2].status };
-    res.json({ ok: settled.every(result => result.status === 'fulfilled'), results, ts: new Date().toISOString() });
+    const ok = settled.every(result => result.status === 'fulfilled');
+    const errors: Record<string, string> = {};
+    (['arbitrage', 'market', 'alerts'] as const).forEach((name, index) => {
+        const result = settled[index];
+        if (result.status === 'rejected') errors[name] = result.reason instanceof Error ? result.reason.message : String(result.reason);
+    });
+    res.status(ok ? 200 : 500).json({ ok, results, ...(ok ? {} : { errors }), ts: new Date().toISOString() });
 });
 
 router.get('/economics/dashboard', swr60s, (req, res) => economicsController.getDashboardData(req, res));
@@ -133,7 +140,7 @@ router.get('/push/vapid-public-key', (req, res) => pushController.getVapidPublic
 router.post('/push/subscribe', authenticateToken, rateLimiters.strict, validate.validateBody(validate.PushSubscribeSchema), (req, res) => pushController.subscribe(req, res));
 router.delete('/push/unsubscribe', authenticateToken, rateLimiters.strict, (req, res) => pushController.unsubscribe(req, res));
 
-router.get('/health', (_req, res) => res.json({ status: 'ok', version: '3.0.0' }));
+router.get('/health', (_req, res) => res.json({ status: 'ok', version }));
 
 // Resumen diario (Telegram)
 router.get('/daily-summary', (req, res) => getDailySummary(req, res));

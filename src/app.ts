@@ -12,9 +12,12 @@ import logger from './utils/logger';
 import swaggerUi from 'swagger-ui-express';
 import { errorHandler, asyncHandler } from './middleware/errorHandler';
 import { requestTracking } from './middleware/requestTracking';
+import { createRateLimitStore } from './middleware/rateLimiters';
+import { provenanceReplacer } from './utils/provenance';
 
 
 const app = express();
+app.set('json replacer', provenanceReplacer);
 
 // Compresión gzip — reduce payload ~70% en respuestas JSON grandes
 app.use(compression());
@@ -62,7 +65,8 @@ const corsOptions: cors.CorsOptions = {
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    credentials: true,
 };
 app.use(cors(corsOptions));
 
@@ -80,13 +84,12 @@ const generalLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests' },
+    store: createRateLimitStore('general'),
 });
-const aiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'AI rate limit exceeded — max 30 req/15min' } });
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false, message: { error: 'Auth rate limit exceeded — max 20 req/15min' } });
+const aiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'AI rate limit exceeded — max 30 req/15min' }, store: createRateLimitStore('ai') });
 
 // Apply differentiated rate limits
 app.use('/api/ai', aiLimiter);
-app.use('/api/auth', authLimiter);
 app.use('/api', generalLimiter);
 
 // Solo servir archivos estáticos en desarrollo local.

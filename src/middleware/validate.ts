@@ -14,10 +14,21 @@ const VALID_INDICATORS = [
     'risk', 'riesgo', 'inflation', 'inflacion',
 ] as const;
 
-const VALID_RANGES = ['1M', '3M', '6M', '1Y', 'ALL', 'MAX'] as const;
+const VALID_RANGES = ['1M', '3M', '6M', '1Y', '2Y', '5Y', 'ALL'] as const;
 
 export const IndicatorSchema = z.enum(VALID_INDICATORS);
 export const RangeSchema = z.enum(VALID_RANGES);
+
+export const RegisterSchema = z.object({
+    email: z.string().trim().toLowerCase().email().max(254),
+    password: z.string().min(8).max(128),
+    name: z.string().max(100).optional(),
+});
+export const LoginSchema = z.object({
+    email: z.string().trim().toLowerCase().email().max(254),
+    password: z.string().min(1).max(128),
+    twoFactorCode: z.union([z.string().regex(/^\d{6}$/), z.literal('')]).optional(),
+});
 
 export const PricesSchema = z.object({
     blue: z.coerce.number().nonnegative().optional(),

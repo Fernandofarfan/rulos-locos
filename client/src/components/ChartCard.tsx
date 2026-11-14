@@ -4,6 +4,8 @@ import { apiService } from '../services/api';
 import CandlestickChart from './CandlestickChart';
 import { ErrorCard } from './ui/ErrorCard';
 import { Tooltip } from './ui/Tooltip';
+import { filterSeries } from '../utils/dateWindow';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface ChartCardProps {
     title: string;
@@ -48,24 +50,10 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, indicator, color = 
         fetchChartData();
     }, [indicator, range, dolarType]);
 
-    // Slice data based on range
     const getSlicedData = () => {
         if (!data?.values?.length) return { labels: [], values: [] };
-        const total = data.values.length;
-        const isMonthly = indicator === 'inflation';
-        const sliceMap: Record<string, number> = {
-            '1M': isMonthly ? 6 : 30,
-            '3M': isMonthly ? 12 : 90,
-            '6M': isMonthly ? 24 : 180,
-            '1Y': isMonthly ? 48 : 365,
-            'ALL': total,
-        };
-        const count = sliceMap[range] ?? total;
-        const start = Math.max(0, total - count);
-        return {
-            labels: data.labels.slice(start),
-            values: data.values.slice(start),
-        };
+        const months: Record<string, number> = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12 };
+        return range === 'ALL' ? data : filterSeries(data, months[range]);
     };
 
     const { labels, values } = getSlicedData();
@@ -126,6 +114,8 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, indicator, color = 
     return (
         <>
             <div className="glass-panel no-lift p-6 flex flex-col h-[350px] relative overflow-hidden group">
+                {labels.length > 0 && <span className="sr-only" aria-label="Fechas del gráfico">{labels[0]} — {labels[labels.length - 1]}</span>}
+                {(data?.isEstimated || data?.estimated) && <DataFreshness source={data.source ?? 'estimado'} updatedAt={data.timestamp} isEstimated />}
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4 relative z-10">
                     <div>

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { History, ArrowRight, TrendingUp, AlertCircle, DollarSign, PiggyBank } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
+import { DataFreshness } from './ui/DataFreshness';
+import { dollarSalePrice, percentageReturn } from '../utils/financial';
+import { formatARS, formatChange } from '../utils/formatARS';
 
 export const TimeMachine: React.FC = () => {
     const { arbitrage } = useDashboardData();
@@ -8,8 +11,8 @@ export const TimeMachine: React.FC = () => {
     const [monthsAgo, setMonthsAgo] = useState<number>(6);
 
     // Current prices
-    const currentBlueVenta = arbitrage?.dolares?.blue?.compra || 1180; // si quiero vender dolares hoy me pagan el precio de compra
-    const currentMepVenta = arbitrage?.dolares?.mep?.venta || 1150; // simplificado: vender mep hoy
+    const currentBlueVenta = dollarSalePrice(arbitrage?.dolares?.blue, 1180);
+    const currentMepVenta = dollarSalePrice(arbitrage?.dolares?.mep, 1150);
 
     // Mock param values based on argentine historical approximations for UX demonstration
     // En una app real de producción, estos valores se extraerían de una BD histórica exacta día por día
@@ -43,6 +46,7 @@ export const TimeMachine: React.FC = () => {
 
     return (
         <div className="glass-panel p-6 animate-fade-in relative overflow-hidden">
+            <DataFreshness source="estimado" updatedAt={undefined} estimated />
             <div className="flex items-center gap-3 mb-6">
                 <div className="p-2.5 bg-violet-500/20 rounded-xl border border-violet-500/30">
                     <History size={18} className="text-violet-400" />
@@ -104,10 +108,10 @@ export const TimeMachine: React.FC = () => {
                         </div>
                         <div className="text-right">
                             <div className={`text-xl font-black tabular-nums tracking-tight ${idx === 0 ? 'text-white' : 'text-slate-300'}`}>
-                                ${res.value.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                                {formatARS(res.value)}
                             </div>
                             <div className={`flex items-center justify-end gap-1 text-xs font-bold ${res.value > amount ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {res.value > amount ? '+' : ''}{(((res.value - amount) / amount) * 100).toFixed(1)}% <ArrowRight size={10} />
+                                {formatChange(percentageReturn(amount, res.value), 1)} <ArrowRight size={10} />
                             </div>
                         </div>
                     </div>

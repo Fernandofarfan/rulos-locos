@@ -1,4 +1,4 @@
-import { lazy, useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { StatsCard } from './components/StatsCard';
 import { MainQuotesGrid } from './components/MainQuotesGrid';
@@ -13,20 +13,20 @@ import { useSettings } from './hooks/useSettings';
 import { formatPct, formatInt, formatCompact } from './utils/formatARS';
 import { TrendingUp, Activity, ShieldCheck, BarChart3, Landmark, Zap, Wrench, LineChart, Newspaper, ShoppingCart, Landmark as BankIcon, TrendingUp as InvestmentIcon } from 'lucide-react';
 import { WatchlistPanel } from './components/WatchlistPanel';
-import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
-import { GlobalSearchModal } from './components/GlobalSearchModal';
-import { FinancialGlossary } from './components/FinancialGlossary';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { ReloadPrompt } from './components/ReloadPrompt';
 import { OnboardingTour } from './components/OnboardingTour';
 import { MobileNavBar } from './components/MobileNavBar';
 import { PanicBoard } from './components/PanicBoard';
-import { AIChat } from './components/AIChat';
-import { AdminDashboard } from './components/AdminDashboard';
-import { FocusMode } from './components/FocusMode';
 import { useTabTitle } from './hooks/useTabTitle';
 import { useAuth } from './hooks/useAuth';
-import { LandingPage } from './components/LandingPage';
+const KeyboardShortcutsModal = lazy(() => import('./components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })));
+const GlobalSearchModal = lazy(() => import('./components/GlobalSearchModal').then(m => ({ default: m.GlobalSearchModal })));
+const FinancialGlossary = lazy(() => import('./components/FinancialGlossary').then(m => ({ default: m.FinancialGlossary })));
+const AIChat = lazy(() => import('./components/AIChat').then(m => ({ default: m.AIChat })));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const FocusMode = lazy(() => import('./components/FocusMode').then(m => ({ default: m.FocusMode })));
+const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
 
 // ── Sección 1: Dashboard (complementos lazy) ─────────────────────────────────
 const MacroDashboard = lazy(() => import('./components/MacroDashboard').then(m => ({ default: m.MacroDashboard })));
@@ -146,7 +146,7 @@ function App() {
   ];
 
   if (showLanding) {
-    return <LandingPage onEnter={dismissLanding} />;
+    return <Suspense fallback={null}><LandingPage onEnter={dismissLanding} /></Suspense>;
   }
 
   if (loading && !rate) {
@@ -167,13 +167,15 @@ function App() {
   // Toggle Focus Mode
   if (focusActive) {
     return (
-      <FocusMode
-        bluePrice={bluePrice}
-        mepPrice={arbitrage?.dolares?.mep?.venta ?? 0}
-        usdtPrice={rate?.ask ?? 0}
-        blueTrend={rateChange}
-        onClose={() => setFocusActive(false)}
-      />
+      <Suspense fallback={null}>
+        <FocusMode
+          bluePrice={bluePrice}
+          mepPrice={arbitrage?.dolares?.mep?.venta ?? 0}
+          usdtPrice={rate?.ask ?? 0}
+          blueTrend={rateChange}
+          onClose={() => setFocusActive(false)}
+        />
+      </Suspense>
     );
   }
 
@@ -219,6 +221,7 @@ function App() {
                     rateChange={rateChange}
                     cryptoUpdatedAt={rate?.updatedAt}
                     cryptoSource={rate?.source}
+                    cryptoEstimated={rate?.isEstimated}
                     loading={loading}
                   />
 
@@ -384,6 +387,7 @@ function App() {
                       opportunities={arbitrage?.opportunities ?? []}
                       history={arbitrage?.history ?? []}
                       updatedAt={arbitrage?.dolares?.blue?.fechaActualizacion}
+                      isEstimated={Object.values(arbitrage?.dolares ?? {}).some(quote => quote?.isEstimated) || arbitrage?.opportunities.some(opportunity => opportunity.isEstimated)}
                       loading={loading}
                     />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -613,15 +617,19 @@ function App() {
 
         </div>
       </Layout>
-      <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-      <GlobalSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
-      <FinancialGlossary open={glossaryOpen} onClose={() => setGlossaryOpen(false)} />
+      <Suspense fallback={null}>
+        {shortcutsOpen && <KeyboardShortcutsModal open onClose={() => setShortcutsOpen(false)} />}
+        {searchOpen && <GlobalSearchModal open onClose={() => setSearchOpen(false)} />}
+        {glossaryOpen && <FinancialGlossary open onClose={() => setGlossaryOpen(false)} />}
+      </Suspense>
       <PWAInstallBanner />
       <ReloadPrompt />
       <OnboardingTour onViewChange={setActiveView} />
       <MobileNavBar activeView={activeView} onViewChange={setActiveView} />
-      <AIChat />
-      <AdminDashboard />
+      <Suspense fallback={null}>
+        <AIChat />
+        <AdminDashboard />
+      </Suspense>
     </>
   );
 }

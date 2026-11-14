@@ -61,6 +61,7 @@ export const MultiCurrencyComparator: React.FC<{ blueRate?: number }> = ({ blueR
     const midRate = toRate / fromRate;
 
     const fmt = (n: number, _c: string) => {
+        if (!Number.isFinite(n)) return '—';
         if (n > 1000) return n.toLocaleString('es-AR', { maximumFractionDigits: 0 });
         if (n > 1) return n.toLocaleString('es-AR', { maximumFractionDigits: 2 });
         return n.toFixed(4);

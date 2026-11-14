@@ -7,6 +7,8 @@ export interface DolarCasa {
     compra: number;
     venta: number;
     fechaActualizacion?: string;
+    source?: string;
+    isEstimated?: boolean;
 }
 
 const FALLBACK_DOLLARS: DolarCasa[] = [
@@ -22,16 +24,17 @@ class DolarApiService {
     private readonly cb = new CircuitBreaker({ name: 'DolarAPI', failureThreshold: 3, timeout: 30_000 });
 
     async getAllDollars(): Promise<DolarCasa[]> {
-        return this.cb.execute(
+        return this.cb.execute<DolarCasa[]>(
             async () => {
                 const response = await fetch(`${config.API_URLS.DOLARAPI}/dolares`, {
                     headers: config.DEFAULT_HEADERS,
                     signal: AbortSignal.timeout(5000),
                 } as Parameters<typeof fetch>[1]);
                 if (!response.ok) throw new Error('Error en DolarAPI');
-                return await response.json() as DolarCasa[];
+                const values = await response.json() as DolarCasa[];
+                return values.map(value => ({ ...value, source: 'DolarAPI', isEstimated: false }));
             },
-            () => FALLBACK_DOLLARS
+            () => FALLBACK_DOLLARS.map(value => ({ ...value, source: 'estimado', isEstimated: true }))
         );
     }
 
@@ -42,9 +45,9 @@ class DolarApiService {
                 signal: AbortSignal.timeout(5000),
             } as Parameters<typeof fetch>[1]);
             if (!response.ok) throw new Error('Error obteniendo dólar blue');
-            return await response.json() as DolarCasa;
+            return { ...await response.json() as DolarCasa, source: 'DolarAPI', isEstimated: false };
         } catch {
-            return { compra: 1150, venta: 1180, casa: 'blue', nombre: 'Blue', fechaActualizacion: new Date().toISOString() };
+            return { compra: 1150, venta: 1180, casa: 'blue', nombre: 'Blue', source: 'estimado', isEstimated: true };
         }
     }
 }

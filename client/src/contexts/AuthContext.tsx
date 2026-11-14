@@ -1,11 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import axios from 'axios';
-
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
-const TOKEN_KEY = 'rl_token';
-const REFRESH_KEY = 'rl_refresh';
+import client, { getAccessToken, refreshAccessToken, setAccessToken } from '../services/api';
 
 export interface AuthUser {
     id: string;
@@ -25,7 +21,7 @@ interface AuthContextType {
     error: string | null;
     login: (payload: LoginPayload) => Promise<{ ok: boolean; require2fa?: boolean; userId?: string }>;
     register: (payload: RegisterPayload) => Promise<{ ok: boolean }>;
-    loginWithGoogle: (credential: string) => Promise<boolean>;
+    loginWithGoogle: (credential: string, twoFactorCode?: string) => Promise<{ ok: boolean; require2fa?: boolean }>;
     logout: () => void;
     isAuthenticated: boolean;
     refreshUser: () => Promise<void>;
@@ -38,30 +34,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const getToken = () => localStorage.getItem(TOKEN_KEY);
-
-    const applyToken = (token: string, refreshToken?: string) => {
-        localStorage.setItem(TOKEN_KEY, token);
-        if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    };
-
     const clearAuth = () => {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(REFRESH_KEY);
-        delete axios.defaults.headers.common['Authorization'];
+        setAccessToken(null);
         setUser(null);
     };
 
     const fetchMe = useCallback(async () => {
-        const token = getToken();
-        if (!token) {
+        if (!getAccessToken()) {
             setLoading(false);
             return;
         }
         try {
-            applyToken(token); // Ensure it's in headers before calling
-            const r = await axios.get<AuthUser>(`${API_BASE}/auth/me`);
+            const r = await client.get<AuthUser>('/auth/me');
             setUser(r.data);
         } catch {
             clearAuth();
@@ -71,17 +55,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, []);
 
     useEffect(() => {
-        fetchMe();
+        localStorage.removeItem('rl_token');
+        localStorage.removeItem('rl_refresh');
+        void refreshAccessToken().then(token => {
+            if (token) return fetchMe();
+            setLoading(false);
+        });
     }, [fetchMe]);
 
     const login = async (payload: LoginPayload) => {
         setError(null);
         try {
-            const { data } = await axios.post(`${API_BASE}/auth/login`, payload);
+            const { data } = await client.post('/auth/login', payload);
             if (data.require2fa) {
                 return { ok: false, require2fa: true, userId: data.userId };
             }
-            applyToken(data.token, data.refreshToken);
+            setAccessToken(data.token);
             setUser(data.user);
             return { ok: true };
         } catch (e: any) {
@@ -94,8 +83,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const register = async (payload: RegisterPayload) => {
         setError(null);
         try {
-            const { data } = await axios.post(`${API_BASE}/auth/register`, payload);
-            applyToken(data.token, data.refreshToken);
+            const { data } = await client.post('/auth/register', payload);
+            setAccessToken(data.token);
             setUser(data.user);
             return { ok: true };
         } catch (e: any) {
@@ -105,21 +94,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    const loginWithGoogle = async (credential: string) => {
+    const loginWithGoogle = async (credential: string, twoFactorCode?: string) => {
         setError(null);
         try {
-            const { data } = await axios.post(`${API_BASE}/auth/google`, { credential });
-            applyToken(data.token, data.refreshToken);
+            const { data } = await client.post('/auth/google', { credential, twoFactorCode });
+            if (data.require2fa) return { ok: false, require2fa: true };
+            setAccessToken(data.token);
             setUser(data.user);
-            return true;
+            return { ok: true };
         } catch (e: any) {
             const msg = e?.response?.data?.error || 'Falló autenticación con Google';
             setError(msg);
-            return false;
+            return { ok: false };
         }
     };
 
-    const logout = () => clearAuth();
+    const logout = async () => {
+        try {
+            await client.post('/auth/logout', {}, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            clearAuth();
+        } catch {
+            setError('No se pudo cerrar la sesión.');
+        }
+    };
 
     return (
         <AuthContext.Provider value={{

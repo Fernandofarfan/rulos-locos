@@ -25,16 +25,17 @@ class ArbitrageController {
             logger.error('Error en ArbitrageController.getArbitrage: %s', (error as Error).stack);
             res.json({
                 dolares: {
-                    blue: { compra: 1150, venta: 1180, casa: 'blue', nombre: 'Blue' },
-                    oficial: { compra: 1040, venta: 1090, casa: 'oficial', nombre: 'Oficial' },
-                    mep: { compra: 1110, venta: 1135, casa: 'bolsa', nombre: 'MEP' },
-                    ccl: { compra: 1190, venta: 1210, casa: 'contadoconliqui', nombre: 'CCL' },
+                    blue: { compra: 1150, venta: 1180, casa: 'blue', nombre: 'Blue', source: 'estimado', isEstimated: true },
+                    oficial: { compra: 1040, venta: 1090, casa: 'oficial', nombre: 'Oficial', source: 'estimado', isEstimated: true },
+                    mep: { compra: 1110, venta: 1135, casa: 'bolsa', nombre: 'MEP', source: 'estimado', isEstimated: true },
+                    ccl: { compra: 1190, venta: 1210, casa: 'contadoconliqui', nombre: 'CCL', source: 'estimado', isEstimated: true },
                 },
                 cryptos: {},
                 opportunities: [],
                 history: spreadHistory.getAll(),
                 timestamp: new Date().toISOString(),
                 error: true,
+                source: 'estimado', isEstimated: true,
             });
         }
     }

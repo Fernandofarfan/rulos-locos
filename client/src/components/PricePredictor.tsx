@@ -57,7 +57,7 @@ export const PricePredictor: React.FC<PredictorProps> = ({ currentBlue = 0 }) =>
     const pred14 = predict(14);
     const pred30 = predict(30);
 
-    const fmt = (n: number) => n > 0
+    const fmt = (n: number) => !Number.isFinite(n) ? '—' : n > 0
         ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
         : '--';
 

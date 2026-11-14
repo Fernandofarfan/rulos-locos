@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { createChart } from 'lightweight-charts';
 import { TrendingUp, Info, RefreshCw } from 'lucide-react';
 import { apiService } from '../services/api';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface BondPoint {
     name: string;
@@ -18,6 +19,9 @@ interface YieldData {
     points: BondPoint[];
     cclUsed: number;
     timestamp: string;
+    source?: string;
+    estimated?: boolean;
+    isEstimated?: boolean;
 }
 
 export const YieldCurve: React.FC = () => {
@@ -152,6 +156,7 @@ export const YieldCurve: React.FC = () => {
 
     return (
         <div className="glass-panel p-6 space-y-4">
+            {data && <DataFreshness source={data.source ?? 'BCRA'} updatedAt={data.timestamp} isEstimated={data.isEstimated || data.estimated} />}
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

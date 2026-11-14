@@ -7,6 +7,8 @@ interface DolarType {
     compra: number;
     venta: number;
     fechaActualizacion?: string;
+    source?: string;
+    isEstimated?: boolean;
 }
 
 interface ArbitrageState {

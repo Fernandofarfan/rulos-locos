@@ -49,7 +49,7 @@ export const MarketTicker: React.FC<MarketTickerProps> = ({ rate, dolares, globa
         dolares?.ccl?.venta && { label: 'CCL', value: dolares.ccl.venta.toFixed(0), prefix: '$' },
         dolares?.oficial?.venta && { label: 'OFICIAL', value: dolares.oficial.venta.toFixed(0), prefix: '$' },
         ...global.slice(0, 6).map((item: any) => ({
-            label: item.symbol?.replace('-USD', '').replace('^', '').replace('=F', '') || item.name,
+            label: `${item.symbol?.replace('-USD', '').replace('^', '').replace('=F', '') || item.name}${item.isEstimated || item.estimated ? ' (Estimado)' : ''}`,
             value: item.price >= 1000
                 ? item.price.toLocaleString('en-US', { maximumFractionDigits: 0 })
                 : item.price.toFixed(2),
@@ -57,7 +57,7 @@ export const MarketTicker: React.FC<MarketTickerProps> = ({ rate, dolares, globa
             prefix: item.symbol?.includes('=F') || !item.symbol?.includes('^') ? '$' : '',
         })),
         ...merval.slice(0, 4).map((s: any) => ({
-            label: s.ticker,
+            label: `${s.ticker}${s.isEstimated || s.estimated ? ' (Estimado)' : ''}`,
             value: s.price?.toFixed(0) ?? '-',
             change: s.change,
             prefix: '$',

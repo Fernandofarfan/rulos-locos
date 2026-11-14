@@ -24,6 +24,8 @@ export interface ArbitrageOpportunity {
     comisiones: string;
     buyPrice?: number;
     sellPrice?: number;
+    source?: string;
+    isEstimated?: boolean;
 }
 
 export interface ArbitrageResult {
@@ -227,7 +229,7 @@ class ArbitrageService {
         }
 
         opportunities.sort((a, b) => parseFloat(b.rentabilidad) - parseFloat(a.rentabilidad));
-        return opportunities;
+        return opportunities.map(opportunity => ({ ...opportunity, source: 'estimado', isEstimated: true }));
     }
 }
 

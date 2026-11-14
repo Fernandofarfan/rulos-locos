@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, ArrowRight, TrendingUp, AlertCircle, RefreshCw, Calculator } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiService } from '../services/api';
+import { DataFreshness } from './ui/DataFreshness';
 
 /** Punto de la serie histórica de inflación mensual */
 interface MonthlyRate {
@@ -45,11 +46,13 @@ export const InflationCalculator: React.FC = () => {
     /** Serie mensual cargada desde el backend */
     const [series, setSeries] = useState<MonthlyRate[]>([]);
     const [seriesLoaded, setSeriesLoaded] = useState(false);
+    const [freshness, setFreshness] = useState<{ source: string; timestamp?: string; estimated?: boolean }>({ source: 'estimado', estimated: true });
 
     // Cargar la serie histórica una sola vez al montar el componente
     useEffect(() => {
-        apiService.getHistorical('inflacion', '5Y')
+        apiService.getHistorical('inflacion', 'ALL')
             .then((resp) => {
+                setFreshness({ source: resp.source ?? 'estimado', timestamp: resp.timestamp, estimated: resp.isEstimated ?? resp.estimated ?? !resp.labels?.length });
                 if (resp?.labels?.length && resp?.values?.length) {
                     const data: MonthlyRate[] = (resp.labels as string[])
                         .map((label: string, i: number) => ({ label, value: resp.values[i] as number }))
@@ -94,6 +97,7 @@ export const InflationCalculator: React.FC = () => {
 
     return (
         <div className="bg-black/40 backdrop-blur-md rounded-2xl border border-white/10 p-6 shadow-xl relative overflow-hidden">
+            <DataFreshness source={freshness.source} updatedAt={freshness.timestamp} estimated={freshness.estimated} />
             <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-xl bg-accent-primary/20 text-accent-primary">
                     <Calendar size={20} />

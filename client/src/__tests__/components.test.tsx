@@ -5,6 +5,9 @@ import { AuthProvider } from '../contexts/AuthContext';
 import { LoginModal } from '../components/LoginModal';
 
 vi.mock('../services/api', () => ({
+    getAccessToken: vi.fn().mockReturnValue(null),
+    setAccessToken: vi.fn(),
+    refreshAccessToken: vi.fn().mockResolvedValue(null),
     default: {
         post: vi.fn().mockResolvedValue({ data: { token: 'fake-token', user: { id: '1', email: 'test@test.com', name: 'Test' } } }),
         get: vi.fn().mockResolvedValue({ data: {} }),

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { RefreshCw, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import { Tooltip } from './ui/Tooltip';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface Cedear {
     ticker: string;
@@ -71,6 +72,7 @@ export const CedearsPanel: React.FC<CedearsPanelProps> = ({ cclRate = 1200 }) =>
 
     return (
         <div className="glass-panel no-lift p-6">
+            <DataFreshness source="estimado" updatedAt={updatedAt ?? undefined} estimated />
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <TrendingUp size={14} className="text-sky-400" />

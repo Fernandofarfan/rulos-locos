@@ -4,6 +4,7 @@ export interface PriceData {
     totalBid: number;
     totalAsk: number;
     source: string;
+    isEstimated?: boolean;
     timestamp?: string;
     updatedAt?: string;
 }
@@ -18,6 +19,7 @@ export interface ArbitrageOpportunity {
     rentabilidad: number;
     ganancia: number;
     riesgo: string;
+    isEstimated?: boolean;
 }
 
 /** Indicador de inflación retornado por el backend */

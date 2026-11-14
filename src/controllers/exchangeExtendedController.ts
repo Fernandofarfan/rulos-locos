@@ -67,7 +67,7 @@ class ExchangeControllerExtended {
         if (!email) { res.status(400).json({ error: 'Email requerido' }); return; }
         try {
             if (prisma) {
-                const user = await prisma.user.findUnique({ where: { email } });
+                const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } });
                 if (user) {
                     res.json({ success: true, message: 'Usuario registrado. Recibirás el resumen diario.' });
                     return;

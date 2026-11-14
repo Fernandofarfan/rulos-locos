@@ -4,6 +4,7 @@ import cache from '../utils/cache';
 import logger from '../utils/logger';
 import api from '../services/dolarApiService'; // Fetch from actual services
 import cryptoYaService from '../services/cryptoYaService';
+import { filterByDateRange } from '../utils/historicalRange';
 
 export class AIController {
     async getInsight(req: Request, res: Response): Promise<void> {
@@ -60,8 +61,7 @@ export class AIController {
             }
 
             // Para no pasar 365 días a Gemini, tomamos los últimos 30 días
-            const recentLabels = labels.slice(-30);
-            const recentValues = values.slice(-30);
+            const { labels: recentLabels, values: recentValues } = filterByDateRange(labels, values, '1M');
 
             const promptData = {
                 activo: assetName,

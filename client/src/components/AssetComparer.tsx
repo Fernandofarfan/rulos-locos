@@ -3,6 +3,7 @@ import { GitCompare, RefreshCw, TrendingUp } from 'lucide-react';
 import { createChart } from 'lightweight-charts';
 import { useRef } from 'react';
 import { apiService } from '../services/api';
+import { filterSeries } from '../utils/dateWindow';
 
 const ASSETS = [
     { key: 'blue',     label: 'Dólar Blue',    color: '#3b82f6' },
@@ -14,7 +15,7 @@ const ASSETS = [
 ];
 
 type Range = '3M' | '6M' | '1Y';
-const RANGE_SLICE: Record<Range, number> = { '3M': 90, '6M': 180, '1Y': 365 };
+const RANGE_MONTHS: Record<Range, number> = { '3M': 3, '6M': 6, '1Y': 12 };
 
 const normalize = (values: number[]): number[] => {
     const base = values[0];
@@ -50,11 +51,8 @@ export const AssetComparer: React.FC = () => {
 
         if (chartInstanceRef.current) { chartInstanceRef.current.remove(); chartInstanceRef.current = null; }
 
-        const N = RANGE_SLICE[range];
-        const sliceA = dataA.values.slice(-N);
-        const labelsA = dataA.labels.slice(-N);
-        const sliceB = dataB.values.slice(-N);
-        const labelsB = dataB.labels.slice(-N);
+        const { values: sliceA, labels: labelsA } = filterSeries(dataA, RANGE_MONTHS[range]);
+        const { values: sliceB, labels: labelsB } = filterSeries(dataB, RANGE_MONTHS[range]);
 
         const normA = normalize(sliceA);
         const normB = normalize(sliceB);
@@ -95,9 +93,8 @@ export const AssetComparer: React.FC = () => {
     }, [dataA, dataB, assetA, assetB, range]);
 
     // Stats
-    const N = RANGE_SLICE[range];
-    const sliceA = dataA?.values.slice(-N) ?? [];
-    const sliceB = dataB?.values.slice(-N) ?? [];
+    const sliceA = dataA ? filterSeries(dataA, RANGE_MONTHS[range]).values : [];
+    const sliceB = dataB ? filterSeries(dataB, RANGE_MONTHS[range]).values : [];
     const perfA = sliceA.length > 1 ? ((sliceA[sliceA.length - 1] / sliceA[0]) - 1) * 100 : 0;
     const perfB = sliceB.length > 1 ? ((sliceB[sliceB.length - 1] / sliceB[0]) - 1) * 100 : 0;
     const winner = perfA > perfB ? assetA : assetB;

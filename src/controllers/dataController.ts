@@ -19,11 +19,12 @@ class DataController {
             plata: { nombre: 'Plata', unidad: 'USD', onzaTroy: 23.85,   gramo: 0.77,  kilo: 770 },
             cobre: { nombre: 'Cobre', unidad: 'USD', libra: 3.85,       kilo: 8.49,   tonelada: 8490 },
         };
-        res.json(metals);
+        res.json({ ...metals, source: 'estimado', estimated: true });
     }
 
     getStocks(_req: Request, res: Response): void {
         res.json({
+            source: 'estimado', estimated: true,
             acciones: [
                 { ticker: 'YPF',  nombre: 'YPF S.A.',                   precio: 28450, variacion: 2.5,  volumen: 1850000 },
                 { ticker: 'GGAL', nombre: 'Grupo Financiero Galicia',   precio: 578,   variacion: -1.2, volumen: 3450000 },
@@ -55,6 +56,7 @@ class DataController {
     async getIndicators(_req: Request, res: Response): Promise<void> {
         try {
             res.json({
+                source: 'estimado', estimated: true,
                 riesgoPais:   { valor: 512, variacion: -15 },
                 reservas:     { valor: 31250, variacion: 120 },
                 inflacion:    { mensual: 2.8, anual: 38.5 },

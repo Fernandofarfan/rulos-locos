@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Percent, TrendingUp, TrendingDown, Info, RefreshCw } from 'lucide-react';
 import { apiService } from '../services/api';
 import { Tooltip } from './ui/Tooltip';
+import { DataFreshness } from './ui/DataFreshness';
 
 interface RatesData {
     badlar: { tna: number; tem: number; tea: number; fecha: string };
@@ -9,6 +10,9 @@ interface RatesData {
     inflation: { mensual: number; interanual: number; fecha: string };
     realRate: number;
     timestamp: string;
+    source?: string;
+    estimated?: boolean;
+    isEstimated?: boolean;
 }
 
 const RateCard: React.FC<{
@@ -91,6 +95,7 @@ export const InterestRates: React.FC = () => {
 
     return (
         <div className="glass-panel p-6 space-y-5">
+            {rates && <DataFreshness source={rates.source ?? 'ArgentinaDatos'} updatedAt={rates.timestamp} isEstimated={rates.isEstimated || rates.estimated} />}
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

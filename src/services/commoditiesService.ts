@@ -16,6 +16,7 @@ export interface CommodityItem {
     change24h: number;  // variación %
     unit: string;
     source: string;
+    estimated?: boolean;
 }
 
 /** Precios base de referencia (usados como fallback si la API no responde) */
@@ -56,7 +57,8 @@ function withFakeDelta(base: Omit<CommodityItem, 'change24h' | 'source'>[]): Com
         return {
             ...item,
             change24h: parseFloat(pseudo.toFixed(2)),
-            source: 'Referencia MATBA-ROFEX',
+            source: 'estimado',
+            estimated: true,
         };
     });
 }
