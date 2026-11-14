@@ -1,7 +1,42 @@
 import { describe, it, expect } from 'vitest';
-import { calculateUvaLoan, dollarSalePrice, inflationReturn, percentageReturn, plazoFijoRate, projectSavings, purchasingPowerLoss, realRate, uvaEntryOneYearBefore, uvaMonthlyGrowth } from './financial';
+import { adjustByUva, calculateInvestmentTax, calculateSalaryPower, calculateUvaLoan, compareCardDollar, dollarSalePrice, fixedDepositRates, inflationReturn, loanVsDeposit, MONTHLY_INFLATION_2024, percentageReturn, plazoFijoRate, projectSavings, purchasingPowerLoss, realRate, realRateProjection, savingsReturnPct, uvaEntryOneYearBefore, uvaMonthlyGrowth } from './financial';
 
 describe('financial calculations', () => {
+    it('calcula impuesto simplificado solo sobre ganancias', () => {
+        expect(calculateInvestmentTax(1000, 1300, 15, false)).toEqual({ gain: 300, tax: 45, netGain: 255, netReturn: 1255 });
+        expect(calculateInvestmentTax(1000, 900, 15, false).tax).toBe(0);
+    });
+    it('compone IPC y aumento salarial, con salario cero seguro', () => {
+        const salary = calculateSalaryPower(1000, 10, [10, 20]);
+        expect(salary.realToday).toBeCloseTo(1320);
+        expect(salary.currentNominal).toBeCloseTo(1100);
+        expect(salary.purchasingPower).toBeCloseTo(83.333333);
+        expect(calculateSalaryPower(0, 0, [10]).purchasingPower).toBe(0);
+        expect(MONTHLY_INFLATION_2024[9]).toBe(2.7);
+    });
+    it('calcula plazo fijo de 30 días con interés simple y reinversión periódica', () => {
+        const rates = fixedDepositRates(36.5);
+        expect(rates.period).toBeCloseTo(0.03);
+        expect(rates.annual).toBeCloseTo(1.03 ** (365 / 30) - 1);
+    });
+    it('calcula ajuste UVA y evita división por cero', () => {
+        expect(adjustByUva(1000, 100, 120)).toEqual({ ratio: 1.2, adjustedAmount: 1200, nominalGain: 200, nominalGainPct: (1.2 - 1) * 100 });
+        expect(adjustByUva(1000, 0, 120)).toBeNull();
+    });
+    it('calcula préstamo francés y ahorro sin confundir aportes con rendimiento', () => {
+        const loan = loanVsDeposit(1200, 12, 12, 0);
+        expect(loan.monthlyInstallment).toBeCloseTo(1200 * 0.01 / (1 - 1.01 ** -12));
+        expect(loan.totalPaid).toBeCloseTo(loan.monthlyInstallment * 12);
+        expect(projectSavings(1000, 0, 2, 100, true)).toBe(1200);
+        expect(savingsReturnPct(1200, 1000, 100, 2)).toBe(0);
+    });
+    it('compara dólar tarjeta y MEP y calcula tasa real Fisher', () => {
+        expect(compareCardDollar(100, 1500, 1200).differenceARS).toBe(30000);
+        expect(compareCardDollar(0, 0, 0).differencePct).toBe(0);
+        const projection = realRateProjection(36.5, 30, 1000, 2);
+        expect(projection.tasaEfectivaPeriodo).toBeCloseTo(0.03);
+        expect(projection.tasaReal).toBeCloseTo(1.03 / 1.02 - 1);
+    });
     it('derives UVA growth from elapsed time, not the number of samples', () => {
         const monthly = uvaMonthlyGrowth([
             { fecha: '2020-01-01', valor: 20 },

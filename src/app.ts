@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import helmet from 'helmet';
+import seoRoutes from './routes/seo.routes';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import compression from 'compression';
@@ -55,6 +56,13 @@ app.use(helmet({
     },
 }));
 
+app.use('/widget.html', (_req, res, next) => {
+    const csp = String(res.getHeader('Content-Security-Policy') ?? '').replace(/(?:^|;)\s*frame-ancestors[^;]*/i, '');
+    res.setHeader('Content-Security-Policy', `${csp}; frame-ancestors *`);
+    res.setHeader('X-Frame-Options', 'ALLOWALL');
+    next();
+});
+
 const corsOptions: cors.CorsOptions = {
     origin: (origin, callback) => {
         if (!origin || config.CORS_ORIGINS.includes(origin)) {
@@ -100,6 +108,8 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Health checks (siempre disponibles sin rate limit)
 app.use('/', healthRoutes);
+app.use('/api/seo', seoRoutes);
+app.use('/', seoRoutes);
 
 // API routes (both v1 and unversioned legacy)
 app.use('/api/v1', apiRoutes);

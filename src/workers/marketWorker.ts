@@ -1,6 +1,7 @@
 import marketService from '../services/marketService';
 import logger from '../utils/logger';
 import cache from '../utils/cache';
+import economicsController from '../controllers/economicsController';
 
 const MARKET_POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
 const MARKET_CACHE_TTL_MS = 6 * 60 * 1000; // 6 minutos (algo más que el intervalo)
@@ -34,7 +35,8 @@ class MarketWorker {
                     ? 'estimado' : [...new Set([...merval, ...cedears, ...bonds, ...global].map(item => item.source))].join(', '),
             };
 
-            cache.set('market_data', payload, MARKET_CACHE_TTL_MS);
+            await cache.setShared('market_data', { ...payload, updatedAt: payload.timestamp }, MARKET_CACHE_TTL_MS);
+            await economicsController.getDashboardSnapshot();
 
             logger.info(
                 '✅ MarketWorker: caché actualizado — merval:%d cedears:%d bonds:%d global:%d',

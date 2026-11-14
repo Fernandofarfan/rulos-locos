@@ -1,5 +1,6 @@
 import config from '../config';
 import { CircuitBreaker } from '../utils/circuitBreaker';
+import { recordSourceSuccess } from './sourceHealth';
 
 export interface DolarCasa {
     casa: string;
@@ -32,6 +33,8 @@ class DolarApiService {
                 } as Parameters<typeof fetch>[1]);
                 if (!response.ok) throw new Error('Error en DolarAPI');
                 const values = await response.json() as DolarCasa[];
+                if (!Array.isArray(values) || !values.length) throw new Error('DolarAPI sin datos');
+                await recordSourceSuccess('dolarapi');
                 return values.map(value => ({ ...value, source: 'DolarAPI', isEstimated: false }));
             },
             () => FALLBACK_DOLLARS.map(value => ({ ...value, source: 'estimado', isEstimated: true }))

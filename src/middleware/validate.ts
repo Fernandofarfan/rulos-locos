@@ -5,6 +5,7 @@
  */
 import { z } from 'zod';
 import { Request, Response, NextFunction } from 'express';
+import { ROUTE_IDS } from '../services/netArbitrage';
 
 // ─── Esquemas ─────────────────────────────────────────────────────────────────
 
@@ -69,11 +70,20 @@ export const PortfolioCreateSchema = z.object({
     note: z.string().max(500).optional(),
 });
 
-export const AlertCreateSchema = z.object({
-    asset: z.enum(['blue', 'mep', 'ccl', 'crypto', 'oficial']),
-    condition: z.enum(['above', 'below']),
-    threshold: z.coerce.number().finite().positive('threshold debe ser mayor a 0'),
-});
+export const AlertCreateSchema = z.union([
+    z.object({
+        kind: z.literal('PRICE').optional(),
+        asset: z.enum(['blue', 'mep', 'ccl', 'crypto', 'oficial']),
+        condition: z.enum(['above', 'below']),
+        threshold: z.coerce.number().finite().positive('threshold debe ser mayor a 0'),
+    }),
+    z.object({
+        kind: z.literal('RULO'),
+        routeId: z.string().refine(value => ROUTE_IDS.includes(value), 'Ruta inválida'),
+        threshold: z.coerce.number().finite().min(-50).max(50),
+        capital: z.coerce.number().finite().min(10_000).max(10_000_000_000).default(1_000_000),
+    }),
+]);
 
 export const PaperTradeSchema = z.object({
     type: z.enum(['BUY', 'SELL']),

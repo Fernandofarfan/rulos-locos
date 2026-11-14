@@ -75,6 +75,7 @@ export const CommoditiesMonitor: React.FC = () => {
                     )}
                     <button
                         onClick={fetchData}
+                        aria-label="Actualizar commodities"
                         disabled={loading}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
                     >

@@ -113,6 +113,7 @@ export const InflationCalculator: React.FC = () => {
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-slate-500 uppercase">Cantidad Original ($)</label>
                         <input
+                            aria-label="Cantidad Original ($)"
                             type="number"
                             value={amount}
                             onChange={(e) => setAmount(Number(e.target.value))}
@@ -122,6 +123,7 @@ export const InflationCalculator: React.FC = () => {
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-slate-500 uppercase">Fecha de Origen</label>
                         <input
+                            aria-label="Fecha de Origen"
                             type="date"
                             value={dateFrom}
                             onChange={(e) => setDateFrom(e.target.value)}

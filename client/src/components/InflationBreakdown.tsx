@@ -24,7 +24,7 @@ export const InflationBreakdown: React.FC = () => {
     const fecha: string    = (economics?.macro?.inflation as any)?.fecha ?? '';
 
     // Categorías reales si la API las devuelve; null → escala proporcional
-    const apiCategorias: { categoria: string; valor: number }[] | null =
+    const apiCategorias: { categoria: string; valor: number; fecha?: string }[] | null =
         (economics?.macro?.inflation as any)?.categorias ?? null;
 
     const rubros = RUBROS_BASE.map(r => {
@@ -44,7 +44,7 @@ export const InflationBreakdown: React.FC = () => {
 
     return (
         <div className="glass-panel p-6">
-            <DataFreshness source={apiCategorias ? 'ArgentinaDatos' : 'estimado'} updatedAt={fecha || undefined} isEstimated={!apiCategorias} />
+            <DataFreshness source={apiCategorias ? 'INDEC' : 'estimado'} updatedAt={apiCategorias?.[0]?.fecha ?? (fecha || undefined)} isEstimated={!apiCategorias} />
             <div className="flex items-center justify-between gap-3 mb-5">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-rose-500/10 rounded-xl border border-rose-500/20">
@@ -53,7 +53,7 @@ export const InflationBreakdown: React.FC = () => {
                     <div>
                         <h3 className="text-sm font-bold text-white uppercase tracking-widest">Desglose de Inflación</h3>
                         <p className="text-[10px] text-slate-500 mt-0.5">
-                            {apiCategorias ? 'Datos reales INDEC · ArgentinaDatos' : 'Pesos proporcionales · Canasta IPC INDEC'}
+                            {apiCategorias ? 'Datos INDEC · series oficiales' : 'Pesos proporcionales · Canasta IPC INDEC'}
                         </p>
                     </div>
                 </div>

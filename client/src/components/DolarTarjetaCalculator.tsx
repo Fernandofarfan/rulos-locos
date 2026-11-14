@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { CreditCard, DollarSign, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useDashboardData } from '../hooks/useDashboardData';
+import { compareCardDollar } from '../utils/financial';
+import { DataFreshness } from './ui/DataFreshness';
 
 export const DolarTarjetaCalculator: React.FC = () => {
     const { arbitrage } = useDashboardData();
@@ -14,14 +16,14 @@ export const DolarTarjetaCalculator: React.FC = () => {
     const priceTarjeta = tarjeta.venta ?? 1650;
     const priceMep = mep.venta ?? 1150;
 
-    const costARSviaTarjeta = usdAmount * priceTarjeta;
-    const costARSviaMEP = usdAmount * priceMep;
-    const differenceARS = Math.abs(costARSviaTarjeta - costARSviaMEP);
-    const mepIsCheaper = costARSviaMEP < costARSviaTarjeta;
-    const differencePct = (differenceARS / (mepIsCheaper ? costARSviaTarjeta : costARSviaMEP)) * 100;
+    const { costARSviaTarjeta, costARSviaMEP, differenceARS, mepIsCheaper, differencePct } =
+        compareCardDollar(usdAmount, priceTarjeta, priceMep);
 
     return (
         <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700/50 p-6 relative overflow-hidden">
+            <DataFreshness source={dolares?.tarjeta?.source ?? 'estimado'}
+                updatedAt={dolares?.tarjeta?.fechaActualizacion}
+                isEstimated={!dolares?.tarjeta || !dolares?.mep || dolares.tarjeta.isEstimated || dolares.mep.isEstimated} />
             {/* Background glow */}
             <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -48,6 +50,7 @@ export const DolarTarjetaCalculator: React.FC = () => {
                             <span className="text-slate-400 font-mono text-lg font-medium">$</span>
                         </div>
                         <input
+                            aria-label="Monto en dólares"
                             type="number"
                             min="1"
                             step="1"
@@ -116,7 +119,7 @@ export const DolarTarjetaCalculator: React.FC = () => {
                             Ahorrás <span className="font-mono font-bold">${differenceARS.toLocaleString('es-AR', { maximumFractionDigits: 0 })} ARS</span> ({differencePct.toFixed(1)}%) comprando los dólares en la bolsa en vez de dejar que la tarjeta haga la conversión a pesos.
                         </p>
                         {mepIsCheaper && (
-                            <p className="text-xs mt-2 opacity-75">
+                            <p className="text-xs mt-2">
                                 * Recordá hacer "Stop Debit" e indicar en el home banking que pagarás el saldo en USD con dólares de tu caja de ahorro para que no aplique impuestos.
                             </p>
                         )}

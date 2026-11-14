@@ -33,6 +33,7 @@ build/
 
 # Runtime data (spread history, etc.)
 data/
+backups/
 
 # Test output files
 test-results.json

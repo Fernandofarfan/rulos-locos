@@ -3,6 +3,7 @@ import { Calculator, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import { apiService } from '../services/api';
 import CandlestickChart from './CandlestickChart';
 import { DataFreshness } from './ui/DataFreshness';
+import { adjustByUva } from '../utils/financial';
 
 interface UVAEntry { fecha: string; valor: number; }
 interface UVAResponse { data: UVAEntry[]; latest?: UVAEntry; source: string; timestamp?: string; estimated?: boolean; isEstimated?: boolean }
@@ -45,10 +46,9 @@ export const CERCalculator: React.FC = () => {
 
         if (!startEntry || !latestEntry) return;
 
-        const ratio = latestEntry.valor / startEntry.valor;
-        const adjustedAmount = originalAmount * ratio;
-        const nominalGain = adjustedAmount - originalAmount;
-        const nominalGainPct = (ratio - 1) * 100;
+        const adjustment = adjustByUva(originalAmount, startEntry.valor, latestEntry.valor);
+        if (!adjustment) return;
+        const { ratio, adjustedAmount, nominalGain, nominalGainPct } = adjustment;
 
         // Chart: UVA evolution from start date
         const chartData = sortedByDate.filter(e => e.fecha >= startDate);
@@ -95,6 +95,7 @@ export const CERCalculator: React.FC = () => {
                 <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Monto Original (ARS)</label>
                     <input
+                        aria-label="Monto Original (ARS)"
                         type="text"
                         value={amount}
                         onChange={e => setAmount(e.target.value.replace(/[^0-9.,]/g, ''))}
@@ -105,6 +106,7 @@ export const CERCalculator: React.FC = () => {
                 <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fecha de Inicio</label>
                     <input
+                        aria-label="Fecha de Inicio"
                         type="date"
                         value={startDate}
                         min={minDate}

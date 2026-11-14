@@ -20,6 +20,7 @@ import { MobileNavBar } from './components/MobileNavBar';
 import { PanicBoard } from './components/PanicBoard';
 import { useTabTitle } from './hooks/useTabTitle';
 import { useAuth } from './hooks/useAuth';
+import { track } from './utils/analytics';
 const KeyboardShortcutsModal = lazy(() => import('./components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })));
 const GlobalSearchModal = lazy(() => import('./components/GlobalSearchModal').then(m => ({ default: m.GlobalSearchModal })));
 const FinancialGlossary = lazy(() => import('./components/FinancialGlossary').then(m => ({ default: m.FinancialGlossary })));
@@ -108,6 +109,22 @@ function App() {
   const [toolsTab, setToolsTab] = useState<'consumo' | 'creditos' | 'inversion'>('consumo');
   const [marketTab, setMarketTab] = useState<'tasas' | 'mercados'>('tasas');
   const { isAuthenticated } = useAuth();
+
+  useEffect(() => { track('section.open', activeView); }, [activeView]);
+  useEffect(() => {
+    if (activeView !== 'mercado') return;
+    track('tab.open', marketTab);
+  }, [activeView, marketTab]);
+  useEffect(() => {
+    if (activeView !== 'herramientas') return;
+    track('tab.open', toolsTab);
+    const tools = {
+      consumo: ['dolar-tarjeta', 'salario', 'inflacion', 'cer', 'ahorro', 'objetivos', 'canasta'],
+      creditos: ['uva', 'prestamos', 'impuestos'],
+      inversion: ['comparador', 'tasa-real', 'bonos', 'backtester', 'recomendacion'],
+    };
+    tools[toolsTab].forEach(tool => track('tool.open', tool));
+  }, [activeView, toolsTab]);
 
   useEffect(() => {
     const visited = localStorage.getItem('rl_visited');

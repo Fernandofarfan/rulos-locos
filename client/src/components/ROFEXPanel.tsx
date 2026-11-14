@@ -58,6 +58,9 @@ export const ROFEXPanel: React.FC = () => {
             </div>
 
             <DataFreshness source={contracts[0]?.source ?? 'estimado'} updatedAt={undefined} isEstimated={contracts.some(c => c.isEstimated || c.estimated)} />
+            {contracts.some(c => c.isEstimated || c.estimated) && <p className="text-xs text-amber-300 mb-2">
+                Valores estimados: no se dispone de cotizaciones públicas verificadas de ROFEX.
+            </p>}
             <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                     <thead>

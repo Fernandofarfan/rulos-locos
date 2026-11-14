@@ -37,6 +37,7 @@ export const rateLimiters = {
     normal: baseLimiter('normal', 60 * 1000, 60, 'Demasiadas solicitudes'),
     slow: baseLimiter('slow', 60 * 1000, 10, 'Demasiados intentos de autenticación'),
     strict: baseLimiter('strict', 10 * 1000, 3, 'Espera antes de reintentar'),
+    analytics: baseLimiter('analytics', 60 * 1000, 60, 'Demasiados eventos'),
     apiKey: rateLimit({
         windowMs: 60 * 1000,
         max: 500,

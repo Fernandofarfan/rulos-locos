@@ -20,6 +20,11 @@ enum AlertCondition {
   below
 }
 
+enum AlertKind {
+  PRICE
+  RULO
+}
+
 enum VirtualTxType {
   BUY
   SELL
@@ -61,6 +66,10 @@ model PushSubscription {
 
 model Alert {
   id        String   @id @default(cuid())
+  kind      AlertKind @default(PRICE)
+  routeId   String?
+  capital   Decimal? @db.Decimal(20, 8)
+  lastTriggeredAt DateTime?
   asset     String   // "blue" | "mep" | "ccl" | "crypto"
   condition AlertCondition
   threshold Decimal @db.Decimal(20, 8)
@@ -71,6 +80,28 @@ model Alert {
 
   @@index([userId])
   @@index([active, userId])
+}
+
+model RuloSnapshot {
+  id        String   @id @default(cuid())
+  timestamp DateTime
+  routeId   String
+  grossPct  Float
+  netPct    Float
+
+  @@unique([routeId, timestamp])
+  @@index([routeId, timestamp])
+}
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  name        String
+  path        String?
+  props       Json?
+  sessionHash String
+  createdAt   DateTime @default(now())
+
+  @@index([name, createdAt])
 }
 
 model PortfolioPosition {

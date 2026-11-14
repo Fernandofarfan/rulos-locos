@@ -1,27 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Wallet, AlertCircle } from 'lucide-react';
-
-// Inflación mensual promedio 2024 (INDEC) - 12 meses
-const MONTHLY_INFLATION_2024 = [
-    { mes: 'Ene 24', ipc: 20.6 },
-    { mes: 'Feb 24', ipc: 13.2 },
-    { mes: 'Mar 24', ipc: 11.0 },
-    { mes: 'Abr 24', ipc: 8.8 },
-    { mes: 'May 24', ipc: 4.2 },
-    { mes: 'Jun 24', ipc: 4.6 },
-    { mes: 'Jul 24', ipc: 4.0 },
-    { mes: 'Ago 24', ipc: 4.2 },
-    { mes: 'Sep 24', ipc: 3.5 },
-    { mes: 'Oct 24', ipc: 2.4 },
-    { mes: 'Nov 24', ipc: 2.4 },
-    { mes: 'Dic 24', ipc: 2.7 },
-];
-
-function cumulativeInflation(months: number): number {
-    return MONTHLY_INFLATION_2024.slice(0, months).reduce(
-        (acc, m) => acc * (1 + m.ipc / 100), 1
-    ) - 1;
-}
+import { calculateSalaryPower, MONTHLY_INFLATION_2024 } from '../utils/financial';
+import { DataFreshness } from './ui/DataFreshness';
 
 export const SalaryCalculator: React.FC = () => {
     const [salary, setSalary] = useState('400000');
@@ -33,16 +13,7 @@ export const SalaryCalculator: React.FC = () => {
     const pctInc = parseFloat(increase) || 0;
 
     const { realToday, purchasingPower, lostARS, cumulIPC, currentNominal } = useMemo(() => {
-        const cumulIPC = cumulativeInflation(months) * 100;
-        const currentNominal = hasSalaryIncrease
-            ? initial * (1 + pctInc / 100)
-            : initial;
-        // What the salary should be to maintain purchasing power
-        const realToday = initial * (1 + cumulIPC / 100);
-        // Current purchasing power relative to the required real salary
-        const purchasingPower = (currentNominal / realToday) * 100;
-        const lostARS = realToday - currentNominal;
-        return { realToday, purchasingPower, lostARS, cumulIPC, currentNominal };
+        return calculateSalaryPower(initial, hasSalaryIncrease ? pctInc : 0, MONTHLY_INFLATION_2024.slice(0, months));
     }, [initial, pctInc, months, hasSalaryIncrease]);
 
     const fmt = (n: number) =>
@@ -53,6 +24,7 @@ export const SalaryCalculator: React.FC = () => {
 
     return (
         <div className="glass-panel no-lift p-5">
+            <DataFreshness source="INDEC · IPC 2024" isEstimated={false} />
             <div className="flex items-center gap-2 mb-4">
                 <Wallet size={14} className="text-teal-400" />
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Poder Adquisitivo Real</h3>
@@ -78,6 +50,7 @@ export const SalaryCalculator: React.FC = () => {
                     <div>
                         <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Salario (ARS)</label>
                         <input
+                            aria-label="Salario (ARS)"
                             type="text"
                             value={new Intl.NumberFormat('es-AR').format(initial)}
                             onChange={e => setSalary(e.target.value.replace(/\D/g, ''))}
@@ -99,6 +72,7 @@ export const SalaryCalculator: React.FC = () => {
                     {hasSalaryIncrease && (
                         <>
                             <input
+                                aria-label="Aumento salarial (%)"
                                 type="number"
                                 value={increase}
                                 onChange={e => setIncrease(e.target.value)}

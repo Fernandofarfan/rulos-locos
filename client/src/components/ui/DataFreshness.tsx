@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 interface DataFreshnessProps {
     source: string;
-    updatedAt: number | string | Date | undefined;
+    updatedAt?: number | string | Date;
     staleAfterMs?: number;
     estimated?: boolean;
     isEstimated?: boolean;
@@ -21,7 +21,7 @@ export function DataFreshness({ source, updatedAt, staleAfterMs = 300_000, estim
         <p className={`text-xs ${stale || estimated || isEstimated ? 'text-amber-400' : 'text-slate-500'}`}>
             Fuente: {source} · {Number.isFinite(timestamp) ? `actualizado hace ${Math.max(0, Math.floor(age / 60_000))} min` : 'sin fecha de actualización'}
             {stale && ' · datos posiblemente desactualizados'}
-            {(estimated || isEstimated) && ' · Estimado — fuente no disponible'}
+            {(estimated || isEstimated) && ' · Estimado'}
         </p>
     );
 }

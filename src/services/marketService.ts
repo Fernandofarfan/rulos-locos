@@ -1,5 +1,6 @@
 import logger from '../utils/logger';
 import cache from '../utils/cache';
+import { recordSourceSuccess } from './sourceHealth';
 
 interface MarketQuote {
     symbol: string;
@@ -53,7 +54,10 @@ async function getArgentineBondQuotes(): Promise<BondQuote[]> {
                 const data = await response.json() as BondQuote[];
                 if (!Array.isArray(data)) throw new Error('Invalid Data912 response');
                 const valid = data.filter(quote => typeof quote.symbol === 'string' && Number.isFinite(quote.c) && quote.c > 0);
-                if (valid.length) cache.set('data912_bonds', valid, 60_000);
+                if (valid.length) {
+                    cache.set('data912_bonds', valid, 60_000);
+                    await recordSourceSuccess('data912');
+                }
                 return valid;
             } catch (error) {
                 logger.warn('Data912 bond data unavailable: %s', (error as Error).message);
@@ -77,6 +81,7 @@ async function getYahooQuote(symbol: string): Promise<MarketQuote | null> {
         const json = await r.json() as { chart?: { result?: Array<{ meta?: { symbol?: string; shortName?: string; regularMarketPrice?: number; previousClose?: number; chartPreviousClose?: number } }> } };
         const meta = json.chart?.result?.[0]?.meta;
         if (!meta?.regularMarketPrice || !Number.isFinite(meta.regularMarketPrice)) return null;
+        await recordSourceSuccess('yahoo');
         const previous = meta.previousClose ?? meta.chartPreviousClose;
         const change = previous && previous > 0 ? (meta.regularMarketPrice / previous - 1) * 100 : undefined;
         return { symbol: meta.symbol ?? ticker, name: meta.shortName ?? ticker, close: meta.regularMarketPrice, source: 'Yahoo Finance', change };

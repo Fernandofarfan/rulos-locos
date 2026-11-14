@@ -136,6 +136,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, indicator, color = 
                             </div>
                             {indicator === 'blue' && (
                                 <select
+                                    aria-label="Tipo de dólar"
                                     value={dolarType}
                                     onChange={(e) => setDolarType(e.target.value)}
                                     className="bg-white/5 text-[10px] text-slate-400 p-1 rounded-lg border border-white/5 outline-none focus:border-accent-primary/50 focus:text-white transition-colors uppercase font-bold tracking-wider cursor-pointer hover:bg-white/10"
@@ -154,6 +155,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, indicator, color = 
                             <Tooltip content={showCandles ? 'Cambiar a Área' : 'Cambiar a Velas'}>
                                 <button
                                     onClick={() => setShowCandles(!showCandles)}
+                                    aria-label={showCandles ? 'Cambiar a área' : 'Cambiar a velas'}
                                     className={`p-2 rounded-xl transition-colors ${showCandles ? 'bg-accent-secondary/20 text-accent-secondary' : 'hover:bg-white/5 text-slate-500 hover:text-white'}`}
                                 >
                                     <CandleIcon size={16} />
@@ -163,6 +165,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, indicator, color = 
                         <Tooltip content={showVolume ? 'Ocultar Volumen' : 'Mostrar Volumen'}>
                             <button
                                 onClick={() => setShowVolume(!showVolume)}
+                                aria-label={showVolume ? 'Ocultar volumen' : 'Mostrar volumen'}
                                 className={`p-2 rounded-xl transition-colors ${showVolume ? 'bg-teal-500/20 text-teal-400' : 'hover:bg-white/5 text-slate-500 hover:text-white'}`}
                             >
                                 <BarChart3 size={16} />

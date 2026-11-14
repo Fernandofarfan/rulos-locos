@@ -1,5 +1,5 @@
 import prisma from '../src/utils/db';
-import { decryptSecret, encryptSecret } from '../src/utils/crypto';
+import { decryptSecret, encryptSecret, isCurrentEncryption } from '../src/utils/crypto';
 
 async function main(): Promise<void> {
     if (!prisma) throw new Error('Base de datos no disponible');
@@ -10,12 +10,12 @@ async function main(): Promise<void> {
     const keys = await prisma.exchangeKey.findMany();
     for (const key of keys) {
         const data: { apiSecret?: string; passthrough?: string } = {};
-        if (!key.apiSecret.startsWith('v1:')) {
+        if (!isCurrentEncryption(key.apiSecret)) {
             data.apiSecret = encryptSecret(decryptSecret(key.apiSecret, 'base64'));
             apiSecrets++;
         }
-        if (key.passthrough && !key.passthrough.startsWith('v1:')) {
-            data.passthrough = encryptSecret(key.passthrough);
+        if (key.passthrough && !isCurrentEncryption(key.passthrough)) {
+            data.passthrough = encryptSecret(decryptSecret(key.passthrough, 'plain'));
             passthroughs++;
         }
         if (!dryRun && Object.keys(data).length) {
@@ -24,10 +24,10 @@ async function main(): Promise<void> {
     }
     const users = await prisma.user.findMany({ where: { twoFactorSecret: { not: null } } });
     for (const user of users) {
-        if (user.twoFactorSecret && !user.twoFactorSecret.startsWith('v1:')) {
+        if (user.twoFactorSecret && !isCurrentEncryption(user.twoFactorSecret)) {
             twoFactorSecrets++;
             if (!dryRun) await prisma.user.update({
-                where: { id: user.id }, data: { twoFactorSecret: encryptSecret(user.twoFactorSecret) },
+                where: { id: user.id }, data: { twoFactorSecret: encryptSecret(decryptSecret(user.twoFactorSecret, 'plain')) },
             });
         }
     }

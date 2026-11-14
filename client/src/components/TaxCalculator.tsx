@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Receipt, Info } from 'lucide-react';
+import { calculateInvestmentTax } from '../utils/financial';
+import { DataFreshness } from './ui/DataFreshness';
 
 
 type InstrumentType = 'plazo_fijo' | 'cedear' | 'accion_local' | 'fci_renta_fija' | 'fci_renta_variable' | 'cripto';
@@ -16,7 +18,7 @@ interface Instrument {
 
 const INSTRUMENTS: Instrument[] = [
     { id: 'plazo_fijo', label: 'Plazo Fijo', emoji: '🏦', taxRate: 0, exento: true, notes: 'Exento de impuesto a las ganancias (personas físicas). Ley 27.430.' },
-    { id: 'cedear', label: 'CEDEARs', emoji: '📊', taxRate: 15, exento: false, cedularRate: 15, notes: 'Impuesto cedular 15% sobre ganancia en USD. Si resultado es negativo se puede compensar.' },
+    { id: 'cedear', label: 'CEDEARs', emoji: '📊', taxRate: 15, exento: false, cedularRate: 15, notes: 'Estimación simplificada en pesos con alícuota de referencia. Consultá el tratamiento fiscal aplicable a tu caso.' },
     { id: 'accion_local', label: 'Acciones BYMA', emoji: '📈', taxRate: 0, exento: true, notes: 'Exento para personas físicas sobre la ganancia de capital. Solo dividendos tributan.' },
     { id: 'fci_renta_fija', label: 'FCI Renta Fija', emoji: '💼', taxRate: 0, exento: true, notes: 'Ganancias de capital exentas. Solo renta (cupones/intereses incluidos en la cuotaparte).' },
     { id: 'fci_renta_variable', label: 'FCI Renta Variable', emoji: '🚀', taxRate: 0, exento: true, notes: 'Exento de Ganancias para personas físicas.' },
@@ -32,23 +34,18 @@ export const TaxCalculator: React.FC = () => {
     const investedNum = parseFloat(invested.replace(/\D/g, '')) || 0;
     const returnedNum = parseFloat(returned.replace(/\D/g, '')) || 0;
 
-    const { gain, tax, netGain, netReturn } = useMemo(() => {
-        const gain = returnedNum - investedNum;
-        const tax = selectedInstr.exento || gain <= 0
-            ? 0
-            : gain * (selectedInstr.cedularRate ?? selectedInstr.taxRate) / 100;
-        const netGain = gain - tax;
-        const netReturn = investedNum + netGain;
-        return { gain, tax, netGain, netReturn };
-    }, [investedNum, returnedNum, selectedInstr]);
+    const { gain, tax, netGain, netReturn } = useMemo(() =>
+        calculateInvestmentTax(investedNum, returnedNum, selectedInstr.cedularRate ?? selectedInstr.taxRate, selectedInstr.exento),
+    [investedNum, returnedNum, selectedInstr]);
 
     const pctGross = investedNum > 0 ? ((gain / investedNum) * 100).toFixed(1) : '0';
     const pctNet = investedNum > 0 ? ((netGain / investedNum) * 100).toFixed(1) : '0';
 
     const fmt = (n: number) => Number.isFinite(n) ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n) : '—';
 
-    const numInput = (value: string, setter: (v: string) => void) => (
+    const numInput = (value: string, setter: (v: string) => void, label: string) => (
         <input
+            aria-label={label}
             type="text"
             value={new Intl.NumberFormat('es-AR').format(parseFloat(value) || 0)}
             onChange={e => setter(e.target.value.replace(/\D/g, ''))}
@@ -58,6 +55,7 @@ export const TaxCalculator: React.FC = () => {
 
     return (
         <div className="glass-panel no-lift p-5">
+            <DataFreshness source="supuestos impositivos simplificados" isEstimated />
             <div className="flex items-center gap-2 mb-4">
                 <Receipt size={14} className="text-rose-400" />
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Calculadora Impuesto a las Ganancias</h3>
@@ -86,20 +84,20 @@ export const TaxCalculator: React.FC = () => {
             <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>
                     <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Capital invertido (ARS)</label>
-                    {numInput(invested, setInvested)}
+                    {numInput(invested, setInvested, 'Capital invertido (ARS)')}
                 </div>
                 <div>
                     <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Monto de retorno (ARS)</label>
-                    {numInput(returned, setReturned)}
+                    {numInput(returned, setReturned, 'Monto de retorno (ARS)')}
                 </div>
             </div>
 
             {/* Results */}
             <div className="space-y-2">
                 {[
-                    { label: 'Ganancia bruta', value: gain, extra: `+${pctGross}%`, color: gain >= 0 ? 'text-emerald-400' : 'text-rose-400' },
+                    { label: 'Ganancia bruta', value: gain, extra: `${gain >= 0 ? '+' : ''}${pctGross}%`, color: gain >= 0 ? 'text-emerald-400' : 'text-rose-400' },
                     { label: `Impuesto (${selectedInstr.exento ? 'EXENTO' : `${selectedInstr.cedularRate ?? selectedInstr.taxRate}%`})`, value: -tax, extra: selectedInstr.exento ? '✓ exento' : '', color: tax > 0 ? 'text-rose-400' : 'text-emerald-400' },
-                    { label: 'Ganancia neta', value: netGain, extra: `+${pctNet}%`, color: netGain >= 0 ? 'text-emerald-400' : 'text-rose-400' },
+                    { label: 'Ganancia neta', value: netGain, extra: `${netGain >= 0 ? '+' : ''}${pctNet}%`, color: netGain >= 0 ? 'text-emerald-400' : 'text-rose-400' },
                     { label: 'Retorno neto total', value: netReturn, extra: '', color: 'text-white' },
                 ].map(row => (
                     <div key={row.label} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
@@ -112,7 +110,7 @@ export const TaxCalculator: React.FC = () => {
                 ))}
             </div>
 
-            <p className="text-[9px] text-slate-700 mt-3 italic">Basado en normativa vigente. Consultá a un contador para tu situación impositiva.</p>
+            <p className="text-[9px] text-slate-500 mt-3 italic">Simulación orientativa con supuestos simplificados; consultá a un contador para tu situación impositiva.</p>
         </div>
     );
 };

@@ -20,7 +20,7 @@ class ArbitrageController {
             await spreadHistory.ensureLoaded();
             await spreadHistory.appendResult(result);
 
-            res.json({ ...result, history: spreadHistory.getAll(), cached: !!cachedData });
+            res.json({ ...result, updatedAt: result.timestamp, history: spreadHistory.getAll(), cached: !!cachedData });
         } catch (error) {
             logger.error('Error en ArbitrageController.getArbitrage: %s', (error as Error).stack);
             res.json({

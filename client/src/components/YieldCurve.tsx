@@ -182,7 +182,7 @@ export const YieldCurve: React.FC = () => {
                     >
                         Spread GD/AL
                     </button>
-                    <button onClick={fetchData} className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors">
+                    <button onClick={fetchData} aria-label="Actualizar curva" className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors">
                         <RefreshCw size={13} />
                     </button>
                 </div>

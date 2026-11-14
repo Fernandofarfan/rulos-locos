@@ -97,7 +97,7 @@ export const CryptoDashboard: React.FC<{ cclRate?: number }> = ({ cclRate = 1200
                             </button>
                         ))}
                     </div>
-                    <button onClick={fetch} className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                    <button onClick={fetch} aria-label="Actualizar criptomonedas" className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
                         <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>

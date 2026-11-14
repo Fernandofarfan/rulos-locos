@@ -123,7 +123,7 @@ export const CorrelationHeatmap: React.FC = () => {
                             </button>
                         ))}
                     </div>
-                    <button onClick={fetchAll} className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors">
+                    <button onClick={fetchAll} aria-label="Actualizar correlaciones" className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors">
                         <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>
@@ -159,7 +159,7 @@ export const CorrelationHeatmap: React.FC = () => {
                                 <tr>
                                     <th className="w-20" />
                                     {ASSETS.map(a => (
-                                        <th key={a.key} className="text-[10px] font-bold pb-2 px-1" style={{ color: a.color }}>
+                                        <th key={a.key} className="correlation-asset text-[10px] font-bold pb-2 px-1" style={{ color: a.color }}>
                                             {a.label}
                                         </th>
                                     ))}
@@ -168,7 +168,7 @@ export const CorrelationHeatmap: React.FC = () => {
                             <tbody>
                                 {ASSETS.map((a, i) => (
                                     <tr key={a.key}>
-                                        <td className="text-[10px] font-bold pr-2 text-right" style={{ color: a.color }}>
+                                        <td className="correlation-asset text-[10px] font-bold pr-2 text-right" style={{ color: a.color }}>
                                             {a.label}
                                         </td>
                                         {ASSETS.map((b, j) => {
@@ -192,7 +192,7 @@ export const CorrelationHeatmap: React.FC = () => {
                                                         }}
                                                     >
                                                         <span
-                                                            className="font-mono font-black text-xs"
+                                                            className={`font-mono font-black text-xs ${i === j || r === 0 ? 'correlation-neutral' : r > 0 ? 'correlation-positive' : 'correlation-negative'}`}
                                                             style={{ color: i === j ? '#fff' : rColor(r) }}
                                                         >
                                                             {i === j ? '—' : r > 0 ? `+${r.toFixed(2)}` : r.toFixed(2)}

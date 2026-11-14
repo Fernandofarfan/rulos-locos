@@ -1,76 +1,68 @@
+import { randomUUID } from 'node:crypto';
 import { Request, Response } from 'express';
-import logger from '../utils/logger';
+import { z } from 'zod';
+import prisma from '../utils/db';
 
-// In-memory analytics store (in production, use DB)
-interface AnalyticsEvent {
-    event: string;
-    section?: string;
-    timestamp: string;
-    ua?: string;
+export const FEATURES = [
+    'dashboard', 'mercado', 'arbitrage', 'herramientas', 'charts', 'portfolio',
+    'tasas', 'mercados', 'consumo', 'creditos', 'inversion',
+    'dolar-tarjeta', 'salario', 'inflacion', 'cer', 'ahorro', 'objetivos', 'canasta',
+    'uva', 'prestamos', 'impuestos', 'comparador', 'tasa-real', 'bonos', 'backtester', 'recomendacion',
+] as const;
+
+export const TrackSchema = z.object({
+    name: z.string().regex(/^[a-z0-9_.:-]{1,64}$/).refine(value => ['section.open', 'tab.open', 'tool.open'].includes(value)),
+    path: z.literal('/').optional(),
+    props: z.object({ feature: z.enum(FEATURES) }).strict()
+        .refine(value => Buffer.byteLength(JSON.stringify(value), 'utf8') <= 1024).optional(),
+    sessionHash: z.string().uuid(),
+}).strict();
+
+export async function track(req: Request, res: Response): Promise<void> {
+    const parsed = TrackSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Evento inválido' }); return; }
+    if (!prisma) { res.status(503).json({ error: 'Analítica no disponible' }); return; }
+    try {
+        await prisma.analyticsEvent.create({ data: {
+            name: parsed.data.name, path: parsed.data.path, sessionHash: parsed.data.sessionHash,
+            ...(parsed.data.props ? { props: parsed.data.props } : {}),
+        } });
+        res.status(202).json({ ok: true });
+    } catch { res.status(503).json({ error: 'Analítica no disponible' }); }
 }
 
-const events: AnalyticsEvent[] = [];
-const MAX_EVENTS = 10000;
-
-/**
- * POST /api/analytics/event — Track an anonymous user event.
- */
-export async function trackEvent(req: Request, res: Response) {
-    try {
-        const { event, section } = req.body;
-        if (!event || typeof event !== 'string') {
-            res.status(400).json({ error: 'Missing event field' });
-            return;
-        }
-
-        const entry: AnalyticsEvent = {
-            event: event.slice(0, 50),
-            section: section?.slice(0, 50),
-            timestamp: new Date().toISOString(),
-            ua: (req.headers['user-agent'] || '').slice(0, 100),
-        };
-
-        events.push(entry);
-        if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
-
-        res.json({ ok: true });
-    } catch (error: any) {
-        logger.error('Analytics trackEvent error: %s', error.message);
-        res.status(500).json({ error: 'Error tracking event' });
-    }
+export async function trackEvent(req: Request, res: Response): Promise<void> {
+    const { event, section } = req.body as { event?: string; section?: string };
+    req.body = { name: event, ...(section ? { props: { feature: section } } : {}), sessionHash: randomUUID() };
+    await track(req, res);
 }
 
-/**
- * GET /api/analytics/summary — Get aggregated analytics.
- */
-export async function getAnalyticsSummary(_req: Request, res: Response) {
+export async function pruneAnalytics(): Promise<void> {
+    if (!prisma) throw new Error('Base de datos no disponible');
+    await prisma.analyticsEvent.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 180 * 86400_000) } } });
+}
+
+export async function getAnalyticsSummary(_req: Request, res: Response): Promise<void> {
+    if (!prisma) { res.status(503).json({ error: 'Analítica no disponible' }); return; }
     try {
-        const now = Date.now();
-        const last24h = events.filter(e => now - new Date(e.timestamp).getTime() < 86400000);
-
-        // Aggregate by section
-        const sectionCounts: Record<string, number> = {};
-        const eventCounts: Record<string, number> = {};
-
-        last24h.forEach(e => {
-            if (e.section) sectionCounts[e.section] = (sectionCounts[e.section] || 0) + 1;
-            eventCounts[e.event] = (eventCounts[e.event] || 0) + 1;
-        });
-
+        const since7 = new Date(Date.now() - 7 * 86400_000);
+        const since30 = new Date(Date.now() - 30 * 86400_000);
+        const [week, month, features] = await Promise.all([
+            prisma.analyticsEvent.groupBy({ by: ['name'], where: { createdAt: { gte: since7 } }, _count: { _all: true } }),
+            prisma.analyticsEvent.groupBy({ by: ['name'], where: { createdAt: { gte: since30 } }, _count: { _all: true } }),
+            prisma.$queryRaw<Array<{ feature: string; count: number }>>`
+                SELECT props->>'feature' AS feature, count(*)::int AS count
+                FROM "AnalyticsEvent" WHERE "createdAt" >= ${since30} AND props->>'feature' IS NOT NULL
+                GROUP BY props->>'feature'
+            `,
+        ]);
+        const counts = new Map(features.map(item => [item.feature, item.count]));
+        const ranked = FEATURES.map(feature => ({ feature, count: counts.get(feature) ?? 0 }));
         res.json({
-            totalEvents: events.length,
-            last24h: last24h.length,
-            topSections: Object.entries(sectionCounts)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 10)
-                .map(([section, count]) => ({ section, count })),
-            topEvents: Object.entries(eventCounts)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 10)
-                .map(([event, count]) => ({ event, count })),
+            days7: week.map(row => ({ name: row.name, count: row._count._all })),
+            days30: month.map(row => ({ name: row.name, count: row._count._all })),
+            topFeatures: [...ranked].sort((a, b) => b.count - a.count).slice(0, 10),
+            leastUsed: [...ranked].sort((a, b) => a.count - b.count).slice(0, 10),
         });
-    } catch (error: any) {
-        logger.error('Analytics summary error: %s', error.message);
-        res.status(500).json({ error: 'Error generating summary' });
-    }
+    } catch { res.status(503).json({ error: 'Analítica no disponible' }); }
 }

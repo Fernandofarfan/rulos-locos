@@ -128,6 +128,7 @@ export const ArbitrageCalculator: React.FC<ArbitrageCalculatorProps> = ({ blueBi
                 </div>
                 <button
                     onClick={() => setConfigOpen(!configOpen)}
+                    aria-label={configOpen ? 'Cerrar configuración' : 'Abrir configuración'}
                     className={`p-2 rounded-lg transition-colors ${configOpen ? 'bg-accent-primary text-white' : 'hover:bg-white/10 text-slate-400'}`}
                 >
                     <Settings size={18} />
@@ -201,7 +202,7 @@ export const ArbitrageCalculator: React.FC<ArbitrageCalculatorProps> = ({ blueBi
                 <div className="space-y-3">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex justify-between">
                         Capital Inicial
-                        <span className="text-white font-mono opacity-50">{formatCurrency(parseFloat(amount))}</span>
+                        <span className="text-slate-400 font-mono">{formatCurrency(parseFloat(amount))}</span>
                     </label>
                     <div className="relative group">
                         <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-accent-primary group-focus-within:text-white transition-colors" size={20} />
@@ -234,7 +235,7 @@ export const ArbitrageCalculator: React.FC<ArbitrageCalculatorProps> = ({ blueBi
                         className={`relative p-3 rounded-xl border transition-all text-left group overflow-hidden ${strategy === 'mep_blue' ? 'bg-gradient-to-br from-accent-primary/20 to-accent-primary/5 border-accent-primary text-white shadow-[0_0_20px_-10px_var(--accent-primary)]' : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'}`}
                     >
                         <div className="relative z-10">
-                            <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block mb-1">Rulo MEP</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider block mb-1">Rulo MEP</span>
                             <div className="flex items-end gap-1">
                                 <span className="text-xl font-mono font-bold">{formatARS(mepAsk)}</span>
                                 <span className="text-[10px] mb-1 opacity-60">/USD</span>
@@ -249,10 +250,10 @@ export const ArbitrageCalculator: React.FC<ArbitrageCalculatorProps> = ({ blueBi
                         className={`relative p-3 rounded-xl border transition-all text-left group overflow-hidden ${strategy === 'crypto_blue' ? 'bg-gradient-to-br from-accent-secondary/20 to-accent-secondary/5 border-accent-secondary text-white shadow-[0_0_20px_-10px_var(--accent-secondary)]' : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'}`}
                     >
                         <div className="relative z-10">
-                            <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block mb-1">Rulo Crypto</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider block mb-1">Rulo Crypto</span>
                             <div className="flex items-end gap-1">
                                 <span className="text-xl font-mono font-bold">{formatARS(cryptoAsk)}</span>
-                                <span className="text-[10px] mb-1 opacity-60">/USDT</span>
+                                <span className="text-[10px] mb-1">/USDT</span>
                             </div>
                             {strategy === 'crypto_blue' && <div className="mt-2 text-[10px] flex items-center gap-1 text-accent-secondary"><TrendingUp size={10} /> Inmediato</div>}
                         </div>

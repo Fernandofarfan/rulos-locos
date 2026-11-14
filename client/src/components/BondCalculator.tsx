@@ -145,6 +145,7 @@ export const BondCalculator: React.FC = () => {
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-slate-500 uppercase">Bono</label>
                         <select
+                            aria-label="Bono"
                             value={bond}
                             onChange={(e) => setBond(e.target.value)}
                             className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white text-sm focus:border-accent-secondary/50 outline-none transition-colors"
@@ -158,6 +159,7 @@ export const BondCalculator: React.FC = () => {
                         <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
                             <input
+                                aria-label="Precio del bono"
                                 type="number"
                                 value={price}
                                 onChange={(e) => setPrice(Number(e.target.value))}

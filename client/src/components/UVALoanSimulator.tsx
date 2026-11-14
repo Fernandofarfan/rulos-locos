@@ -101,6 +101,7 @@ export const UVALoanSimulator: React.FC = () => {
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Monto del Préstamo (ARS)</label>
                     <input
+                        aria-label="Monto del Préstamo (ARS)"
                         type="text"
                         value={monto}
                         onChange={e => setMonto(e.target.value.replace(/[^0-9.,]/g, ''))}
@@ -111,6 +112,7 @@ export const UVALoanSimulator: React.FC = () => {
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fecha de Origen</label>
                     <input
+                        aria-label="Fecha de Origen"
                         type="date"
                         value={startDate}
                         min={minDate}
@@ -122,6 +124,7 @@ export const UVALoanSimulator: React.FC = () => {
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">TNA (%)</label>
                     <input
+                        aria-label="TNA (%)"
                         type="text"
                         value={tna}
                         onChange={e => setTna(e.target.value)}

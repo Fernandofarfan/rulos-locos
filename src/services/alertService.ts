@@ -4,6 +4,10 @@ import notificationService from './notificationService';
 import { sendPriceAlertEmail } from './emailService';
 import dolarApiService from './dolarApiService';
 import type { Alert } from '@prisma/client';
+import cache from '../utils/cache';
+import arbitrageService, { type ArbitrageResult } from './arbitrageService';
+import { calculateRoutes } from './netArbitrage';
+import { broadcastPush } from '../controllers/pushController';
 
 interface CurrentPrices {
     blue?: number;
@@ -19,10 +23,8 @@ interface CoinGeckoPriceResponse {
     };
 }
 
-class AlertService {
-    /** Cooldown en ms para evitar reenviar la misma alerta en cada ciclo (20 min) */
-    private readonly COOLDOWN_MS = 20 * 60 * 1000;
-    private lastTriggered = new Map<string, number>();
+export class AlertService {
+    private readonly COOLDOWN_MS = 6 * 60 * 60 * 1000;
 
     /**
      * Obtener precios actuales de todas las fuentes
@@ -36,10 +38,12 @@ class AlertService {
             const blue = dolares.find((d) => d.casa === 'blue');
             const mep = dolares.find((d) => d.casa === 'bolsa');
             const ccl = dolares.find((d) => d.casa === 'contadoconliqui');
+            const oficial = dolares.find((d) => d.casa === 'oficial');
 
             prices.blue = blue?.venta;
             prices.mep = mep?.venta;
             prices.ccl = ccl?.venta;
+            prices.oficial = oficial?.venta;
 
             // Obtener cripto (aproximado via coingecko o similar)
             try {
@@ -47,9 +51,9 @@ class AlertService {
                     signal: AbortSignal.timeout(5000),
                 });
                 const data = await res.json() as CoinGeckoPriceResponse;
-                if (data.bitcoin?.usd) {
+                if (data.bitcoin?.usd && prices.ccl && prices.ccl > 0) {
                     // Aproximar a ARS multiplicando por CCL
-                    prices.crypto = data.bitcoin.usd * (prices.ccl || 1);
+                    prices.crypto = data.bitcoin.usd * prices.ccl;
                 }
             } catch (e) {
                 logger.warn('Error obteniendo precio crypto: %s', (e as Error).message);
@@ -106,13 +110,19 @@ class AlertService {
             logger.info('Verificando %d alertas activas', alerts.length);
 
             // Obtener precios actuales
-            const prices = await this.getCurrentPrices();
+            const prices = alerts.some(alert => alert.kind !== 'RULO') ? await this.getCurrentPrices() : {};
+            let arbitrage: ArbitrageResult | null = null;
+            if (alerts.some(alert => alert.kind === 'RULO')) {
+                arbitrage = await cache.get<ArbitrageResult>('arbitrage_data') ?? await arbitrageService.calculateArbitrage();
+            }
 
             // Por cada alerta, verificar si se dispara
             for (const alert of alerts) {
-                const currentPrice = prices[alert.asset.toLowerCase()];
+                const currentPrice = alert.kind === 'RULO' && arbitrage && alert.routeId
+                    ? calculateRoutes(arbitrage, Number(alert.capital ?? 1_000_000)).find(route => route.id === alert.routeId)?.net.netPct
+                    : prices[alert.asset.toLowerCase()];
 
-                if (!currentPrice) {
+                if (currentPrice === undefined) {
                     logger.debug('No hay precio para %s', alert.asset);
                     continue;
                 }
@@ -126,12 +136,17 @@ class AlertService {
 
                 if (shouldTrigger) {
                     // Cooldown: evita reenviar la misma alerta en cada ciclo
-                    const last = this.lastTriggered.get(alert.id) ?? 0;
-                    if (Date.now() - last < this.COOLDOWN_MS) {
+                    const now = new Date();
+                    const claimed = await prisma.alert.updateMany({
+                        where: { id: alert.id, active: true, OR: [
+                            { lastTriggeredAt: null }, { lastTriggeredAt: { lt: new Date(now.getTime() - this.COOLDOWN_MS) } },
+                        ] },
+                        data: { lastTriggeredAt: now },
+                    });
+                    if (claimed.count !== 1) {
                         logger.debug('Alerta %s en cooldown, omitiendo', alert.id);
                         continue;
                     }
-                    this.lastTriggered.set(alert.id, Date.now());
                     await this.sendAlertNotification(alert, currentPrice);
                 }
             }
@@ -150,7 +165,9 @@ class AlertService {
     ): Promise<void> {
         try {
             const conditionText = alert.condition === 'above' ? '⬆️ Alcanzó' : '⬇️ Cayó a';
-            const message =
+            const message = alert.kind === 'RULO'
+                ? `<b>🚨 ALERTA DE RULO ACTIVADA</b>\n\nRuta: <b>${alert.routeId}</b>\nRentabilidad neta estimada: <b>${currentPrice.toFixed(2)}%</b>\nCapital: $${Number(alert.capital ?? 1_000_000).toLocaleString('es-AR')}\nUmbral: ${Number(alert.threshold).toFixed(2)}%\n\nhttps://rulos-locos-dashboard.vercel.app/`
+                :
                 `<b>🚨 ALERTA DE PRECIO ACTIVADA</b>\n\n` +
                 `📊 <b>${alert.asset.toUpperCase()}</b>\n` +
                 `${conditionText} <b>$${currentPrice.toFixed(2)}</b>\n` +
@@ -159,6 +176,16 @@ class AlertService {
 
             // Enviar por Telegram
             const telegramSent = await notificationService.sendTelegramMessage(message);
+
+            try {
+                await broadcastPush({
+                    title: alert.kind === 'RULO' ? 'Alerta de rulo' : 'Alerta de precio',
+                    body: message.replace(/<[^>]+>/g, ''),
+                    url: '/',
+                }, alert.userId);
+            } catch (error) {
+                logger.warn('Error enviando push para alerta %s: %s', alert.id, (error as Error).message);
+            }
 
             // Enviar por Email
             if (alert.user?.email) {

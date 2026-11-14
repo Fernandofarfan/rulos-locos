@@ -106,7 +106,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                                         <button
                                             onClick={() => !isRefreshing && refresh()}
                                             disabled={isRefreshing}
-                                            aria-label="Refrescar cotizaciones ahora"
+                                            aria-label={`Refrescar cotizaciones ahora, ${isRefreshing ? 'sync…' : `${countdown}s`}`}
                                             className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-white bg-slate-900/50 hover:bg-slate-800/80 px-2 py-0.5 rounded border border-slate-800 hover:border-slate-700 min-w-[38px] justify-center cursor-pointer transition-all active:scale-95 disabled:opacity-75 disabled:cursor-wait"
                                         >
                                             {isRefreshing ? (

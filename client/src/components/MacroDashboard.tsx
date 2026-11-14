@@ -111,7 +111,7 @@ export const MacroDashboard: React.FC = () => {
                 <Tooltip content="Exportar datos del mercado como CSV" placement="bottom">
                     <button
                         onClick={handleExportCSV}
-                        aria-label="Exportar datos del mercado como CSV"
+                        aria-label="Exportar CSV de datos del mercado"
                         className="flex items-center gap-1.5 text-[10px] text-slate-500 hover:text-emerald-400 border border-transparent hover:border-emerald-500/30 hover:bg-emerald-500/10 px-2.5 py-1.5 rounded-lg transition-colors font-bold uppercase tracking-wider"
                     >
                         <Download size={12} />

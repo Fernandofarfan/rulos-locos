@@ -5,6 +5,7 @@ import { formatInt } from '../utils/formatARS';
 import { useAuth } from '../hooks/useAuth';
 import { apiService as api } from '../services/api';
 import { toast } from 'sonner';
+import { PortfolioValuation } from './PortfolioValuation';
 
 interface PortfolioItem {
     id: string;
@@ -229,6 +230,7 @@ export const PortfolioManager: React.FC = () => {
             <p className="text-[10px] text-slate-500 mt-4 text-center">
                 * Los activos se valúan usando Dólar CCL y precios en vivo de CoinGecko. Guardado localmente en tu navegador.
             </p>
+            {user && <PortfolioValuation revision={items.length} />}
         </div>
     );
 };

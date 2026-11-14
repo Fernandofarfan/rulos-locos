@@ -1,5 +1,6 @@
 import config from '../config';
 import logger from '../utils/logger';
+import { recordSourceSuccess } from './sourceHealth';
 
 export interface P2PRate {
     ask: number;
@@ -20,7 +21,10 @@ class CryptoYaService {
                 { signal: AbortSignal.timeout(10000) },
             );
             if (!response.ok) throw new Error('Error al consultar CriptoYa Binance P2P');
-            return { ...await response.json() as P2PRate, source: 'CriptoYa', isEstimated: false };
+            const quote = await response.json() as P2PRate;
+            if (!(quote.ask > 0 && quote.bid > 0)) throw new Error('CriptoYa sin cotización válida');
+            await recordSourceSuccess('criptoya');
+            return { ...quote, source: 'CriptoYa', isEstimated: false };
         } catch {
             return {
                 ask: 1205.50,
@@ -55,7 +59,9 @@ class CryptoYaService {
                 { signal: controller.signal },
             );
             if (!response.ok) throw new Error(`Error en ${exchange}`);
-            return response.json();
+            const data = await response.json() as { ask?: number; bid?: number };
+            if (Number(data?.ask) > 0 && Number(data?.bid) > 0) await recordSourceSuccess('criptoya');
+            return data;
         } catch (err) {
             logger.warn('CryptoYa getExchangeRate failed for %s: %s', exchange, (err as Error).message);
             return {

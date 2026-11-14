@@ -133,6 +133,7 @@ export const ReturnComparator: React.FC = () => {
                     <div className="relative">
                         <DollarSign size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                         <input
+                            aria-label="Capital inicial"
                             type="number"
                             value={capital}
                             onChange={e => setCapital(Number(e.target.value))}
@@ -191,7 +192,7 @@ export const ReturnComparator: React.FC = () => {
                                 }}
                             >
                                 {r.finalAmount / maxAmount > 0.2 && (
-                                    <span className="text-[9px] font-bold text-white/90 drop-shadow">
+                                    <span className="chart-value-label text-[9px] font-bold rounded px-1">
                                         {fmt(r.finalAmount)}
                                     </span>
                                 )}

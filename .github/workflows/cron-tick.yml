@@ -14,3 +14,16 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           APP_URL: ${{ secrets.APP_URL }}
         run: curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/tick"
+      - name: Avisar por Telegram si falla
+        if: failure()
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
+            curl -fsS -X POST --data-urlencode "chat_id=$CHAT_ID" \
+              --data-urlencode "text=Falló el cron de Rulos Locos: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+              "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage"
+          else
+            echo "Telegram no configurado; se omite el aviso."
+          fi

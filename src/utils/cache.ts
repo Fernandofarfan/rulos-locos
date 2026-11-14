@@ -103,6 +103,13 @@ class UnifiedCache {
         }
     }
 
+    async setShared<T>(key: string, data: T, ttl?: number): Promise<void> {
+        const ttlMs = ttl ?? this.defaultTtl;
+        this.mem.set(key, data, ttlMs);
+        const redis = await getRedisClient();
+        if (redis) await redis.set(key, JSON.stringify(data), 'PX', ttlMs);
+    }
+
     del(key: string): void {
         this.mem.del(key);
         if (redisAvailable && redisClient) {

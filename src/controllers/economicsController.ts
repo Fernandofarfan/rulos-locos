@@ -62,24 +62,18 @@ function getFallbackDashboard(): FallbackDashboard {
 
 class EconomicsController {
     async getDashboardData(_req: Request, res: Response): Promise<void> {
+        res.json(await this.getDashboardSnapshot());
+    }
+
+    async getDashboardSnapshot(): Promise<object> {
         try {
             const cached = await cache.get<FallbackDashboard>('economics_dashboard');
-            if (cached) { res.json({ ...cached }); return; }
+            if (cached) return cached;
 
             // Timeout global per request para evitar hangs infinitos (Vercel maxDuration)
             const GLOBAL_TIMEOUT_MS = 14000;
-            let resolved = false;
-            const globalTimeoutId = setTimeout(() => {
-                if (!resolved) {
-                    resolved = true;
-                    logger.warn('Dashboard: timeout global alcanzado, devolviendo fallback');
-                    const fallback = getFallbackDashboard();
-                    cache.set('economics_dashboard', fallback, 15000);
-                    res.json(fallback);
-                }
-            }, GLOBAL_TIMEOUT_MS);
-
-            const [inflationResult, riskResult, reservesResult, baseMonetariaResult, stocksResult, cedearsResult, globalResult, bondsResult, inflacionCategoriasResult] = await Promise.allSettled([
+            let globalTimeoutId: ReturnType<typeof setTimeout>;
+            const results = await Promise.race([Promise.allSettled([
                 argentinaDatosService.getInflation(),
                 argentinaDatosService.getRisk(),
                 bcraService.getReservesWithSource(),
@@ -89,11 +83,16 @@ class EconomicsController {
                 marketService.getGlobalIndices(),
                 marketService.getBonds(),
                 argentinaDatosService.getInflacionCategorias(),
-            ]);
-
-            if (resolved) return;
-            resolved = true;
-            clearTimeout(globalTimeoutId);
+            ]), new Promise<null>(resolve => { globalTimeoutId = setTimeout(() => resolve(null), GLOBAL_TIMEOUT_MS); })]);
+            clearTimeout(globalTimeoutId!);
+            if (!results) {
+                logger.warn('Dashboard: timeout global alcanzado, devolviendo fallback');
+                const fallback = getFallbackDashboard();
+                const snapshot = { ...fallback, updatedAt: fallback.timestamp };
+                await cache.setShared('economics_dashboard', snapshot, 15000);
+                return snapshot;
+            }
+            const [inflationResult, riskResult, reservesResult, baseMonetariaResult, stocksResult, cedearsResult, globalResult, bondsResult, inflacionCategoriasResult] = results;
 
             const bonds = bondsResult.status === 'fulfilled' ? bondsResult.value : [];
             const inflation = inflationResult.status === 'fulfilled' ? inflationResult.value : null;
@@ -114,7 +113,7 @@ class EconomicsController {
 
             const dashboardData = {
                 macro: {
-                    inflation: { ...(inflation || { mensual: 2.5, interanual: 115.0, fecha: new Date().toISOString().split('T')[0], source: 'estimado', isEstimated: true }), categorias: inflacionCategorias ?? null, categoriasIsEstimated: !inflacionCategorias, categoriasSource: inflacionCategorias ? 'argentinadatos' : 'estimado' },
+                    inflation: { ...(inflation || { mensual: 2.5, interanual: 115.0, fecha: new Date().toISOString().split('T')[0], source: 'estimado' }), isEstimated: !inflation || !!inflation.estimated, categorias: inflacionCategorias ?? null, categoriasIsEstimated: !inflacionCategorias, categoriasSource: inflacionCategorias ? 'INDEC' : 'estimado' },
                     risk: risk !== null ? risk.valor : 640,
                     reserves: finalReserves,
                     baseMonetaria: finalBase,
@@ -150,11 +149,12 @@ class EconomicsController {
             if (cedears.length === 0) logger.warn('Dashboard: Cedears empty');
             if (bonds.length === 0) logger.warn('Dashboard: Bonds empty (using fallback)');
 
-            cache.set('economics_dashboard', dashboardData, 600000);
-            res.json(dashboardData);
+            const snapshot = { ...dashboardData, updatedAt: dashboardData.timestamp };
+            await cache.setShared('economics_dashboard', snapshot, 600000);
+            return snapshot;
         } catch (error) {
             logger.error('Error crítico en Dashboard Controller: %s', (error as Error).stack);
-            res.json(getFallbackDashboard());
+            return getFallbackDashboard();
         }
     }
 
@@ -443,13 +443,14 @@ class EconomicsController {
                 realRate: parseFloat(realRate.toFixed(2)),
                 timestamp: new Date().toISOString(),
                 estimated: true,
+                isEstimated: true,
                 source: 'estimado',
             };
             cache.set('economics_rates', ratesData, 600000);
             res.json(ratesData);
         } catch (error) {
             logger.error('Error in getRates: %s', (error as Error).stack);
-            res.json({ badlar: { tna: 34.0, tem: 2.83, tea: 40.5, fecha: '' }, plazoFijo: { tna: 33.0, tem: 2.75, tea: 39.1 }, inflation: { mensual: 2.5, interanual: 84.0, fecha: '' }, realRate: Number(annualRealRate(34, 84).toFixed(2)), timestamp: new Date().toISOString(), estimated: true, source: 'estimado' });
+            res.json({ badlar: { tna: 34.0, tem: 2.83, tea: 40.5, fecha: '' }, plazoFijo: { tna: 33.0, tem: 2.75, tea: 39.1 }, inflation: { mensual: 2.5, interanual: 84.0, fecha: '' }, realRate: Number(annualRealRate(34, 84).toFixed(2)), timestamp: new Date().toISOString(), estimated: true, isEstimated: true, source: 'estimado' });
         }
     }
 

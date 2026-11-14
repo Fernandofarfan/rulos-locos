@@ -90,6 +90,7 @@ export const RuloScanner: React.FC = () => {
                     </div>
                     <button
                         onClick={fetchBestRulo}
+                        aria-label="Actualizar mejor rulo"
                         className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors ml-1"
                     >
                         <RefreshCw size={12} />

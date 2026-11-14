@@ -8,6 +8,8 @@ it('calculates the net blue-to-USDT spread with both fees', () => {
         USDT: { binance: { crypto: 'USDT', exchange: 'binance', ask: 1110, bid: 1100, available: true } },
     });
     const opportunity = result.find(item => item.type === 'blue_to_stable');
-    // $100,000 / $1,000 * $1,100 = $110,000; fees are 1% + 0.5% of initial capital.
-    expect(opportunity).toMatchObject({ capital: 100000, ganancia: '8500.00', rentabilidad: '8.50', comisiones: '1500.00' });
+    // 100 USD-equivalent units minus one reference withdrawal unit, sold at 1100 less 0.1%.
+    expect(opportunity).toMatchObject({ capital: 100000, ganancia: '10000.00', rentabilidad: '10.00', comisiones: '1208.90' });
+    expect(opportunity!.net.netArs).toBeCloseTo(8791.10);
+    expect(opportunity!.net.netPct).toBeCloseTo(8.7911);
 });

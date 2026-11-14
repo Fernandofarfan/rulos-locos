@@ -116,14 +116,14 @@ export const AssetComparer: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     {/* Asset A */}
-                    <select value={assetA} onChange={e => setAssetA(e.target.value)}
+                    <select aria-label="Primer activo" value={assetA} onChange={e => setAssetA(e.target.value)}
                         className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white font-bold focus:outline-none focus:border-violet-500/50 transition-all">
                         {ASSETS.filter(a => a.key !== assetB).map(a => (
                             <option key={a.key} value={a.key}>{a.label}</option>
                         ))}
                     </select>
                     <span className="text-slate-500 text-xs font-bold">vs</span>
-                    <select value={assetB} onChange={e => setAssetB(e.target.value)}
+                    <select aria-label="Segundo activo" value={assetB} onChange={e => setAssetB(e.target.value)}
                         className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white font-bold focus:outline-none focus:border-violet-500/50 transition-all">
                         {ASSETS.filter(a => a.key !== assetA).map(a => (
                             <option key={a.key} value={a.key}>{a.label}</option>
@@ -137,7 +137,7 @@ export const AssetComparer: React.FC = () => {
                             </button>
                         ))}
                     </div>
-                    <button onClick={fetchData} className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors">
+                    <button onClick={fetchData} aria-label="Actualizar comparación" className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors">
                         <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>
@@ -147,14 +147,14 @@ export const AssetComparer: React.FC = () => {
             <div className="flex items-center gap-4 text-xs font-bold">
                 <span className="flex items-center gap-1.5">
                     <span className="w-4 h-0.5 rounded inline-block" style={{ background: metaA.color }} />
-                    <span style={{ color: metaA.color }}>{metaA.label}</span>
+                    <span className="correlation-asset" style={{ color: metaA.color }}>{metaA.label}</span>
                     <span className={`ml-1 ${perfA >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {perfA >= 0 ? '+' : ''}{perfA.toFixed(1)}%
                     </span>
                 </span>
                 <span className="flex items-center gap-1.5">
                     <span className="w-4 h-0.5 rounded inline-block border-dashed" style={{ background: metaB.color }} />
-                    <span style={{ color: metaB.color }}>{metaB.label}</span>
+                    <span className="correlation-asset" style={{ color: metaB.color }}>{metaB.label}</span>
                     <span className={`ml-1 ${perfB >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {perfB >= 0 ? '+' : ''}{perfB.toFixed(1)}%
                     </span>
@@ -183,7 +183,7 @@ export const AssetComparer: React.FC = () => {
                         <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Mejor performance en {range}</span>
                         <div className="font-bold text-sm text-white">
                             {(winner === assetA ? metaA : metaB).label}
-                            <span className="ml-2 text-xs font-mono" style={{ color: (winner === assetA ? metaA : metaB).color }}>
+                            <span className="correlation-asset ml-2 text-xs font-mono" style={{ color: (winner === assetA ? metaA : metaB).color }}>
                                 +{Math.max(perfA, perfB).toFixed(1)}% vs {Math.min(perfA, perfB).toFixed(1)}%
                             </span>
                         </div>

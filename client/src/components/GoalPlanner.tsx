@@ -51,6 +51,7 @@ export const GoalPlanner: React.FC = () => {
                         🎯 Meta
                     </label>
                     <input
+                        aria-label="Meta"
                         type="text"
                         value={goalName}
                         onChange={e => setGoalName(e.target.value)}
@@ -65,6 +66,7 @@ export const GoalPlanner: React.FC = () => {
                     <div className="flex items-center">
                         <DollarSign size={14} className="text-emerald-400 mr-1" />
                         <input
+                            aria-label="Meta en dólares"
                             type="number"
                             value={targetUsd}
                             onChange={e => setTargetUsd(Number(e.target.value))}
@@ -79,6 +81,7 @@ export const GoalPlanner: React.FC = () => {
                     <div className="flex items-center">
                         <Calendar size={14} className="text-blue-400 mr-2" />
                         <input
+                            aria-label="Plazo en meses"
                             type="number"
                             min="1"
                             max="120"

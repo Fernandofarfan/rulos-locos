@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Activity, Users, Clock, Server, BarChart3, AlertTriangle, Zap, RefreshCw, X } from 'lucide-react';
+import client from '../services/api';
 
 interface SystemStats {
     uptime: string;
     requestsPerMin: number;
-    errorRate: number;
-    avgLatency: number;
+    errorRate: number | null;
+    avgLatency: number | null;
     activeConnections: number;
     topEndpoints: { path: string; count: number }[];
-    memoryUsage: number;
-    cacheHitRate: number;
+    memoryUsage: number | null;
+    cacheHitRate: number | null;
+}
+interface AnalyticsSummary {
+    days7: { name: string; count: number }[];
+    days30: { name: string; count: number }[];
+    topFeatures: { feature: string; count: number }[];
+    leastUsed: { feature: string; count: number }[];
 }
 
 /**
@@ -20,6 +27,7 @@ export const AdminDashboard: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [stats, setStats] = useState<SystemStats | null>(null);
     const [loading, setLoading] = useState(false);
+    const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
 
     // Ctrl+Shift+A shortcut
     useEffect(() => {
@@ -38,22 +46,24 @@ export const AdminDashboard: React.FC = () => {
         try {
             const [statusRes, analyticsRes] = await Promise.allSettled([
                 fetch('/api/status').then(r => r.json()),
-                fetch('/api/analytics/summary').then(r => r.json()),
+                client.get<AnalyticsSummary>('/analytics/summary').then(r => r.data),
             ]);
 
             const status = statusRes.status === 'fulfilled' ? statusRes.value : {};
-            const analytics = analyticsRes.status === 'fulfilled' ? analyticsRes.value : {};
+            const analytics = analyticsRes.status === 'fulfilled' ? analyticsRes.value : null;
+            setAnalyticsSummary(analytics);
+            const weekCount = analytics?.days7.reduce((sum, event) => sum + event.count, 0) ?? 0;
 
             setStats({
                 uptime: status.uptime || 'N/A',
-                requestsPerMin: Math.round((analytics.last24h || 0) / 1440),
-                errorRate: 0.2,
-                avgLatency: 45,
-                activeConnections: analytics.last24h || 0,
-                topEndpoints: (analytics.topEvents || []).slice(0, 5).map((e: any) => ({ path: e.event, count: e.count })),
+                requestsPerMin: Math.round(weekCount / (7 * 1440)),
+                errorRate: null,
+                avgLatency: null,
+                activeConnections: weekCount,
+                topEndpoints: (analytics?.days7 || []).slice(0, 5).map(e => ({ path: e.name, count: e.count })),
                 memoryUsage: typeof window !== 'undefined' && (window.performance as any)?.memory
-                    ? Math.round((window.performance as any).memory.usedJSHeapSize / 1048576) : 0,
-                cacheHitRate: 85,
+                    ? Math.round((window.performance as any).memory.usedJSHeapSize / 1048576) : null,
+                cacheHitRate: null,
             });
         } catch { /* ignore */ }
         setLoading(false);
@@ -66,12 +76,12 @@ export const AdminDashboard: React.FC = () => {
     if (!isOpen) return null;
 
     const cards = [
-        { label: 'Req/min', value: stats?.requestsPerMin?.toString() || '—', icon: Activity, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-        { label: 'Latencia', value: `${stats?.avgLatency || 0}ms`, icon: Clock, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-        { label: 'Error Rate', value: `${stats?.errorRate || 0}%`, icon: AlertTriangle, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-        { label: 'Memoria', value: `${stats?.memoryUsage || 0}MB`, icon: Server, color: 'text-purple-400', bg: 'bg-purple-500/10' },
-        { label: 'Cache Hit', value: `${stats?.cacheHitRate || 0}%`, icon: Zap, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
-        { label: 'Eventos 24h', value: stats?.activeConnections?.toString() || '0', icon: Users, color: 'text-rose-400', bg: 'bg-rose-500/10' },
+        { label: 'Eventos/min (7 días)', value: stats?.requestsPerMin?.toString() ?? '—', icon: Activity, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+        { label: 'Latencia', value: stats?.avgLatency == null ? '—' : `${stats.avgLatency}ms`, icon: Clock, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+        { label: 'Tasa de error', value: stats?.errorRate == null ? '—' : `${stats.errorRate}%`, icon: AlertTriangle, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+        { label: 'Memoria', value: stats?.memoryUsage == null ? '—' : `${stats.memoryUsage}MB`, icon: Server, color: 'text-purple-400', bg: 'bg-purple-500/10' },
+        { label: 'Cache Hit', value: stats?.cacheHitRate == null ? '—' : `${stats.cacheHitRate}%`, icon: Zap, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+        { label: 'Eventos 7 días', value: stats?.activeConnections?.toString() || '0', icon: Users, color: 'text-rose-400', bg: 'bg-rose-500/10' },
     ];
 
     return (
@@ -117,6 +127,13 @@ export const AdminDashboard: React.FC = () => {
                 </div>
 
                 {/* Top Endpoints */}
+                {analyticsSummary && <div className="mb-4 space-y-2 text-xs">
+                    <h3 className="font-bold">Analítica de uso · últimos 7 / 30 días</h3>
+                    <p>{analyticsSummary.days7.map(event => `${event.name}: ${event.count}`).join(' · ') || 'Sin eventos en 7 días'}</p>
+                    <p>{analyticsSummary.days30.map(event => `${event.name}: ${event.count}`).join(' · ') || 'Sin eventos en 30 días'}</p>
+                    <p>Más usadas: {analyticsSummary.topFeatures.map(item => `${item.feature} (${item.count})`).join(', ')}</p>
+                    <p>Menos usadas: {analyticsSummary.leastUsed.map(item => `${item.feature} (${item.count})`).join(', ')}</p>
+                </div>}
                 {stats?.topEndpoints && stats.topEndpoints.length > 0 && (
                     <div>
                         <h3 className="text-xs font-bold text-slate-400 mb-3 flex items-center gap-2">

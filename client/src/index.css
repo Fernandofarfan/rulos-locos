@@ -40,7 +40,7 @@
   --shadow-glow: none;
 }
 
-@theme {
+@theme inline {
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
 
@@ -69,8 +69,8 @@
   /* Grises con mejor contraste sobre fondo oscuro */
   --color-slate-300: #d4d4d8;
   --color-slate-400: #a1a1aa;
-  --color-slate-500: #85858e;
-  --color-slate-600: #6b6b74;
+  --color-slate-500: #a1a1aa;
+  --color-slate-600: #a1a1aa;
 }
 
 body {
@@ -82,6 +82,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-image: none;
 }
+
+:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+.chart-value-label { color: #09090b; background-color: #fff; }
 
 /* ═══════════════════════════════════════════════
    PANELES — card plano con borde nítido
@@ -355,10 +361,34 @@ body.light-theme .glass-panel::before {
 
 /* Legibilidad en tema claro */
 body.light-theme .text-slate-300 { color: #3f3f46; }
+body.light-theme .text-slate-100, body.light-theme .text-slate-200 { color: #27272a; }
 body.light-theme .text-slate-400 { color: #52525b; }
-body.light-theme .text-slate-500 { color: #71717a; }
+body.light-theme .text-slate-500 { color: #52525b; }
 body.light-theme .text-slate-600 { color: #52525b; }
 body.light-theme .text-white     { color: #09090b; }
+body.light-theme .text-accent-primary { color: #1d4ed8; }
+body.light-theme .text-emerald-400, body.light-theme .text-emerald-300, body.light-theme .text-success { color: #047857; }
+body.light-theme .text-rose-400, body.light-theme .text-rose-300, body.light-theme .text-red-400 { color: #881337; }
+body.light-theme .text-blue-400, body.light-theme .text-blue-300, body.light-theme .text-sky-400, body.light-theme .text-sky-300 { color: #1d4ed8; }
+body.light-theme .text-amber-400, body.light-theme .text-amber-300, body.light-theme .text-orange-400, body.light-theme .text-orange-300 { color: #92400e; }
+body.light-theme .text-violet-400, body.light-theme .text-violet-300, body.light-theme .text-purple-400, body.light-theme .text-indigo-300, body.light-theme .text-indigo-400 { color: #6d28d9; }
+body.light-theme .text-cyan-300, body.light-theme .text-cyan-400, body.light-theme .text-teal-300 { color: #0e7490; }
+body.light-theme .text-blue-200 { color: #1e3a8a; }
+body.light-theme .text-rose-200, body.light-theme .text-red-300, body.light-theme .text-red-400\/70 { color: #991b1b; }
+body.light-theme .text-emerald-200 { color: #065f46; }
+body.light-theme .bg-slate-900, body.light-theme .bg-slate-800 { background-color: #f4f4f5; }
+body.light-theme .bg-black\/40, body.light-theme .bg-slate-900\/50 { background-color: #f4f4f5; }
+body.light-theme .bg-slate-800\/50, body.light-theme .bg-slate-800\/80,
+body.light-theme .bg-slate-900\/30, body.light-theme .bg-slate-900\/40,
+body.light-theme .bg-slate-900\/60, body.light-theme .bg-slate-900\/95,
+body.light-theme .bg-black\/20 { background-color: #f4f4f5; }
+body.light-theme .bg-accent-secondary.text-black { color: #fff; }
+body.light-theme .correlation-asset { color: #374151 !important; }
+body.light-theme .correlation-positive { color: #065f46 !important; }
+body.light-theme .correlation-negative { color: #991b1b !important; }
+body.light-theme .correlation-neutral { color: #374151 !important; }
+body.light-theme .source-connected { color: #065f46 !important; }
+body.light-theme .telegram-link { color: #075985; }
 
 body.light-theme .bg-white\/5    { background: rgba(0,0,0,0.035); }
 body.light-theme .bg-white\/10   { background: rgba(0,0,0,0.06); }

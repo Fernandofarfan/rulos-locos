@@ -124,7 +124,7 @@ export const MervalTop20: React.FC = () => {
                         <span className="text-slate-600">·</span>
                         <span className="text-rose-400">▼{losses}</span>
                     </div>
-                    <button onClick={refresh} className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                    <button onClick={refresh} aria-label="Actualizar MERVAL" className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
                         <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>
@@ -140,7 +140,7 @@ export const MervalTop20: React.FC = () => {
                 />
             </div>
 
-            <div className="overflow-x-auto max-h-80 overflow-y-auto custom-scrollbar">
+            <div tabIndex={0} role="region" aria-label="Tabla de acciones MERVAL" className="overflow-x-auto max-h-80 overflow-y-auto custom-scrollbar">
                 <table className="w-full text-xs">
                     <thead className="sticky top-0 bg-bg-card z-10">
                         <tr>

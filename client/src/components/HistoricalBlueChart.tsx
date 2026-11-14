@@ -111,7 +111,7 @@ export const HistoricalBlueChart: React.FC<HistoricalBlueChartProps> = ({ curren
                     <button onClick={() => exportToCSV(data, 'rulos-historico-blue', ['fecha', 'venta'])} title="Exportar CSV" className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors ml-1">
                         <Download size={14} />
                     </button>
-                    <button onClick={load} className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                    <button onClick={load} aria-label="Actualizar histórico blue" className="p-1.5 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
                         <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>

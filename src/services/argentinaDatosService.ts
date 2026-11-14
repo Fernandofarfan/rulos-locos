@@ -1,5 +1,6 @@
 import config from '../config';
 import logger from '../utils/logger';
+import { recordSourceSuccess } from './sourceHealth';
 
 
 export interface InflationData {
@@ -33,6 +34,7 @@ export interface DateValueItem {
 export interface InflacionCategoria {
     categoria: string;
     valor: number;
+    fecha?: string;
 }
 
 export interface DepositRate {
@@ -81,6 +83,7 @@ class ArgentinaDatosService {
             const data = await response.json() as Array<{ fecha: string; valor: number }>;
 
             if (Array.isArray(data) && data.length > 0) {
+                await recordSourceSuccess('argentinadatos');
                 const sorted = [...data].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
                 const lastMonth = sorted[0];
                 const last12 = sorted.slice(0, 12);
@@ -124,17 +127,31 @@ class ArgentinaDatosService {
 
     async getInflacionCategorias(): Promise<InflacionCategoria[] | null> {
         try {
-            const response = await fetch(
-                `${config.API_URLS.ARGENTINA_DATOS}/finanzas/indices/inflacion_categorias/`,
-                {
-                    headers: config.DEFAULT_HEADERS,
-                    signal: AbortSignal.timeout(15000),
-                } as Parameters<typeof fetch>[1],
-            );
+            const series = [
+                ['Alimentos', '146.3_IALIMENNAL_DICI_M_45'],
+                ['Salud', '146.3_ISALUDNAL_DICI_M_18'],
+                ['Vivienda', '146.3_IVIVIENNAL_DICI_M_52'],
+                ['Transporte', '146.3_ITRANSPNAL_DICI_M_23'],
+                ['Educación', '146.3_IEDUCACNAL_DICI_M_22'],
+                ['Restaurantes', '146.3_IRESTAUNAL_DICI_M_33'],
+            ];
+            const ids = series.map(([, id]) => id).join(',');
+            const response = await fetch(`https://apis.datos.gob.ar/series/api/series/?ids=${ids}&limit=2&sort=desc`,
+                { headers: config.DEFAULT_HEADERS, signal: AbortSignal.timeout(5000) });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json() as InflacionCategoria[];
-            if (Array.isArray(data) && data.length > 0) return data;
-            throw new Error('Empty response');
+            const data = await response.json() as { data?: Array<Array<string | number | null>> };
+            const [latest, previous] = data.data ?? [];
+            if (!latest || !previous || typeof latest[0] !== 'string' || typeof previous[0] !== 'string') throw new Error('Serie incompleta');
+            const [year, month] = latest[0].slice(0, 7).split('-').map(Number);
+            const expectedPrevious = new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 7);
+            if (previous[0].slice(0, 7) !== expectedPrevious) throw new Error('Faltan meses de IPC');
+            const categories = series.map(([categoria], i) => {
+                const current = Number(latest[i + 1]), prior = Number(previous[i + 1]);
+                if (!Number.isFinite(current) || !Number.isFinite(prior) || current <= 0 || prior <= 0) throw new Error('Índice inválido');
+                return { categoria, valor: (current / prior - 1) * 100, fecha: latest[0] as string };
+            });
+            await recordSourceSuccess('indec');
+            return categories;
         } catch (e) {
             logger.warn('getInflacionCategorias fallback: %s', (e as Error).message);
             return null;

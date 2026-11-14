@@ -3,6 +3,7 @@
  * Complementa FCIs y Plazos Fijos con información de renta fija corporativa.
  */
 import logger from '../utils/logger';
+import { recordSourceSuccess } from './sourceHealth';
 
 interface ONData {
     ticker: string;
@@ -60,6 +61,29 @@ class ONsFCIService {
      * Obtener ranking de Obligaciones Negociables.
      */
     async getONs(): Promise<{ data: ONData[]; timestamp: string; source: string; estimated: boolean }> {
+        try {
+            const market = await fetch('https://data912.com/live/arg_corp', {
+                headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(5000),
+            });
+            if (market.ok) {
+                const quotes = await market.json() as Array<{ symbol: string; c: number }>;
+                if (Array.isArray(quotes)) {
+                    const bySymbol = new Map(quotes.filter(quote => Number.isFinite(quote.c) && quote.c > 0).map(quote => [quote.symbol, quote.c]));
+                    const rows = this.ONS_FALLBACKS.map(item => {
+                        const price = bySymbol.get(item.ticker.replace(/O$/, 'D'));
+                        return { ...item, ticker: price ? item.ticker.replace(/O$/, 'D') : item.ticker,
+                            precio: price ?? item.precio, source: 'estimado', estimated: true,
+                            priceSource: price ? 'Data912' : 'estimado', priceIsEstimated: !price };
+                    });
+                    if (rows.some(row => !row.priceIsEstimated)) {
+                        await recordSourceSuccess('data912');
+                        return { data: rows, timestamp: new Date().toISOString(), source: 'estimado', estimated: true };
+                    }
+                }
+            }
+        } catch (err) {
+            logger.debug('Data912 ONs no disponible: %s', (err as Error).message);
+        }
         try {
             // Intentar obtener de IAMC (Mercado Abierto Electrónico) o BYMA
             const response = await fetch('https://api.argentinadatos.com/v1/finanzas/ons', {

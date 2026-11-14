@@ -1,5 +1,6 @@
 import config from '../config';
 import logger from '../utils/logger';
+import { recordSourceSuccess } from './sourceHealth';
 
 const BCRA_OFFICIAL_BASE = 'https://api.bcra.gob.ar';
 
@@ -22,7 +23,10 @@ async function getBCRAVariable(idVariable: number): Promise<BCRAVariableResult> 
     const json = await r.json() as { results?: Array<{ detalle?: BCRAVariableResult[] }> };
     const latest = json.results?.flatMap(result => result.detalle ?? [])
         .sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
-    if (latest && Number.isFinite(latest.valor)) return latest;
+    if (latest && Number.isFinite(latest.valor)) {
+        await recordSourceSuccess('bcra');
+        return latest;
+    }
     throw new Error(`BCRA oficial v4: sin resultados para idVariable ${idVariable}`);
 }
 

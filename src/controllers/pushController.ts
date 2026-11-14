@@ -86,9 +86,9 @@ export async function broadcastPush(payload: {
     body: string;
     url?: string;
     badge?: string;
-}): Promise<void> {
+}, userId?: string): Promise<void> {
     if (!prisma) return;
-    const subs = await prisma.pushSubscription.findMany();
+    const subs = await prisma.pushSubscription.findMany(userId ? { where: { userId } } : undefined);
     if (subs.length === 0) return;
 
     if (!process.env['VAPID_PUBLIC_KEY']) {

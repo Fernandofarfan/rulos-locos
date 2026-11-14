@@ -27,6 +27,9 @@ export interface InflationData {
     mensual: number;
     interanual: number;
     fecha?: string;
+    source?: string;
+    estimated?: boolean;
+    isEstimated?: boolean;
     /** Variación por categoría INDEC (alimentos, indumentaria, etc.) */
     categorias?: Record<string, number> | null;
 }

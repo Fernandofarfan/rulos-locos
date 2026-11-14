@@ -240,7 +240,7 @@ export const CorrelacionDolarInflacion: React.FC = () => {
                         <p className="text-[10px] text-slate-500 mt-0.5">Variación mensual Blue vs CPI (últimos 24 meses)</p>
                     </div>
                 </div>
-                <button onClick={load} className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors">
+                <button onClick={load} aria-label="Actualizar correlación" className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors">
                     <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
                 </button>
             </div>
@@ -271,6 +271,8 @@ export const CorrelacionDolarInflacion: React.FC = () => {
                     <>
                         <canvas
                             ref={canvasRef}
+                            role="img"
+                            aria-label="Gráfico de correlación entre inflación y variación del dólar"
                             className="w-full h-full rounded-lg"
                             onMouseMove={handleMouseMove}
                             onMouseLeave={() => setTooltip(null)}

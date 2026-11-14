@@ -2,13 +2,17 @@ import express from 'express';
 import logger from '../utils/logger';
 import rateController from '../controllers/rateController';
 import platformController from '../controllers/platformController';
+import { getBestPlatforms } from '../controllers/platformBestController';
 import bondController from '../controllers/bondController';
 import { getBondsLive } from '../controllers/bondController';
 import arbitrageController from '../controllers/arbitrageController';
+import { getNetArbitrage } from '../controllers/netArbitrageController';
+import { getRuloHistory } from '../controllers/ruloHistoryController';
 import dataController from '../controllers/dataController';
 import economicsController from '../controllers/economicsController';
 import notificationController from '../controllers/notificationController';
 import portfolioController from '../controllers/portfolioController';
+import { getPortfolioValuation } from '../controllers/portfolioValuationController';
 import alertController from '../controllers/alertController';
 import { getRofexContracts } from '../controllers/rofexController';
 import * as validate from '../middleware/validate';
@@ -22,7 +26,7 @@ import virtualTradingController from '../controllers/virtualTradingController';
 import exchangeController from '../controllers/exchangeController';
 import { getApiStatus } from '../controllers/statusController';
 import { getDailySummary, sendDailySummary } from '../controllers/dailySummaryController';
-import { trackEvent, getAnalyticsSummary } from '../controllers/analyticsController';
+import { trackEvent, track, getAnalyticsSummary } from '../controllers/analyticsController';
 import { sendWeeklyNewsletter, previewNewsletter } from '../controllers/weeklyNewsletterController';
 import { telegramBotController } from '../controllers/telegramBotController';
 import { registerWebhook, listWebhooks, deleteWebhook } from '../controllers/webhookController';
@@ -31,6 +35,7 @@ import arbitrageWorker from '../workers/arbitrageWorker';
 import marketWorker from '../workers/marketWorker';
 import alertWorker from '../workers/alertWorker';
 import cache from '../utils/cache';
+import { checkSourceHealth } from '../services/sourceHealth';
 const { version } = require('../../package.json') as { version: string };
 
 // SWR presets
@@ -42,9 +47,12 @@ const router = express.Router();
 
 router.get('/rate', swr30s, (req, res) => rateController.getRate(req, res));
 router.get('/platforms', (req, res) => platformController.getPlatforms(req, res));
+router.get('/platforms/best', (req, res) => getBestPlatforms(req, res));
 router.get('/bonds', swr5m, (req, res) => bondController.getBonds(req, res));
 router.get('/bonds/live', swr30s, (req, res) => getBondsLive(req, res));
 router.get('/arbitrage', swr30s, (req, res) => arbitrageController.getArbitrage(req, res));
+router.get('/arbitrage/net', (req, res) => getNetArbitrage(req, res));
+router.get('/arbitrage/history', (req, res) => getRuloHistory(req, res));
 router.get('/market', async (_req, res) => {
     try {
         let data = await cache.get('market_data');
@@ -69,6 +77,7 @@ router.all('/cron/tick', requireAdminOrCron, async (_req, res) => {
         const result = settled[index];
         if (result.status === 'rejected') errors[name] = result.reason instanceof Error ? result.reason.message : String(result.reason);
     });
+    await checkSourceHealth();
     res.status(ok ? 200 : 500).json({ ok, results, ...(ok ? {} : { errors }), ts: new Date().toISOString() });
 });
 
@@ -110,6 +119,7 @@ router.get('/status', (req, res) => getApiStatus(req, res));
 
 // Portfolio (requiere JWT)
 router.get('/portfolio', authenticateToken, rateLimiters.normal, (req, res) => portfolioController.list(req, res));
+router.get('/portfolio/valuation', authenticateToken, rateLimiters.normal, (req, res) => getPortfolioValuation(req, res));
 router.post('/portfolio', authenticateToken, rateLimiters.normal, validate.validateBody(validate.PortfolioCreateSchema), (req, res) => portfolioController.create(req, res));
 router.delete('/portfolio/:id', authenticateToken, rateLimiters.normal, (req, res) => portfolioController.remove(req, res));
 router.get('/portfolio/stats', authenticateToken, rateLimiters.fast, (req, res) => portfolioController.stats(req, res));
@@ -147,8 +157,9 @@ router.get('/daily-summary', (req, res) => getDailySummary(req, res));
 router.post('/daily-summary/send', requireAdminOrCron, (req, res) => sendDailySummary(req, res));
 
 // Analytics
-router.post('/analytics/event', rateLimiters.fast, validate.validateBody(validate.AnalyticsEventSchema), (req, res) => trackEvent(req, res));
-router.get('/analytics/summary', (req, res) => getAnalyticsSummary(req, res));
+router.post('/analytics/event', rateLimiters.analytics, validate.validateBody(validate.AnalyticsEventSchema), (req, res) => trackEvent(req, res));
+router.post('/analytics/track', rateLimiters.analytics, (req, res) => track(req, res));
+router.get('/analytics/summary', authenticateToken, requireAdmin, (req, res) => getAnalyticsSummary(req, res));
 
 // Newsletter
 router.post('/newsletter/send', authenticateToken, requireAdmin, (req, res) => sendWeeklyNewsletter(req, res));
